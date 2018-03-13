@@ -47,13 +47,12 @@ class SectorSelection(object):
         self.intraday_period = intraday_period
         
         ss = sectorSpider()
-        self.jqIndustry = ss.getSectorCode('sw2') # SW2
-        self.conceptSectors = ss.getSectorCode('gn')
+        self.jqIndustry = ss.getSectorCode('zjh') 
+        self.conceptSectors = []
         self.filtered_industry = []
         self.filtered_concept = []
 
     def displayResult(self, industryStrength, isConcept=False):
-#         print industryStrength
         limit_value = int(self.top_limit * len(self.conceptSectors) if isConcept else self.top_limit * len(self.jqIndustry))
         for sector, strength in industryStrength[:limit_value]:
             stocks = []
@@ -78,7 +77,7 @@ class SectorSelection(object):
         send_message(message, channel='weixin')      
 
     def processAllSectors(self, sendMsg=False, display=False):
-        if self.filtered_concept and self.filtered_industry:
+        if self.filtered_industry: # ignore concept case here
             print ("use cached sectors")
             return (self.filtered_industry, self.filtered_concept)
         
@@ -97,26 +96,25 @@ class SectorSelection(object):
         return (self.filtered_industry, self.filtered_concept)
     
     def processAllSectorStocks(self, isDisplay=False):
-        industry, concept = self.processAllSectors(display=isDisplay)
+        all_industry, all_concept = self.processAllSectors(display=isDisplay)
         allstocks = []
-        for idu in industry:
-            allstocks += get_industry_stocks(idu)
-        for con in concept:
-            allstocks += get_concept_stocks(con)
+        for idu in all_industry:
+            allstocks += industry(idu)
+        for con in all_concept:
+            allstocks += concept(con)
         return list(set(allstocks))
         
     def processIndustrySectors(self):
         industryStrength = []
-        # JQ industry , shenwan
-        
-        for industry in self.jqIndustry:
+
+        for indu in self.jqIndustry:
             try:
-                stocks = get_industry_stocks(industry)
+                stocks = industry(indu)
             except Exception as e:
                 print(str(e))
                 continue
             if len(stocks) > 3:
-                industryStrength.append((industry, self.gaugeSectorStrength(stocks)))
+                industryStrength.append((indu, self.gaugeSectorStrength(stocks)))
         industryStrength = sorted(industryStrength, key=lambda x: x[1], reverse=self.isReverse)
         return industryStrength
     
@@ -124,14 +122,14 @@ class SectorSelection(object):
         # concept
         conceptStrength = []
 
-        for concept in self.conceptSectors:
+        for con in self.conceptSectors:
             try:
-                stocks = get_concept_stocks(concept)
+                stocks = concept(con)
             except Exception as e:
                 print(str(e))
                 continue
             if len(stocks) > 3:
-                conceptStrength.append((concept, self.gaugeSectorStrength(stocks)))
+                conceptStrength.append((con, self.gaugeSectorStrength(stocks)))
             
         conceptStrength = sorted(conceptStrength, key=lambda x: x[1], reverse=self.isReverse)
         return conceptStrength
