@@ -125,9 +125,9 @@ class Filter_financial_data2(Filter_stock_list):
     def normal_filter(self, context, data, stock_list):
         is_by_sector = self._params.get('by_sector', False)
         q = query(
-            valuation
+            fundamentals.eod_derivative_indicator
         ).filter(
-            valuation.code.in_(stock_list)
+            fundamentals.stockcode.in_(stock_list)
         )
         # complex_factor = []
         for fd_param in self._params.get('factors', []):
@@ -436,24 +436,21 @@ class Filter_common(Filter_stock_list):
         self.filters = params.get('filters', ['st', 'high_limit', 'low_limit', 'pause','ban'])
 
     def filter(self, context, data, stock_list):
-        current_data = get_current_data()
+        today = context.now.date()
         if 'st' in self.filters:
             stock_list = [stock for stock in stock_list
-                          if not current_data[stock].is_st
-                          and 'ST' not in current_data[stock].name
-                          and '*' not in current_data[stock].name
-                          and '退' not in current_data[stock].name]
+                          if is_st_stock(stock, end_date=today)[-1]]
         try:
             if 'high_limit' in self.filters:
                 stock_list = [stock for stock in stock_list if stock in context.portfolio.positions.keys()
-                              or data[stock].close < data[stock].high_limit]
+                              or data[stock].close < data[stock].limit_up]
             if 'low_limit' in self.filters:
                 stock_list = [stock for stock in stock_list if stock in context.portfolio.positions.keys()
-                              or data[stock].close > data[stock].low_limit]
+                              or data[stock].close > data[stock].limit_down]
         except:
             pass
         if 'pause' in self.filters:
-            stock_list = [stock for stock in stock_list if not current_data[stock].paused]
+            stock_list = [stock for stock in stock_list if not is_suspended(stock, end_date=today)[-1]]
             
         if 'ban' in self.filters:
             ban_shares = self.get_ban_shares(context)
