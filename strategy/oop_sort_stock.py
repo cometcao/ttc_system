@@ -8,6 +8,7 @@ try:
     from rqdatac import *
 except:
     pass
+from securityDataManager import *
 from oop_strategy_frame import *
 from oop_select_stock import Filter_stock_list
 
@@ -223,7 +224,7 @@ class Sort_std_data(SortBase):
     def sort(self, context, data, stock_list):
         dic_vol = {}
         for stock in stock_list:
-            price = attribute_history(stock, 60, '1d', ('close'))   #取60日收盘价并计算波动率
+            price = SecurityDataManager.get_data_rq(stock, count=60, period='1d', fields=['close'], skip_suspended=True, df=True, include_now=False)
             #vol = (price.pct_change().mean()/price.pct_change().std())['close']
             vol = price.pct_change().std()['close']
             #vol = (sqrt(price.pct_change().var())/price.pct_change().mean())['close']
@@ -264,7 +265,7 @@ class Sort_rank_stock(SortBase):
             stock_list = stock_list[:rank_stock_count]
         dst_stocks = {}
         for stock in stock_list:
-            h = attribute_history(stock, 130, unit='1d', fields=('close', 'high', 'low'), skip_paused=True)
+            h = SecurityDataManager.get_data_rq(stock, count=130, period='1d', fields=['close', 'high', 'low'], skip_suspended=True, df=True, include_now=False)
             low_price_130 = h.low.min()
             high_price_130 = h.high.max()
     

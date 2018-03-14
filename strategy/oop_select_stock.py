@@ -9,10 +9,11 @@ try:
 except:
     pass
 import tushare as ts
+import functools
 from oop_strategy_frame import *
-from shared.chanMatrix import *
-from shared.sector_selection import *
-from shared.herd_head import *
+from chanMatrix import *
+from sector_selection import *
+from herd_head import *
 
 
 '''=========================选股规则相关==================================='''
@@ -125,7 +126,7 @@ class Filter_financial_data2(Filter_stock_list):
     def normal_filter(self, context, data, stock_list):
         is_by_sector = self._params.get('by_sector', False)
         q = query(
-            fundamentals.eod_derivative_indicator
+            fundamentals.eod_derivative_indicator.market_cap
         ).filter(
             fundamentals.stockcode.in_(stock_list)
         )
@@ -158,9 +159,8 @@ class Filter_financial_data2(Filter_stock_list):
         limit = self._params.get('limit', None)
         if limit is not None and not is_by_sector:
             q = q.limit(limit)
-        # print get_fundamentals(q)
-        stock_list = list(get_fundamentals(q)['code'])
-        return stock_list    
+        stock_list = list(get_fundamentals(q, entry_date=context.now.date())['market_cap'].columns.values)
+        return stock_list
     
     def filter_by_sector(self, context, data):
         final_list = []
@@ -291,18 +291,19 @@ class Pick_rank_sector(Create_stock_list):
         self.avgPeriod = params.get('avgPeriod', 5)
         
     def filter(self, context, data):
-        # new_list = ['002714.XSHE', '603159.XSHG', '603703.XSHG','000001.XSHE','000002.XSHE','600309.XSHG','002230.XSHE','600392.XSHG','600291.XSHG']
-        new_list=[]
-        if self.g.isFirstTradingDayOfWeek(context) or not self.g.buy_stocks or self.isDaily:
-            self.log.info("选取前 %s%% 板块" % str(self.sector_limit_pct))
-            ss = SectorSelection(limit_pct=self.sector_limit_pct, 
-                    isStrong=self.strong_sector, 
-                    min_max_strength=self.strength_threthold, 
-                    useIntradayData=self.useIntradayData,
-                    useAvg=self.useAvg,
-                    avgPeriod=self.avgPeriod)
-            new_list = ss.processAllSectorStocks()
-            self.g.filtered_sectors = ss.processAllSectors()
+        new_list = ['002714.XSHE', '603159.XSHG', '603703.XSHG','000001.XSHE','000002.XSHE','600309.XSHG','002230.XSHE','600392.XSHG','600291.XSHG']
+#         new_list=[]
+#         if self.g.isFirstTradingDayOfWeek(context) or not self.g.buy_stocks or self.isDaily:
+#             self.log.info("选取前 %s%% 板块" % str(self.sector_limit_pct))
+#             ss = SectorSelection(limit_pct=self.sector_limit_pct, 
+#                     isStrong=self.strong_sector, 
+#                     min_max_strength=self.strength_threthold, 
+#                     useIntradayData=self.useIntradayData,
+#                     useAvg=self.useAvg,
+#                     avgPeriod=self.avgPeriod,
+#                     context=context)
+#             new_list = ss.processAllSectorStocks(context)
+#             self.g.filtered_sectors = ss.processAllSectors(context)
         return new_list 
     
     def before_trading_start(context):
@@ -328,8 +329,6 @@ class Filter_Week_Day_Long_Pivot_Stocks(Filter_stock_list):
     def filter(self, context, data, stock_list):
         # 新选出票 + 过去一周选出票 + 过去一周强势票
         combined_list = list(set(stock_list + self.g.monitor_buy_list)) if self.enable_filter else stock_list
-        # combined_list = ['002045.XSHE']
-        # combined_list = list(set(stock_list))
         
         # update only on the first trading day of the week for 5d status
         if self.g.isFirstTradingDayOfWeek(context):
@@ -408,7 +407,7 @@ class Filter_Herd_head_stocks(Filter_stock_list):
             if stockList:
                 head_stocks += stockList
         self.g.head_stocks = list(set([stock for stock in head_stocks if stock in stock_list]))
-        self.log.info('强势票:'+','.join([get_security_info(stock).display_name for stock in self.g.head_stocks]))
+        self.log.info('强势票:'+','.join([instruments(stock).symbol for stock in self.g.head_stocks]))
         if self.filter_out:
             stock_list = [stock for stock in stock_list if stock not in self.g.head_stocks]
             self.log.info('强势票排除:{0}'.format(self.filter_out))
@@ -436,10 +435,11 @@ class Filter_common(Filter_stock_list):
         self.filters = params.get('filters', ['st', 'high_limit', 'low_limit', 'pause','ban'])
 
     def filter(self, context, data, stock_list):
+        self.log.info("过滤垃圾股票")
         today = context.now.date()
         if 'st' in self.filters:
             stock_list = [stock for stock in stock_list
-                          if is_st_stock(stock, end_date=today)[-1]]
+                          if not is_st_stock(stock, end_date=today).iloc[-1,0]]
         try:
             if 'high_limit' in self.filters:
                 stock_list = [stock for stock in stock_list if stock in context.portfolio.positions.keys()
@@ -450,11 +450,14 @@ class Filter_common(Filter_stock_list):
         except:
             pass
         if 'pause' in self.filters:
-            stock_list = [stock for stock in stock_list if not is_suspended(stock, end_date=today)[-1]]
+            stock_list = [stock for stock in stock_list if not is_suspended(stock, end_date=today).iloc[-1,0]]
             
         if 'ban' in self.filters:
-            ban_shares = self.get_ban_shares(context)
-            stock_list = [stock for stock in stock_list if stock[:6] not in ban_shares]
+            try:
+                ban_shares = self.get_ban_shares(context)
+                stock_list = [stock for stock in stock_list if stock[:6] not in ban_shares]
+            except:
+                pass
         return stock_list
 
     #获取解禁股列表
@@ -462,7 +465,7 @@ class Filter_common(Filter_stock_list):
         curr_year = context.now.year
         curr_month = context.now.month
         jj_range = [((curr_year*12+curr_month+i-1)/12,curr_year*12+curr_month+i-(curr_year*12+curr_month+i-1)/12*12) for i in range(-1,1)] #range 可指定解禁股的时间范围，单位为月
-        df_jj = reduce(lambda x,y:pd.concat([x,y],axis=0), [ts.xsg_data(year=y, month=m) for (y,m) in jj_range])
+        df_jj = functools.reduce(lambda x,y:pd.concat([x,y],axis=0), [ts.xsg_data(year=y, month=m) for (y,m) in jj_range])
         return df_jj.code.values
 
     def update_params(self, context, params):

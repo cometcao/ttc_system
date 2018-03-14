@@ -1,9 +1,8 @@
 # -*- encoding: utf8 -*-
 try:
-    from kuanke.user_space_api import *         
-except ImportError as ie:
-    print(str(ie))
-from jqdata import *
+    from rqdatac import *
+except:
+    pass
 import numpy as np
 import pandas as pd
 from quant_lib import *

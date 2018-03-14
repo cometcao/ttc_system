@@ -5,10 +5,12 @@ Created on 24 Oct 2017
 @author: MetalInvest
 '''
 try:
-    from kuanke.user_space_api import *
+    from rqdatac import *
 except:
     pass
 import enum
+import math
+from securityDataManager import *
 
 evs_query_string = '(valuation.market_cap*100000000+balance.total_liability+balance.minority_interests+balance.capital_reserve_fund-balance.cash_equivalents)/(income.total_operating_revenue)'
 eve_query_string = '(valuation.market_cap*100000000+balance.total_liability+balance.minority_interests+balance.capital_reserve_fund-balance.cash_equivalents)/(indicator.eps*valuation.capitalization*10000)'
@@ -65,7 +67,7 @@ def get_close_price(security, n, unit='1d'):
     '''
     cur_price = np.nan
     for i in range(3):
-        cur_price = attribute_history(security, n, unit, 'close', True)['close'][0]
+        cur_price = SecurityDataManager.get_data_rq(security, count=n, period=unit, fields=['close'], skip_suspended=True, df=True, include_now=False)['close'][0]
         if not math.isnan(cur_price):
             break
     return cur_price
@@ -84,7 +86,7 @@ def show_stock(stock):
     :param stock: 股票代码，例如: '603822.XSHG'
     :return: str，例如：'603822 嘉澳环保'
     '''
-    return "%s %s" % (stock[:6], get_security_info(stock).display_name)
+    return "%s %s" % (stock[:6], instruments(stock).symbol)
 
 
 def join_list(pl, connector=' ', step=5):

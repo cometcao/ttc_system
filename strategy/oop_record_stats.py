@@ -9,7 +9,7 @@ try:
 except:
     pass
 from oop_strategy_frame import *
-from shared.strategy_stats import *
+from strategy_stats import *
 from prettytable import PrettyTable
 import numpy as np
 
@@ -95,7 +95,7 @@ class Show_position(Rule):
 
     # # 调仓后调用用
     # def after_adjust_end(self,context,data):
-    #     print self.__get_portfolio_info_text(context,self.g.op_pindexs)
+    #     print (self.__get_portfolio_info_text(context,self.g.op_pindexs))
     #     pass
     # ''' ------------------------------获取持仓信息，普通文本格式------------------------------------------'''
     def __get_portfolio_info_text(self, context, op_sfs=[0]):
@@ -106,12 +106,13 @@ class Show_position(Rule):
         cash = context.portfolio.cash
         p_value = context.portfolio.market_value
         total_values = p_value + cash
+        sf_id = 0
         if sf_id in op_sfs:
             sf_id_str = str(sf_id) + ' *'
         else:
             sf_id_str = str(sf_id)
         new_stocks = [x[0] for x in self.op_buy_stocks]
-        for stock in portfolio.positions.keys():
+        for stock in context.portfolio.positions.keys():
             position = context.portfolio.positions[stock]
             if sf_id in op_sfs and stock in new_stocks:
                 stock_str = show_stock(stock) + ' *'

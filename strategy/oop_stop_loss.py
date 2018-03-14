@@ -8,6 +8,7 @@ try:
     from rqdatac import *
 except:
     pass
+from securityDataManager import *
 from ta_analysis import *
 from oop_strategy_frame import *
 from common_include import *
@@ -30,15 +31,14 @@ class Stop_loss_by_price(Rule):
         # 增加此止损，回撤降低，收益降低
 
         if not self.is_day_stop_loss_by_price:
-            h = attribute_history(self.index, self.day_count, unit='1d', fields=('close', 'high', 'low'),
-                                  skip_paused=True)
+            h = SecurityDataManager.get_data_rq(self.index, count=self.day_count, period='1d', fields=['close','high', 'low'], skip_suspended=True, df=True, include_now=False)
             low_price_130 = h.low.min()
             high_price_130 = h.high.max()
             if high_price_130 > self.multiple * low_price_130 and h['close'][-1] < h['close'][-4] * 1 and h['close'][
                 -1] > h['close'][-100]:
                 # 当日第一次输出日志
                 self.log.info("==> 大盘止损，%s指数前130日内最高价超过最低价2倍, 最高价: %f, 最低价: %f" % (
-                    get_security_info(self.index).display_name, high_price_130, low_price_130))
+                    instruments(self.index).symbol, high_price_130, low_price_130))
                 self.is_day_stop_loss_by_price = True
 
         if self.is_day_stop_loss_by_price:
@@ -119,7 +119,7 @@ class Stop_loss_by_3_black_crows(Rule):
         # 根据前4日数据判断
         # 3根阴线跌幅超过4.5%（此条件忽略）
     
-        h = attribute_history(stock,4,'1d',('close','open'),skip_paused=True,df=False)
+        h = SecurityDataManager.get_data_rq(stock, count=4, period='1d', fields=['close','open'], skip_suspended=True, df=False, include_now=False)
         h_close = list(h['close'])
         h_open = list(h['open'])
     
@@ -154,7 +154,7 @@ class Stop_gain_loss_stocks(Rule):
             position = context.portfolio.positions[stock]
             cur_price = data[stock].close
             loss_threthold = self.__get_stop_loss_threshold(stock,self.period) if self.stop_loss == 0.0 else self.stop_loss
-            xi = attribute_history(stock,2,'1d','high',skip_paused=True)
+            xi = SecurityDataManager.get_data_rq(stock, count=2, period='1d', fields=['high'], skip_suspended=True, df=True, include_now=False)
             ma = xi['high'].max()
             if stock in self.last_high:
                 if self.last_high[stock] < cur_price:
@@ -182,7 +182,7 @@ class Stop_gain_loss_stocks(Rule):
         if security in self.pct_change.keys():
             pct_change = self.pct_change[security]
         else:
-            h = attribute_history(security,n,unit='1d',fields=('close'),skip_paused=True)
+            h = SecurityDataManager.get_data_rq(security, count=n, period='1d', fields=['close'], skip_suspended=True, df=True, include_now=False)
             pct_change = h['close'].pct_change(m)  # 3日的百分比变比（即3日涨跌幅）
             self.pct_change[security] = pct_change
         return pct_change
@@ -350,9 +350,9 @@ class Stop_loss_by_28_index(Rule):
             if (self.minute_count_28index_drop == 0):
                 self.log_info("当前二八指数的20日涨幅同时低于[%.2f%%], %s指数: [%.2f%%], %s指数: [%.2f%%]" \
                     % (self.index_growth_rate * 100,
-                    get_security_info(self.index2).display_name,
+                    instruments(self.index2).symbol,
                     gr_index2 * 100,
-                    get_security_info(self.index8).display_name,
+                    instruments(self.index8).symbol,
                     gr_index8 * 100))
 
             self.minute_count_28index_drop += 1
@@ -364,7 +364,7 @@ class Stop_loss_by_28_index(Rule):
         if self.minute_count_28index_drop >= self.dst_minute_count_28index_drop:
             if self.minute_count_28index_drop == self.dst_minute_count_28index_drop:
                 self.log_info("==> 当日%s指数和%s指数的20日增幅低于[%.2f%%]已超过%d分钟，执行28指数止损" \
-                    % (get_security_info(self.index2).display_name,get_security_info(self.index8).display_name,self.index_growth_rate * 100,self.dst_minute_count_28index_drop))
+                    % (instruments(self.index2).symbol,instruments(self.index8).symbol,self.index_growth_rate * 100,self.dst_minute_count_28index_drop))
 
             self.clear_position(context)
             self.is_to_return = False
@@ -379,8 +379,8 @@ class Stop_loss_by_28_index(Rule):
 
     def __str__(self):
         return '28指数值实时进行止损:[大盘指数: %s %s] [小盘指数: %s %s] [判定调仓的二八指数20日增幅 %.2f%%] [连续 %d 分钟则清仓] ' % (
-                self.index2,get_security_info(self.index2).display_name,
-                self.index8,get_security_info(self.index8).display_name,
+                self.index2,instruments(self.index2).symbol,
+                self.index8,instruments(self.index8).symbol,
                 self.index_growth_rate * 100,
                 self.dst_minute_count_28index_drop)
 
@@ -439,7 +439,7 @@ class Mul_index_stop_loss_ta(Rule):
         if self._ta == TaType.TRIX_PURE:
             ta_trix_long = TA_Factor_Long({'ta_type':TaType.TRIX_PURE, 'period':self._period, 'count':self._n, 'isLong':True})
             long_list = ta_trix_long.filter(self._indexs)
-            print long_list
+            print(long_list)
             if len(long_list) == 0:
                 self.log.warn('不符合持仓条件，清仓')
                 self.g.clear_position(self, context, self.g.op_pindexs)
@@ -475,7 +475,8 @@ class RSRS_timing(Rule):
         # print self.RSRS_stdratio_rightdev_list
         # print self.RSRS_stdratio_rev_list
         # 获得前10日交易量
-        trade_vol10 = attribute_history(self.market_symbol, 10, '1d', 'volume')
+        
+        trade_vol10 = SecurityDataManager.get_data_rq(self.market_symbol, count=10, period='1d', fields=['volume'], skip_suspended=True, df=True, include_now=False)
         
         if self.RSRS_stdratio_rightdev_list[context.previous_date] > self.buy and \
           corrcoef(array([trade_vol10['volume'], self.RSRS_stdratio_rev_list[:context.previous_date].tail(10)]))[0,1] > 0:

@@ -12,7 +12,7 @@ from keras import optimizers
 
 
 class MLDataProcess(object):
-    def __init__(self, model_name='ml_model.h5'):
+    def __init__(self, model_name=None):
         self.model_name = model_name
         self.model = None
      

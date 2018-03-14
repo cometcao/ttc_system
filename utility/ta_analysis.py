@@ -6,13 +6,13 @@ Created on 4 Dec 2017
 '''
 
 try:
-    from kuanke.user_space_api import *
+    from rqdatac import *
 except:
     pass
-from jqdata import *
 from common_include import *
 from oop_strategy_frame import *
 from macd_divergence import *
+from securityDataManager import *
 
 
 #######################################################
@@ -31,7 +31,7 @@ class TA_Factor(Rule):
         self.use_latest_data = params.get('use_latest_data', False)
 
     def filter(self, stock_list):
-#         print self.method.__name__
+#         print(self.method.__name__)
         result = [stock for stock in stock_list if self.method(stock)]
         if result:
             print("通过技术指标 %s 参数 %s %s:" % (str(self.ta_type), self.period, "买点" if self.isLong else "卖点") + join_list([show_stock(stock) for stock in result[:10]], ' ', 10))
@@ -56,29 +56,7 @@ class TA_Factor(Rule):
                         TA_Factor.global_var.short_record[stock] = (None, self.ta_type, self.period)
         
     def getlatest_df(self, stock, count, period, fields, dataframe_flag = True, sub_period='230m'):
-        df_data = attribute_history(stock, count, period, fields, df=dataframe_flag)
-        if not self.use_latest_data:
-            return df_data
-        latest_stock_data = attribute_history(stock, 1, sub_period, fields, skip_paused=True, df=dataframe_flag) # 14:50
-        if dataframe_flag:
-            current_date = latest_stock_data.index[-1].date()
-            latest_stock_data = latest_stock_data.reset_index(drop=False)
-            latest_stock_data.ix[0, 'index'] = pd.DatetimeIndex([current_date])[0]
-            latest_stock_data = latest_stock_data.set_index('index')
-            df_data = df_data.reset_index().drop_duplicates(subset='index').set_index('index')
-            try:
-                df_data = df_data.append(latest_stock_data, verify_integrity=True) # True
-            except Exception as e:
-                print ("data error:" + str(e))
-                pass
-        else:
-            final_fields = []
-            if isinstance(fields, basestring):
-                final_fields.append(fields)
-            else:
-                final_fields = list(fields)
-            for field in final_fields:
-                df_data[field] = np.append(df_data[field], latest_stock_data[field][-1])
+        df_data = SecurityDataManager.get_data_rq(stock, count=count, period=period, fields=fields, skip_suspended=True, df=dataframe_flag, include_now=self.use_latest_data)
         return df_data
 
     def get_rsi(self, cData):
@@ -118,7 +96,7 @@ class TA_Factor_Short(TA_Factor):
     def check_KDJ_CROSS_list(self, stock):
         result = 0
         macd_cross = self.check_MACD_CROSS_list(stock)
-        hData = self.getlatest_df(stock, self.count, self.period, ('close', 'high', 'low','volume'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close', 'high', 'low','volume'], dataframe_flag=False)
         slowk, slowd = talib.STOCH(hData['high'],
                                    hData['low'],
                                    hData['close'],
@@ -142,7 +120,7 @@ class TA_Factor_Short(TA_Factor):
         return result >= 2
     
     def check_RSI_CROS_list(self, stock, step=3):
-        hData =  self.getlatest_df(stock, self.count, self.period, ('close'), dataframe_flag=False)
+        hData =  self.getlatest_df(stock, self.count, self.period, ['close'], dataframe_flag=False)
         close = hData['close']
         rsi6_day,rsi12_day,rsi24_day = self.get_rsi(close)        
         if rsi6_day[-1] < rsi12_day[-1] < rsi24_day[-1]:
@@ -155,13 +133,13 @@ class TA_Factor_Short(TA_Factor):
         fastperiod=12
         slowperiod=26
         signalperiod=9
-        hData = self.getlatest_df(stock, self.count, self.period, ('close'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close'], dataframe_flag=False)
         close = hData['close']
         _dif, _dea, _macd = talib.MACD(close, fastperiod, slowperiod, signalperiod)
         return _macd[-1] < 0 and _macd[-2] > 0      
         
     def check_BOLL_UPPER_list(self, stock):
-        hData = self.getlatest_df(stock, self.count, self.period, ('close','high', 'volume','open'), dataframe_flag=False, sub_period='230m')
+        hData = self.getlatest_df(stock, self.count, self.period, ['close','high', 'volume','open'], dataframe_flag=False, sub_period='230m')
         close = hData['close']
         hopen = hData['open']
         high = hData['high']
@@ -175,8 +153,8 @@ class TA_Factor_Short(TA_Factor):
     
     def check_BOLL_MACD_list(self, stock):
         # macd chan combine with boll lower band
-        df = self.getlatest_df(stock, self.count, self.period, ('high', 'low', 'open', 'close', 'volume'), dataframe_flag=True, sub_period='230m')
-        if (np.isnan(df['high'][-1])) or (np.isnan(df['low'][-1])) or (np.isnan(df['close'][-1])):
+        df = self.getlatest_df(stock, self.count, self.period, ['high', 'low', 'open', 'close', 'volume'], dataframe_flag=True, sub_period='230m')
+        if (df.shape[0] > 0 and np.isnan(df['high'].values[-1])) or (np.isnan(df['low'].values[-1])) or (np.isnan(df['close'].values[-1])):
             return False
         
         df.loc[:,'macd_raw'], _, df.loc[:,'macd'] = talib.MACD(df['close'].values, 12, 26, 9)
@@ -188,7 +166,7 @@ class TA_Factor_Short(TA_Factor):
     
     def check_BOLL_list(self, stock):
         # for high rise stocks dropping below Boll top band, sell
-        hData = self.getlatest_df(stock, self.count, self.period, ('close','high','open'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close','high','open'], dataframe_flag=False)
         close = hData['close']
         hopen = hData['open']
         high = hData['high']
@@ -204,8 +182,8 @@ class TA_Factor_Short(TA_Factor):
         return (b-a) / float(a)
     
     def check_MACD_list(self, stock):
-        df = self.getlatest_df(stock, self.count, self.period, ('high', 'low', 'open', 'close', 'volume'), dataframe_flag=True, sub_period='230m')
-        if (np.isnan(df['high'][-1])) or (np.isnan(df['low'][-1])) or (np.isnan(df['close'][-1])):
+        df = self.getlatest_df(stock, self.count, self.period, ['high', 'low', 'open', 'close', 'volume'], dataframe_flag=True, sub_period='230m')
+        if (np.isnan(df['high'].values[-1])) or (np.isnan(df['low'].values[-1])) or (np.isnan(df['close'].values[-1])):
             return False
         
         df.loc[:,'macd_raw'], _, df.loc[:,'macd'] = talib.MACD(df['close'].values, 12, 26, 9)
@@ -213,11 +191,11 @@ class TA_Factor_Short(TA_Factor):
         df = df.dropna()
 
         md = macd_divergence()
-        df2 = self.getlatest_df(stock, self.count, self.period, ('high', 'low', 'open', 'close', 'volume'), dataframe_flag=False, sub_period='230m')
+        df2 = self.getlatest_df(stock, self.count, self.period, ['high', 'low', 'open', 'close', 'volume'], dataframe_flag=False, sub_period='230m')
         return md.checkAtTopDoubleCross_v3(df2)# or md.checkAtTopDoubleCross_chan(df, False)
         
     def check_TRIX_list(self, stock, trix_span=12, trix_ma_span=9):
-        hData = self.getlatest_df(stock, self.count, self.period, ('close','volume'), dataframe_flag=False, sub_period='230m')
+        hData = self.getlatest_df(stock, self.count, self.period, ['close','volume'], dataframe_flag=False, sub_period='230m')
         close = hData['close']
         volume = hData['volume']
         trix = talib.TRIX(close, trix_span)
@@ -230,7 +208,7 @@ class TA_Factor_Short(TA_Factor):
         return trix[-1] < ma_trix[-1] and obv[-1] > ma_obv[-1]#and macd_raw[-1] > 0
     
     def check_TRIX_STATUS_list(self, stock, trix_span=12, trix_ma_span=9):
-        hData = self.getlatest_df(stock, self.count, self.period, ('close'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close'], dataframe_flag=False)
         close = hData['close']
         trix = talib.TRIX(close, trix_span)
         if np.isnan(trix[-1]):
@@ -240,7 +218,7 @@ class TA_Factor_Short(TA_Factor):
                 (trix[-1] >= ma_trix[-1] and (trix[-1] - ma_trix[-1]) < (trix[-2] - ma_trix[-2])))
     
     def check_TRIX_PURE_list(self, stock, trix_span=12, trix_ma_span=9):
-        hData = self.getlatest_df(stock, self.count, self.period, ('close'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close'], dataframe_flag=False)
         close = hData['close']
         trix = talib.TRIX(close, trix_span)
         if np.isnan(close[-1]) or np.isnan(trix[-1]):
@@ -256,7 +234,7 @@ class TA_Factor_Short(TA_Factor):
         fastperiod=12
         slowperiod=26
         signalperiod=9
-        hData = self.getlatest_df(stock, self.count, self.period, ('close'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close'], dataframe_flag=False)
         close = hData['close']
         _dif, _dea, _macd = talib.MACD(close, fastperiod, slowperiod, signalperiod)
         return _macd[-1] < _macd[-2] and _macd[-1] < _macd[-3]
@@ -265,13 +243,13 @@ class TA_Factor_Short(TA_Factor):
         fastperiod=12
         slowperiod=26
         signalperiod=9
-        hData = self.getlatest_df(stock, self.count, self.period, ('close'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close'], dataframe_flag=False)
         close = hData['close']
         _dif, _dea, _macd = talib.MACD(close, fastperiod, slowperiod, signalperiod)
         return _dif[-1] >= 0 or _dea[-1] >=0
     
     def check_MA_list(self, stock):
-        hData = self.getlatest_df(stock, self.count, self.period, ('close'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close'], dataframe_flag=False)
         close = hData['close']
         ma = sum(close)/len(close)
         return close[-1] < ma
@@ -306,7 +284,7 @@ class TA_Factor_Long(TA_Factor):
     
     def check_kdj_cross_list(self, stock):
         macd_cross = self.check_macd_cross_list(stock)# and self.check_macd_zero_list(stock)
-        hData = self.getlatest_df(stock, self.count, self.period, ('close','high', 'low'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close','high', 'low'], dataframe_flag=False)
         slowk, slowd = talib.STOCH(hData['high'],
                                    hData['low'],
                                    hData['close'],
@@ -327,7 +305,7 @@ class TA_Factor_Long(TA_Factor):
         return kdj_cross and (macd_cross and rsi_gold)
     
     def check_rsi_cross_list(self, stock, step=3):
-        hData = self.getlatest_df(stock, self.count, self.period, ('close'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close'], dataframe_flag=False)
         close = hData['close']
         rsi6_day,rsi12_day,rsi24_day = self.get_rsi(close)        
         if rsi6_day[-1] > rsi12_day[-1] > rsi24_day[-1]:
@@ -340,13 +318,13 @@ class TA_Factor_Long(TA_Factor):
         fastperiod=12
         slowperiod=26
         signalperiod=9
-        hData = self.getlatest_df(stock, self.count, self.period, ('close'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close'], dataframe_flag=False)
         close = hData['close']
         _dif, _dea, _macd = talib.MACD(close, fastperiod, slowperiod, signalperiod)
         return _macd[-1] > 0 and _macd[-2] < 0
 
     def check_boll_upper_list(self, stock):
-        hData = self.getlatest_df(stock, self.count, self.period, ('close','high'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close','high'], dataframe_flag=False)
         close = hData['close']
         high = hData['high']
         # use BOLL to mitigate risk
@@ -357,7 +335,7 @@ class TA_Factor_Long(TA_Factor):
         fastperiod=12
         slowperiod=26
         signalperiod=9
-        hData = self.getlatest_df(stock, self.count, self.period, ('close'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close'], dataframe_flag=False)
         close = hData['close']
         _dif, _dea, _macd = talib.MACD(close, fastperiod, slowperiod, signalperiod)
         return _dif[-1] <= 0 or _dea[-1] <=0  
@@ -366,15 +344,15 @@ class TA_Factor_Long(TA_Factor):
         fastperiod=12
         slowperiod=26
         signalperiod=9
-        hData = self.getlatest_df(stock, self.count, self.period, ('close'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close'], dataframe_flag=False)
         close = hData['close']
         _dif, _dea, _macd = talib.MACD(close, fastperiod, slowperiod, signalperiod)
         return _macd[-1] > _macd[-2] and _macd[-1] > _macd[-3]
     
     def check_boll_macd_list(self, stock):
         # macd chan combine with boll lower band
-        df = self.getlatest_df(stock, self.count, self.period, ('high', 'low', 'open', 'close', 'volume'), dataframe_flag=True)
-        if (np.isnan(df['high'][-1])) or (np.isnan(df['low'][-1])) or (np.isnan(df['close'][-1])):
+        df = self.getlatest_df(stock, self.count, self.period, ['high', 'low', 'open', 'close', 'volume'], dataframe_flag=True)
+        if (np.isnan(df['high'].values[-1])) or (np.isnan(df['low'].values[-1])) or (np.isnan(df['close'].values[-1])):
             return False
         
         df.loc[:,'macd_raw'], _, df.loc[:,'macd'] = talib.MACD(df['close'].values, 12, 26, 9)
@@ -385,7 +363,7 @@ class TA_Factor_Long(TA_Factor):
 
     def check_trix_list(self, stock, trix_span=12, trix_ma_span=9):
         # special treatment for the long case
-        hData = self.getlatest_df(stock, self.count, self.period, ('close','volume'), dataframe_flag=False, sub_period='230m')
+        hData = self.getlatest_df(stock, self.count, self.period, ['close','volume'], dataframe_flag=False, sub_period='230m')
         close = hData['close']
         volume = hData['volume']
         trix = talib.TRIX(close, trix_span)
@@ -397,7 +375,7 @@ class TA_Factor_Long(TA_Factor):
         return trix[-1] > ma_trix[-1] and trix[-2] < ma_trix[-2] and obv[-1] < ma_obv[-1]
         
     def check_trix_pure_list(self, stock, trix_span=12, trix_ma_span=9):
-        hData = self.getlatest_df(stock, self.count, self.period, ('close'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close'], dataframe_flag=False)
         close = hData['close']
         trix = talib.TRIX(close, trix_span)
         if np.isnan(close[-1]) or np.isnan(trix[-1]):
@@ -406,7 +384,7 @@ class TA_Factor_Long(TA_Factor):
         return trix[-1] > ma_trix[-1] and trix[-1] > trix[-2]
 
     def check_trix_status_list(self, stock, trix_span=12, trix_ma_span=9):
-        hData = self.getlatest_df(stock, self.count, self.period, ('close'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close'], dataframe_flag=False)
         close = hData['close']
         trix = talib.TRIX(close, trix_span)
         if np.isnan(trix[-1]):
@@ -417,13 +395,13 @@ class TA_Factor_Long(TA_Factor):
 
 
     def check_ma_list(self, stock):
-        hData = self.getlatest_df(stock, self.count, self.period, ('close'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close'], dataframe_flag=False)
         close = hData['close']
         ma = sum(close)/len(close)
         return close[-1] > ma
 
     def check_rsi_list_old(self, stock):
-        hData = self.getlatest_df(stock, self.count, self.period, ('close'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close'], dataframe_flag=False)
         close = hData['close']
         is_suddenly_rise = False
         n=10
@@ -440,7 +418,7 @@ class TA_Factor_Long(TA_Factor):
         return  is_suddenly_rise 
 
     def check_rsi_list(self, stock):
-        hData = self.getlatest_df(stock, self.count, self.period, ('close'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close'], dataframe_flag=False)
         close = hData['close']
         is_ticked = False
         n=10
@@ -453,7 +431,7 @@ class TA_Factor_Long(TA_Factor):
         return is_ticked
         
     def check_rsi_list_v2(self, stock, step=3):
-        hData = self.getlatest_df(stock, self.count, self.period, ('close'), dataframe_flag=False)
+        hData = self.getlatest_df(stock, self.count, self.period, ['close'], dataframe_flag=False)
         close = hData['close']
         is_ticked = False
         n=10
@@ -471,8 +449,8 @@ class TA_Factor_Long(TA_Factor):
         return is_ticked #and check_trix_status
         
     def check_macd_list(self, stock):
-        df = self.getlatest_df(stock, self.count, self.period, ('high', 'low', 'open', 'close', 'volume'), dataframe_flag=True, sub_period='230m')
-        if (np.isnan(df['high'][-1])) or (np.isnan(df['low'][-1])) or (np.isnan(df['close'][-1])):
+        df = self.getlatest_df(stock, self.count, self.period, ['high', 'low', 'open', 'close', 'volume'], dataframe_flag=True, sub_period='230m')
+        if (np.isnan(df['high'].values[-1])) or (np.isnan(df['low'].values[-1])) or (np.isnan(df['close'].values[-1])):
             return False
         
         df.loc[:,'macd_raw'], _, df.loc[:,'macd'] = talib.MACD(df['close'].values, 12, 26, 9)
@@ -480,7 +458,6 @@ class TA_Factor_Long(TA_Factor):
         df = df.dropna()
 
         md = macd_divergence()
-        # df2 = attribute_history(stock, self.count, self.period, ('high', 'low', 'open', 'close', 'volume'), df=False)
         return md.checkAtBottomDoubleCross_v2(df) #or md.checkAtBottomDoubleCross_v3(df2) #or md.checkAtBottomDoubleCross_chan(df, False)
 
 class checkTAIndicator(Filter_stock_list):

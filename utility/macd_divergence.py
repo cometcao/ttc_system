@@ -8,6 +8,7 @@ import talib
 import numpy as np
 from functools import partial
 import pandas as pd
+from securityDataManager import *
 lower_ratio_range = 0.98
 
 
@@ -160,7 +161,7 @@ class macd_divergence():
 
     def checkAtBottomDoubleCross_chan(self, df):
         # shortcut
-        if not (df.shape[0] > 2 and df['macd'][-1] < 0 and df['macd'][-1] > df['macd'][-2] and df['macd'][-1] > df['macd'][-3]):
+        if not (df.shape[0] > 2 and df['macd'].values[-1] < 0 and df['macd'].values[-1] > df['macd'].values[-2] and df['macd'].values[-1] > df['macd'].values[-3]):
             return False
         
         # gold
@@ -188,14 +189,14 @@ class macd_divergence():
             previous_area = abs(df.loc[dkey2:gkey1, 'macd'].sum(axis=0))
             recent_high = df.loc[dkey1:, 'high'].max(axis=0)
             
-            result =  df.macd[-2] < df.macd[-1] < 0 and \
-                    df.macd[-3] < df.macd[-1] and \
-                    0 > df.macd_raw[-1] and \
-                    df.macd[recent_min_idx] > df.macd[previous_min_idx] and \
+            result =  df.macd.values[-2] < df.macd.values[-1] < 0 and \
+                    df.macd.values[-3] < df.macd.values[-1] and \
+                    0 > df.macd_raw.values[-1] and \
+                    df.macd.values[recent_min_idx] > df.macd.values[previous_min_idx] and \
                     recent_area_est < previous_area and \
                     previous_low >= recent_low and \
                     recent_high < previous_low and \
-                    recent_low <= df.lower[recent_min_idx]
+                    recent_low <= df.lower.values[recent_min_idx]
                     
             return result
         except IndexError:
@@ -219,13 +220,13 @@ class macd_divergence():
             previous_raise_area = abs(df.loc[gkey2:dkey1,'macd'].sum(axis=0))
             previous_area = abs(df.loc[dkey2:gkey2, 'macd'].sum(axis=0))
             recent_area = abs(df.loc[dkey1:gkey1, 'macd'].sum(axis=0))
-            previous_close = df['close'][-1]
+            previous_close = df['close'].values[-1]
             
             result = df.loc[dkey2:gkey2, 'low'].min(axis=0) > df.loc[dkey1:gkey1, 'low'].min(axis=0) * 1.01 and \
-                   df.macd_raw[gkey2] < df.macd_raw[gkey1] < 0 and \
+                   df.macd_raw.values[gkey2] < df.macd_raw.values[gkey1] < 0 and \
                    df.loc[dkey2:gkey2, 'macd_raw'].min(axis=0) < df.loc[dkey1:gkey1, 'macd_raw'].min(axis=0) and \
-                   df.macd[-2] < 0 < df.macd[-1] and \
-                   df.loc[dkey2,'vol_ma'] > df.vol_ma[-1] and \
+                   df.macd.values[-2] < 0 < df.macd.values[-1] and \
+                   df.loc[dkey2,'vol_ma'] > df.vol_ma.values[-1] and \
                    previous_close < df.loc[dkey2:gkey2, 'low'].min(axis=0)
 #                    recent_area * 1.191 < previous_area and \
 #                    previous_raise_area > recent_area * 1.096 and \
@@ -303,7 +304,7 @@ class macd_divergence():
             return False
     
     def checkAtTopDoubleCross_chan(self, df):
-        if not (df.shape[0] > 2 and df['macd'][-1] > 0 and df['macd'][-1] < df['macd'][-2] and df['macd'][-1] < df['macd'][-3]):
+        if not (df.shape[0] > 2 and df['macd'].values[-1] > 0 and df['macd'].values[-1] < df['macd'].values[-2] and df['macd'].values[-1] < df['macd'].values[-3]):
             return False
         
         # gold
@@ -329,11 +330,11 @@ class macd_divergence():
             recent_area_est = abs(df.loc[gkey1:recent_high_idx_nx, 'macd'].sum(axis=0) * 2)
             previous_area = abs(df.loc[gkey2:dkey1, 'macd'].sum(axis=0))
       
-            return df.macd[-2] > df.macd[-1] > 0 and \
-                    df.macd[-3] > df.macd[-1] and \
-                    df.macd_raw[recent_high_idx] > df.macd_raw[-1] > 0 and \
-                    (df.macd[recent_high_idx] < df.macd[previous_high_idx] or recent_area_est < previous_area) and \
-                    (recent_high >= previous_high or recent_high >= df.upper[recent_high_idx])
+            return df.macd.values[-2] > df.macd.values[-1] > 0 and \
+                    df.macd.values[-3] > df.macd.values[-1] and \
+                    df.macd_raw.values[recent_high_idx] > df.macd_raw.values[-1] > 0 and \
+                    (df.macd.values[recent_high_idx] < df.macd.values[previous_high_idx] or recent_area_est < previous_area) and \
+                    (recent_high >= previous_high or recent_high >= df.upper.values[recent_high_idx])
 
         except IndexError:
             return False
@@ -342,7 +343,7 @@ class macd_divergence():
 
     def checkFast(self, stock, fastperiod=12, slowperiod=26, signalperiod=9, checkBot=True):    
         rows = (fastperiod + slowperiod + signalperiod) * 5
-        h = attribute_history(security=stock, count=rows, unit='1d', fields=['close'], df=False)
+        h = SecurityDataManager.get_data_rq(stock, count=rows, period='1d', fields=['close'], skip_suspended=True, df=False, include_now=False)
         _close = h['close']  # type: np.ndarray
         _dif, _dea, _macd = talib.MACD(_close, fastperiod, slowperiod, signalperiod)
         if checkBot:

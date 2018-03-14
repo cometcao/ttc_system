@@ -82,8 +82,6 @@ class HerdHead(object):
         # 计算涨跌幅
         for security in stocks:
             # 获取过去pastDay的指数值
-#             stocksPrice = get_price(security, start_date = preDate, end_date = curDate, frequency = '1d', fields = 'close')
-#             stocksPrice = attribute_history(security, self.count, unit=self.period, fields = ['close'], skip_paused=True, df=True)
             stocksPrice = self.getlatest_df(security, self.count, fields=['close'], skip_paused=True, df_flag=True)
             if len(stocksPrice)!=0:
                 # 计算涨跌幅
@@ -146,8 +144,6 @@ class HerdHead(object):
         if not stocks:
             return 0
         for security in stocks:
-#             stocksPrice = get_price(security, start_date = preDate, end_date = curDate, frequency = '1d', fields = 'close')
-#             stocksPrice = attribute_history(security, self.count, unit=self.period, fields = ['close'], skip_paused=True, df=True)
             stocksPrice = self.getlatest_df(security, self.count, fields=['close'], skip_paused=True, df_flag=True)
             if len(stocksPrice) != 0:
                 gainIndex += (float(stocksPrice.iloc[-1]) - float(stocksPrice.iloc[0])) / float(stocksPrice.iloc[0])

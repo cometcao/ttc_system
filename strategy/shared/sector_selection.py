@@ -13,24 +13,24 @@ import numpy as np
 import pandas as pd
 import talib
 import datetime
-from shared.sector_spider import *
-from utility.securityDataManager import *
+from sector_spider import *
+from securityDataManager import *
 
-def get_data(stock, count, level, fields, skip_paused=False, df_flag=True, isAnal=False):
+def get_data(stock, count, level, fields, skip_paused=False, df_flag=True, isAnal=False, includenow=False):
     df = None
     if isAnal:
         latest_trading_day = datetime.datetime.now().date()
         start_date = get_trading_dates('2006-01-01', latest_trading_day)[-self.count]
-        df = SecurityDataManager.get_research_data_rq(stock, start_date=start_date, end_date=latest_trading_day, period=level, fields = ['open','close','high','low'], skip_suspended=skip_paused)
+        df = SecurityDataManager.get_research_data_rq(stock, start_date=start_date, end_date=latest_trading_day, period=level, fields = fields, skip_suspended=skip_paused, df=df_flag)
     else:
-        df = SecurityDataManager.get_data_rq(stock, count, level, fields=['open','close','high','low'], skip_suspended=skip_paused)
+        df = SecurityDataManager.get_data_rq(stock, count, level, fields=fields, skip_suspended=skip_paused, df=df_flag, include_now=includenow)
     return df
 
 class SectorSelection(object):
     '''
     This class implement the methods to rank the sectors
     '''
-    def __init__(self, isAnal=False, limit_pct=5, isStrong=True, min_max_strength = 0, useIntradayData=True, useAvg=True, avgPeriod=5, intraday_period='230m'):
+    def __init__(self, isAnal=False, limit_pct=5, isStrong=True, min_max_strength = 0, useIntradayData=True, useAvg=True, avgPeriod=5, intraday_period='230m', context=None):
         '''
         Constructor
         '''
@@ -45,6 +45,7 @@ class SectorSelection(object):
         self.stock_data_buffer = {}
         self.min_max_strength = min_max_strength
         self.intraday_period = intraday_period
+        self.context=context
         
         ss = sectorSpider()
         self.jqIndustry = ss.getSectorCode('zjh') 
@@ -57,10 +58,10 @@ class SectorSelection(object):
         for sector, strength in industryStrength[:limit_value]:
             stocks = []
             if isConcept:
-                stocks = get_concept_stocks(sector)
+                stocks = concept(sector)
             else:
-                stocks = get_industry_stocks(sector)
-            print (sector+'@'+str(strength)+':'+','.join([get_security_info(s).display_name for s in stocks]))
+                stocks = industry(sector)
+            print (sector+'@'+str(strength)+':'+','.join([instruments(s).symbol for s in stocks]))
             
     def sendResult(self, industryStrength, isConcept=False):
         message = ""
@@ -68,11 +69,11 @@ class SectorSelection(object):
         for sector, strength in industryStrength[:limit_value]:
             stocks = []
             if isConcept:
-                stocks = get_concept_stocks(sector)
+                stocks = concept(sector)
             else:
-                stocks = get_industry_stocks(sector)
+                stocks = industry(sector)
             message += sector + ':'
-            message += ','.join([get_security_info(s).display_name for s in stocks])
+            message += ','.join([instruments(s).symbol for s in stocks])
             message += '***'
         send_message(message, channel='weixin')      
 
@@ -169,8 +170,10 @@ class SectorSelection(object):
             return avgStrength    
     
     def gaugeStockUpTrendStrength_MA(self, stock, isWeighted=True, index=-1):
+        today = self.context.now.date()
+        stock_suspend_check = is_suspended(stock, end_date=today)
         if index == -1:
-            stock_df = self.getlatest_df(stock, self.period, ['close','paused'], skip_paused=False, df_flag=True)
+            stock_df = self.getlatest_df(stock, self.period, ['close'], skip_paused=False, df_flag=True)
             MA_5 = self.simple_moving_avg(stock_df.close.values, 5)
             MA_13 = self.simple_moving_avg(stock_df.close.values, 13)
             MA_21 = self.simple_moving_avg(stock_df.close.values, 21)
@@ -179,23 +182,23 @@ class SectorSelection(object):
             MA_89 = self.simple_moving_avg(stock_df.close.values, 89)
             MA_144 = self.simple_moving_avg(stock_df.close.values, 144)
             MA_233 = self.simple_moving_avg(stock_df.close.values, 233)
-            if stock_df.paused[index]: # paused we need to remove it from calculation
+            if (stock_suspend_check is not None and not stock_suspend_check.empty and stock_suspend_check.iloc[-1,0]) or stock_df.empty: # paused we need to remove it from calculation
                 return -1 
-            elif stock_df.close[index] < MA_5 or np.isnan(MA_5):
+            elif stock_df.close.values[index] < MA_5 or np.isnan(MA_5):
                 return 0 if isWeighted else 1
-            elif stock_df.close[index] < MA_13 or np.isnan(MA_13):
+            elif stock_df.close.values[index] < MA_13 or np.isnan(MA_13):
                 return 5 if isWeighted else 2
-            elif stock_df.close[index] < MA_21 or np.isnan(MA_21):
+            elif stock_df.close.values[index] < MA_21 or np.isnan(MA_21):
                 return 13 if isWeighted else 3
-            elif stock_df.close[index] < MA_34 or np.isnan(MA_34):
+            elif stock_df.close.values[index] < MA_34 or np.isnan(MA_34):
                 return 21 if isWeighted else 4
-            elif stock_df.close[index] < MA_55 or np.isnan(MA_55):
+            elif stock_df.close.values[index] < MA_55 or np.isnan(MA_55):
                 return 34 if isWeighted else 5
-            elif stock_df.close[index] < MA_89 or np.isnan(MA_89):
+            elif stock_df.close.values[index] < MA_89 or np.isnan(MA_89):
                 return 55 if isWeighted else 6
-            elif stock_df.close[index] < MA_144 or np.isnan(MA_144):
+            elif stock_df.close.values[index] < MA_144 or np.isnan(MA_144):
                 return 89 if isWeighted else 7
-            elif stock_df.close[index] < MA_233 or np.isnan(MA_233):
+            elif stock_df.close.values[index] < MA_233 or np.isnan(MA_233):
                 return 144 if isWeighted else 8
             else:
                 return 233 if isWeighted else 9
@@ -203,7 +206,7 @@ class SectorSelection(object):
             stock_df = MA_5 = MA_13 = MA_21 = MA_34 = MA_55 = MA_89 = MA_144 = MA_233 = None
             try:
                 if stock not in self.stock_data_buffer:
-                    stock_df = self.getlatest_df(stock, self.period, ['close','paused'], skip_paused=False, df_flag=True)
+                    stock_df = self.getlatest_df(stock, self.period, ['close'], skip_paused=False, df_flag=True)
                     MA_5 = talib.SMA(stock_df.close.values, 5)
                     MA_13 = talib.SMA(stock_df.close.values, 13)
                     MA_21 = talib.SMA(stock_df.close.values, 21)
@@ -226,7 +229,7 @@ class SectorSelection(object):
             except Exception as e:
                 print (str(e))
                 return -1
-            if stock_df.paused[index]: # paused we need to remove it from calculation
+            if not stock_suspend_check.empty and stock_suspend_check.iloc[-1,0]: # paused we need to remove it from calculation
                 return -1 
             elif stock_df.close[index] < MA_5[index] or np.isnan(MA_5[index]):
                 return 0 if isWeighted else 1
@@ -252,35 +255,5 @@ class SectorSelection(object):
         return total/period
     
     def getlatest_df(self, stock, count, fields, skip_paused=True, df_flag = True):
-#         df = attribute_history(stock, count, '1d', fields, df=df_flag)
-        df = get_data(stock, count, level='1d', fields=fields, skip_paused=skip_paused, df_flag=df_flag, isAnal=self.isAnal)
-        if self.useIntradayData:
-            containPaused = 'paused' in fields
-            if containPaused:
-                fields.remove('paused')
-            latest_stock_data = attribute_history(stock, 1, self.intraday_period, fields, skip_paused=skip_paused, df=df_flag)
-            if containPaused:
-                latest_stock_data.assign(paused=np.nan)
-                cd = get_current_data()
-                latest_stock_data.ix[-1,'paused'] = cd[stock].paused
-
-            if df_flag:
-                current_date = latest_stock_data.index[-1].date()
-                latest_stock_data = latest_stock_data.reset_index(drop=False)
-                latest_stock_data.ix[0, 'index'] = pd.DatetimeIndex([current_date])[0]
-                latest_stock_data = latest_stock_data.set_index('index')
-                df = df.reset_index().drop_duplicates(subset='index').set_index('index')
-                try:
-                    df = df.append(latest_stock_data, verify_integrity=True) # True
-                except:
-                    print "stock %s has invalid history data" % stock 
-            else:
-                final_fields = []
-                if isinstance(fields, basestring):
-                    final_fields.append(fields)
-                else:
-                    final_fields = list(fields)
-#                 [np.append(df[field], latest_stock_data[field][-1]) for field in final_fields]
-                for field in final_fields:
-                    df[field] = np.append(df[field], latest_stock_data[field][-1])
+        df = get_data(stock, count, level='1d', fields=fields, skip_paused=skip_paused, df_flag=df_flag, isAnal=self.isAnal, includenow=self.useIntradayData)            
         return df

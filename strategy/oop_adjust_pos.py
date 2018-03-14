@@ -36,8 +36,8 @@ class Time_condition(Weight_Base):
         pass
 
     def handle_data(self, context, data):
-        hour = context.current_dt.hour
-        minute = context.current_dt.minute
+        hour = context.now.hour
+        minute = context.now.minute
         self.is_to_return = not [hour, minute] in self.times
         pass
 
@@ -61,11 +61,11 @@ class Period_condition(Weight_Base):
         self.mark_today = {}
 
     def handle_data(self, context, data):
-        self.is_to_return = self.day_count % self.period != 0 or (self.mark_today[context.current_dt.date()] if context.current_dt.date() in self.mark_today else False)
+        self.is_to_return = self.day_count % self.period != 0 or (self.mark_today[context.now.date()] if context.now.date() in self.mark_today else False)
         
-        if context.current_dt.date() not in self.mark_today: # only increment once per day
+        if context.now.date() not in self.mark_today: # only increment once per day
             self.log.info("调仓日计数 [%d]" % (self.day_count))
-            self.mark_today[context.current_dt.date()]=self.is_to_return
+            self.mark_today[context.now.date()]=self.is_to_return
             self.day_count += 1
         pass
 
@@ -209,7 +209,7 @@ class Buy_stocks(Rule):
     def send_port_info(self, context):
         port_msg = [(context.portfolio.positions[stock].security, context.portfolio.positions[stock].value_percent) for stock in context.portfolio.positions]
         self.log.info(str(port_msg))
-        send_message(port_msg, channel='weixin')
+#         send_message(port_msg, channel='weixin')
         
     def recordTrade(self, stock_list):
         for stock in stock_list:

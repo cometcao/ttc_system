@@ -9,13 +9,9 @@ try:
     from rqdatac import *
 except:
     pass
-try:
-    from jqdata import *
-except:
-    pass
-
-from utility.common_include import *
+from common_include import *
 import enum
+import math
 '''=================================基础类======================================='''
 
 
@@ -33,16 +29,16 @@ class Rule_loger(object):
             self._owner_msg = '未知规则:'
 
     def debug(self, msg, *args, **kwargs):
-        log.debug(self._owner_msg + msg, *args, **kwargs)
+        logger.debug(self._owner_msg + msg, *args, **kwargs)
 
     def info(self, msg, *args, **kwargs):
-        log.info(self._owner_msg + msg, *args, **kwargs)
+        logger.info(self._owner_msg + msg, *args, **kwargs)
 
     def warn(self, msg, *args, **kwargs):
-        log.warn(self._owner_msg + msg, *args, **kwargs)
+        logger.warn(self._owner_msg + msg, *args, **kwargs)
 
     def error(self, msg, *args, **kwargs):
-        log.error(self._owner_msg + msg, *args, **kwargs)
+        logger.error(self._owner_msg + msg, *args, **kwargs)
 
 
 class Global_variable(object):
@@ -95,7 +91,7 @@ class Global_variable(object):
         cur_price = get_close_price(security, 1, '1m')
         if math.isnan(cur_price):
             return False
-        position = self.context.subportfolios[pindex].long_positions[security] if self.context is not None else None
+        position = self.context.portfolio.positions[security] if self.context is not None else None
         _order = order(security, amount, pindex=pindex)
         if _order != None and _order.FILLED > 0:
             # 订单成功，则调用规则的买股事件 。（注：这里只适合市价，挂价单不适合这样处理）
@@ -131,12 +127,11 @@ class Global_variable(object):
     def clear_position(self, sender, context, pindexs=[0]):
         pindexs = self._owner.before_clear_position(context, pindexs)
         # 对传入的子仓集合进行遍历清仓
-        for pindex in pindexs:
-            if context.subportfolios[pindex].long_positions:
-                sender.log.info(("[%d]==> 清仓，卖出所有股票") % (pindex))
-                for stock in context.subportfolios[pindex].long_positions.keys():
-                    position = context.subportfolios[pindex].long_positions[stock]
-                    self.close_position(sender, position, False, pindex)
+        if context.portfolio.positions:
+            sender.log.info(("[%d]==> 清仓，卖出所有股票") % (pindex))
+            for stock in context.portfolio.positions.keys():
+                position = context.portfolio.positions[stock]
+                self.close_position(sender, position, False, pindex)
         # 调用规则器的清仓事件
         self._owner.on_clear_position(context, pindexs)
 
@@ -301,7 +296,7 @@ class Group_rules(Rule):
 
     def initialize(self, context):
         # 创建规则
-        self.rules = self.create_rules(self.config)
+        self.rules = self.create_rules(self.config, context)
         for rule in self.rules:
             rule.initialize(context)
         pass
@@ -408,9 +403,9 @@ class Group_rules(Rule):
         return obj
 
     # 根据规则配置创建规则执行器
-    def create_rules(self, config):
+    def create_rules(self, config, context):
         # config里 0.是否启用，1.描述，2.规则实现类名，3.规则传递参数(dict)]
-        return [self.create_rule(c[self.cs_class_type], c[self.cs_param], c[self.cs_name], c[self.cs_memo]) for c in
+        return [self.create_rule(c[self.cs_class_type], c[self.cs_param], c[self.cs_name], c[self.cs_memo], context) for c in
                 config if c[self.cs_enabled]]
 
     # 显示规则组合，嵌套规则组合递归显示

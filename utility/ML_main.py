@@ -13,8 +13,8 @@ except:
     pass
 
 
-from utility.ML_kbar_prep import *
-from utility.ML_model_prep import *
+from ML_kbar_prep import *
+from ML_model_prep import *
 from os import listdir
 from os.path import isfile, join
 
@@ -87,11 +87,17 @@ class ML_biaoli_train(object):
 class ML_biaoli_check(object):
     """use CNNLSTM to predict biaoli level"""
     def __init__(self, params):
-        self.threthold = 0.9
+        self.threthold = params.get('threthold', 0.9)
         self.model_path = params.get('model_path', 'training_model/cnn_lstm_model_base.h5')
-        self.rq = params.get('rq', False)
+        self.rq = params.get('rq', True)
+        self.extra_training = params.get('extra_training', False)
         
-    def gauge_stocks(self, stocks, isLong=True):    
+    def gauge_stocks(self, stocks, isLong=True):
+        if not stocks:
+            return []
+        if self.extra_training:
+            mld = MLDataPrep(isAnal=False, rq=self.rq)
+            mld.retrieve_stocks_data(stocks, period_count=125, filename='training_data/temp_training.pkl')
         return [stock for stock in stocks if (self.gauge_long(stock) if isLong else self.gauge_short(stock))]
         
     def gauge_long(self, stock):
@@ -110,6 +116,12 @@ class ML_biaoli_check(object):
         
         mdp = MLDataProcess(model_name=None)
         mdp.load_model(model_name=self.model_path)
+        mdp.model_name = None # don't save
+        
+        if self.extra_training:
+            x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(filenames=['training_data/temp_training.pkl'])
+            mdp.process_model(mdp.model, x_train, x_test, y_train, y_test, batch_size = 50,epochs = 5)
+        
         unique_index = np.array([-1, 0, 1])
         return mdp.model_predict_cnn_lstm(data_set, unique_index)
     

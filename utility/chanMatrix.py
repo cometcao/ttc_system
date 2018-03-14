@@ -10,9 +10,9 @@ except:
 import types
 import numpy as np
 import pandas as pd
-from utility.biaoLiStatus import * 
-from utility.kBarProcessor import *
-from utility.securityDataManager import *
+from biaoLiStatus import * 
+from kBarProcessor import *
+from securityDataManager import *
 
 class ChanMatrix(object):
     '''

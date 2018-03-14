@@ -7,8 +7,8 @@ try:
     from jqdata import *
 except:
     pass
-from utility.kBarProcessor import *
-from utility.biaoLiStatus import TopBotType
+from kBarProcessor import *
+from biaoLiStatus import TopBotType
 from keras.utils.np_utils import to_categorical
 from pickle import dump
 from pickle import load
@@ -17,6 +17,7 @@ import numpy as np
 import talib
 import datetime
 from sklearn.model_selection import train_test_split
+from securityDataManager import *
 
 # pd.options.mode.chained_assignment = None 
 
@@ -56,10 +57,17 @@ class MLKbarPrep(object):
     
     def retrieve_stock_data_rq(self, stock):
         for level in MLKbarPrep.monitor_level:
-            today = datetime.datetime.today()
-            previous_trading_day=get_trading_dates(start_date='2006-01-01', end_date=today)[-self.count]
-            stock_df = get_price(stock, start_date=previous_trading_day, end_date=today, frequency=level, fields = ['open','close','high','low', 'total_turnover'], skip_suspended=True)          
+            stock_df = None
+            if not self.isAnal:
+                print("TEST2")
+                local_count = self.count if level == '1d' else self.count * 8 # assuming 30m
+                stock_df = SecurityDataManager.get_data_rq(stock, count=local_count, period=level, fields=['open','close','high','low', 'total_turnover'], skip_suspended=True, df=True, include_now=False)
+            else:
+                today = datetime.datetime.today()
+                previous_trading_day=get_trading_dates(start_date='2006-01-01', end_date=today)[-self.count]
+                stock_df = SecurityDataManager.get_research_data_rq(stock, start_date=previous_trading_day, end_date=today, period=level, fields = ['open','close','high','low', 'total_turnover'], skip_suspended=True)
             stock_df = self.prepare_df_data(stock_df)
+            print("TEST3")
             self.stock_df_dict[level] = stock_df    
     
     def prepare_df_data(self, stock_df):
@@ -77,6 +85,7 @@ class MLKbarPrep(object):
         return stock_df
     
     def prepare_training_data(self):
+        print("TEST5")
         higher_df = self.stock_df_dict[MLKbarPrep.monitor_level[0]]
         lower_df = self.stock_df_dict[MLKbarPrep.monitor_level[1]]
         high_df_tb = higher_df.dropna(subset=['new_index'])
@@ -183,13 +192,16 @@ class MLDataPrep(object):
             print ("working on stock: {0}".format(stock))
             mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug)
             if self.isRQ:
+                print("TEST!")
                 mlk.retrieve_stock_data_rq(stock)
             else:
                 mlk.retrieve_stock_data(stock)
+            print("TEST4")
             dl, ll = mlk.prepare_training_data()
             data_list = data_list + dl
             label_list = label_list + ll   
-        self.save_dataset((data_list, label_list), filename)
+        if data_list and label_list:
+            self.save_dataset((data_list, label_list), filename)
     
     def prepare_stock_data_predict(self, stock, period_count=60):
         mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug)

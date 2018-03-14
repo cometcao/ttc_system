@@ -5,11 +5,9 @@ Created on 4 Dec 2017
 @author: MetalInvest
 '''
 try:
-    from kuanke.user_space_api import *
+    from rqdatac import *
 except:
     pass
-import numpy as np
-from jqdata import *
 import datetime
 from common_include import generate_portion
 
@@ -30,7 +28,7 @@ class PositionControlVar(object):
             3. 使用赋闲资金做现金管理的基金(银华日利)
             moneyfund = ['511880.XSHG']
         """
-        self.risk_money = context.portfolio.portfolio_value * risk_money_ratio
+        self.risk_money = context.portfolio.total_value * risk_money_ratio
         self.confidencelevel = confidencelevel
         self.moneyfund = self.delete_new_moneyfund(context, moneyfund, 60)
         self.equal_pos = equal_pos
@@ -72,11 +70,11 @@ class PositionControlVar(object):
             
     # 剔除上市时间较短的基金产品
     def delete_new_moneyfund(self, context, equity, deltaday):
-        deltaDate = context.current_dt.date() - datetime.timedelta(deltaday)
+        deltaDate = context.now.date() - datetime.timedelta(deltaday)
     
         tmpList = []
         for stock in equity:
-            if get_security_info(stock).start_date < deltaDate:
+            if instruments(stock).listed_date < deltaDate.strftime('%Y-%m-%d'):
                 tmpList.append(stock)
     
         return tmpList
@@ -119,7 +117,7 @@ class PositionControlVar(object):
         equity_value, bonds_value = 0, 0
 
         equity_value = __func_getEquity_value(equity_ratio, risk_money, self.confidencelevel)
-        portfolio_value = context.portfolio.portfolio_value
+        portfolio_value = context.portfolio.total_value
         if equity_value > portfolio_value:
             portfolio_value = equity_value  # TODO: 是否有误？equity_value = portfolio_value?
             bonds_value = 0
@@ -140,13 +138,13 @@ class PositionControlVar(object):
                 trade_ratio[stock] += round((bonds_value * 1.0 / portfolio_value), 3)
             else:
                 trade_ratio[stock] = round((bonds_value * 1.0 / portfolio_value), 3)
-        log.info('trade_ratio: %s' % trade_ratio)
+        logger.info('trade_ratio: %s' % trade_ratio)
         return trade_ratio
 
     # 交易函数
     def func_trade(self, context, trade_ratio):
         def __func_trade(context, stock, value):
-            log.info(stock + " 调仓到 " + str(round(value, 2)) + "\n")
+            logger.info(stock + " 调仓到 " + str(round(value, 2)) + "\n")
             order_target_value(stock, value)
 
         def __func_tradeBond(context, stock, Value):
@@ -166,7 +164,7 @@ class PositionControlVar(object):
                     __func_trade(context, stock, Value)
 
         def __func_tradeStock(context, stock, ratio):
-            total_value = context.portfolio.portfolio_value
+            total_value = context.portfolio.total_value
             if stock in self.moneyfund:
                 __func_tradeBond(context, stock, total_value * ratio)
             else:
@@ -189,7 +187,7 @@ class PositionControlVar(object):
         hStocks = history(1, '1d', 'close', trade_list, df=False)
 
         myholdstock = list(context.portfolio.positions.keys())
-        total_value = context.portfolio.portfolio_value
+        total_value = context.portfolio.total_value
 
         # 已有仓位
         holdDict = {}

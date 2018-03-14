@@ -4,12 +4,15 @@ Created on 31 Oct 2016
 
 @author: MetalInvest
 '''
-from kuanke.user_space_api import *
-from jqdata import *
+try:
+    from rqdatac import *
+except:
+    pass
 from scipy.signal import argrelextrema
 from blacklist import *
 import talib
 from functools import partial
+from securityDataManager import *
 
 # global constants
 macd_func = partial(talib.MACD, fastperiod=12,slowperiod=26,signalperiod=9)
@@ -175,7 +178,7 @@ def getPeInfo(stocks, context):
 
 def findPeriod_v2(stock):
     if stock not in g.period:
-        df = attribute_history(stock, 233, g.buy_period_check, ('close'), skip_paused=True)
+        df = SecurityDataManager.get_data_rq(stock, count=233, period=context.buy_period_check, fields=['close'], skip_suspended=True, df=True, include_now=False)
         df.loc[:,'macd_raw'], _, df.loc[:,'macd'] = MACD(df['close'].values)
         df = df.dropna()
         if df.shape[0] > 2:
@@ -208,7 +211,7 @@ def findPeriod_v2(stock):
 
 def findPeriod(stock):
     if stock not in g.period: # g.period resets every day
-        df = attribute_history(stock, g.number_of_days_wave_backwards, '1d', ('high', 'low'), skip_paused=True)
+        df = SecurityDataManager.get_data_rq(stock, count=context.number_of_days_wave_backwards, period='1d', fields=['high', 'low'], skip_suspended=True, df=True, include_now=False)
         topIndex = argrelextrema(df['high'].values, np.greater_equal,order=2)[0]
         bottomIndex = argrelextrema(df['low'].values, np.less_equal,order=2)[0]
         delta = None
@@ -253,21 +256,7 @@ def inOpenOrder(security):
 ##############
 
 def getlatest_df(stock, count, context, fields, df_flag = True):
-    df = attribute_history(stock, count, '1d', fields, df=df_flag)
-    latest_stock_data = attribute_history(stock, 1, '230m', fields, skip_paused=True, df=df_flag)
-    if df_flag:
-        latest_stock_data = latest_stock_data.reset_index(drop=False)
-        latest_stock_data.ix[0, 'index'] = pd.DatetimeIndex([context.current_dt.date()])[0]
-        latest_stock_data = latest_stock_data.set_index('index')
-        df = df.reset_index().drop_duplicates(subset='index').set_index('index')
-        df = df.append(latest_stock_data, verify_integrity=True) # True
-    else:
-        final_fields = []
-        if isinstance(fields, basestring):
-            final_fields.append(fields)
-        else:
-            final_fields = list(fields)
-        [np.append(df[field], latest_stock_data[field][-1]) for field in final_fields]
+    df =SecurityDataManager.get_data_rq(stock, count=count, period='1d', fields=['close'], skip_suspended=True, df=df_flag, include_now=True)
     return df
 
 
@@ -346,13 +335,8 @@ def get_stop_profit_threshold(security, n = 3):
 # ��ȡ����ǰn���m������ֵ����
 # ���ӻ�����⵱�ն�λ�ȡ����
 def get_pct_change(security, n, m):
-    pct_change = None
-    if security in g.pct_change.keys():
-        pct_change = g.pct_change[security]
-    else:
-        h = attribute_history(security, n, unit='1d', fields=('close'), skip_paused=True, df=True)
-        pct_change = h['close'].pct_change(m) # 3�յİٷֱȱ�ȣ���3���ǵ�����
-        g.pct_change[security] = pct_change
+    h = SecurityDataManager.get_data_rq(security, count=n, period='1d', fields=['close'], skip_suspended=True, df=True, include_now=False)
+    pct_change = h['close'].pct_change(m) 
     return pct_change
 
 ######################################################## copied filter ###############################################################
@@ -396,18 +380,12 @@ def set_feasible_stocks(stock_list,days,context):
             feasible_stocks.append(stock)
     return feasible_stocks
 
-# �Զ����µ�
-# ����Joinquant�ĵ�����ǰ����������������ִ�У�������������order_target_value�����ؼ���ʾ�������
-# �����ɹ����ر�����������һ����ɽ��������򷵻�None
+
 def order_target_value_new(security, value):
     if value == 0:            
-        log.info("short %s - %s" % (security, get_security_info(security).display_name))
+        log.info("short %s - %s" % (security, instruments(security).symbol))
     else:
-        log.info("long %s - %s with amount RMB %f" % (security, get_security_info(security).display_name, value))
-        
-    # �����Ʊͣ�ƣ�����������ʧ�ܣ�order_target_value ����None
-    # �����Ʊ�ǵ�ͣ������������ɹ���order_target_value ����Order�����Ǳ�����ȡ��
-    # ���ɲ����ı������ۿ�״̬���ѳ�����ʱ�ɽ���>0����ͨ���ɽ����ж��Ƿ��гɽ�
+        log.info("long %s - %s with amount RMB %f" % (security, instruments(security).symbol, value))
     return order_target_value(security, value)
 
 def isFirstTradingDayOfWeek(context):

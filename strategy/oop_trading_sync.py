@@ -5,10 +5,9 @@ Created on 4 Dec 2017
 @author: MetalInvest
 '''
 try:
-    from kuanke.user_space_api import *
+    from rqdatac import *
 except:
     pass
-from jqdata import *
 from oop_record_stats import Op_stocks_record
 from oop_strategy_frame import *
 from trading_module import *

@@ -36,13 +36,20 @@ class JqDataRetriever(DataRetriever):
 
 class RqDataRetriever(DataRetriever):
     @staticmethod
-    def get_data(security, count=100, period='1d', fields=None, skip_suspended=False, adjust_type='pre'):
-        return history_bars(security, bar_count=count, frequency=period, fields = fields, skip_suspended=skip_suspended)
+    def get_data(security, count=100, period='1d', fields=None, skip_suspended=False, adjust_type='pre', df=True, include_now=False):
+        if 'datetime' not in fields:
+            fields.append('datetime')
+        data_array = history_bars(security, bar_count=count, frequency=period, fields = fields, skip_suspended=skip_suspended, include_now=include_now)
+        if df:
+            data_array = pd.DataFrame(data_array, columns=fields)
+        return data_array
 
     @staticmethod
-    def get_research_data(security, start_date='2006-01-01', end_date=None, period='1d', fields=None, skip_suspended=False, adjust_type='pre'):
-        return get_price(security, start_date=start_date, end_date=end_date, frequency=period, fields = fields, skip_paused=skip_suspended, adjust_type=adjust_type)
-
+    def get_research_data(security, start_date='2006-01-01', end_date=None, period='1d', fields=None, skip_suspended=False, adjust_type='pre', df=True):
+        data_df = get_price(security, start_date=start_date, end_date=end_date, frequency=period, fields = fields, skip_paused=skip_suspended, adjust_type=adjust_type)
+        if not df:
+            data_df = data_df.values
+        return data_df
 
 class SecurityDataManager():
     """
@@ -57,9 +64,9 @@ class SecurityDataManager():
         return JqDataRetriever.get_data(security, start_date, end_date, count, period, fields, skip_suspended, adjust_type, df)
     
     @classmethod
-    def get_research_data_rq(cls, security, start_date='2006-01-01', end_date=None, period='1d', fields=None, skip_suspended=False, adjust_type='pre'):
-        return RqDataRetriever.get_research_data(security, start_date, end_date, period, fields, skip_suspended, adjust_type)
+    def get_research_data_rq(cls, security, start_date='2006-01-01', end_date=None, period='1d', fields=None, skip_suspended=False, adjust_type='pre', df=True):
+        return RqDataRetriever.get_research_data(security, start_date, end_date, period, fields, skip_suspended, adjust_type, df)
         
     @classmethod
-    def get_data_rq(cls, security, count=100, period='1d', fields=None, skip_suspended=False, adjust_type='pre'):
-        return RqDataRetriever.get_data(security, count, period, fields, skip_suspended, adjust_type)
+    def get_data_rq(cls, security, count=100, period='1d', fields=None, skip_suspended=False, adjust_type='pre', df=True, include_now=False):
+        return RqDataRetriever.get_data(security, count, period, fields, skip_suspended, adjust_type, df, include_now)

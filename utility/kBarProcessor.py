@@ -6,7 +6,7 @@ Created on 1 Aug 2017
 '''
 import numpy as np
 import copy
-from utility.biaoLiStatus import * 
+from biaoLiStatus import * 
 
 def synchOpenPrice(open, close, high, low):
     if open > close:
