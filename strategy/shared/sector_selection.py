@@ -173,32 +173,33 @@ class SectorSelection(object):
         today = self.context.now.date()
         stock_suspend_check = is_suspended(stock, end_date=today)
         if index == -1:
-            stock_df = self.getlatest_df(stock, self.period, ['close'], skip_paused=False, df_flag=True)
-            MA_5 = self.simple_moving_avg(stock_df.close.values, 5)
-            MA_13 = self.simple_moving_avg(stock_df.close.values, 13)
-            MA_21 = self.simple_moving_avg(stock_df.close.values, 21)
-            MA_34 = self.simple_moving_avg(stock_df.close.values, 34)
-            MA_55 = self.simple_moving_avg(stock_df.close.values, 55)
-            MA_89 = self.simple_moving_avg(stock_df.close.values, 89)
-            MA_144 = self.simple_moving_avg(stock_df.close.values, 144)
-            MA_233 = self.simple_moving_avg(stock_df.close.values, 233)
-            if (stock_suspend_check is not None and not stock_suspend_check.empty and stock_suspend_check.iloc[-1,0]) or stock_df.empty: # paused we need to remove it from calculation
+            stock_df = self.getlatest_df(stock, self.period, ['close'], skip_paused=True, df_flag=False)
+            stock_df = np.array([data[0] for data in stock_df]) # hack the data remove tuple
+            MA_5 = self.simple_moving_avg(stock_df, 5)
+            MA_13 = self.simple_moving_avg(stock_df, 13)
+            MA_21 = self.simple_moving_avg(stock_df, 21)
+            MA_34 = self.simple_moving_avg(stock_df, 34)
+            MA_55 = self.simple_moving_avg(stock_df, 55)
+            MA_89 = self.simple_moving_avg(stock_df, 89)
+            MA_144 = self.simple_moving_avg(stock_df, 144)
+            MA_233 = self.simple_moving_avg(stock_df, 233)
+            if (stock_suspend_check is not None and not stock_suspend_check.empty and stock_suspend_check.iloc[-1,0]) or stock_df.size==0: # paused we need to remove it from calculation
                 return -1 
-            elif stock_df.close.values[index] < MA_5 or np.isnan(MA_5):
+            elif stock_df[index] < MA_5 or np.isnan(MA_5):
                 return 0 if isWeighted else 1
-            elif stock_df.close.values[index] < MA_13 or np.isnan(MA_13):
+            elif stock_df[index] < MA_13 or np.isnan(MA_13):
                 return 5 if isWeighted else 2
-            elif stock_df.close.values[index] < MA_21 or np.isnan(MA_21):
+            elif stock_df[index] < MA_21 or np.isnan(MA_21):
                 return 13 if isWeighted else 3
-            elif stock_df.close.values[index] < MA_34 or np.isnan(MA_34):
+            elif stock_df[index] < MA_34 or np.isnan(MA_34):
                 return 21 if isWeighted else 4
-            elif stock_df.close.values[index] < MA_55 or np.isnan(MA_55):
+            elif stock_df[index] < MA_55 or np.isnan(MA_55):
                 return 34 if isWeighted else 5
-            elif stock_df.close.values[index] < MA_89 or np.isnan(MA_89):
+            elif stock_df[index] < MA_89 or np.isnan(MA_89):
                 return 55 if isWeighted else 6
-            elif stock_df.close.values[index] < MA_144 or np.isnan(MA_144):
+            elif stock_df[index] < MA_144 or np.isnan(MA_144):
                 return 89 if isWeighted else 7
-            elif stock_df.close.values[index] < MA_233 or np.isnan(MA_233):
+            elif stock_df[index] < MA_233 or np.isnan(MA_233):
                 return 144 if isWeighted else 8
             else:
                 return 233 if isWeighted else 9
@@ -229,7 +230,7 @@ class SectorSelection(object):
             except Exception as e:
                 print (str(e))
                 return -1
-            if not stock_suspend_check.empty and stock_suspend_check.iloc[-1,0]: # paused we need to remove it from calculation
+            if (not stock_suspend_check.empty and stock_suspend_check.iloc[-1,0]) or stock_df.empty: # paused we need to remove it from calculation
                 return -1 
             elif stock_df.close[index] < MA_5[index] or np.isnan(MA_5[index]):
                 return 0 if isWeighted else 1
@@ -251,6 +252,8 @@ class SectorSelection(object):
                 return 233 if isWeighted else 9
 
     def simple_moving_avg(self, series, period):
+        if len(series) < period:
+            return 0
         total = sum(series[-period:])
         return total/period
     

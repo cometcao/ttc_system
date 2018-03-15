@@ -291,19 +291,19 @@ class Pick_rank_sector(Create_stock_list):
         self.avgPeriod = params.get('avgPeriod', 5)
         
     def filter(self, context, data):
-        new_list = ['002714.XSHE', '603159.XSHG', '603703.XSHG','000001.XSHE','000002.XSHE','600309.XSHG','002230.XSHE','600392.XSHG','600291.XSHG']
-#         new_list=[]
-#         if self.g.isFirstTradingDayOfWeek(context) or not self.g.buy_stocks or self.isDaily:
-#             self.log.info("选取前 %s%% 板块" % str(self.sector_limit_pct))
-#             ss = SectorSelection(limit_pct=self.sector_limit_pct, 
-#                     isStrong=self.strong_sector, 
-#                     min_max_strength=self.strength_threthold, 
-#                     useIntradayData=self.useIntradayData,
-#                     useAvg=self.useAvg,
-#                     avgPeriod=self.avgPeriod,
-#                     context=context)
-#             new_list = ss.processAllSectorStocks(context)
-#             self.g.filtered_sectors = ss.processAllSectors(context)
+#         new_list = ['002714.XSHE', '603159.XSHG', '603703.XSHG','000001.XSHE','000002.XSHE','600309.XSHG','002230.XSHE','600392.XSHG','600291.XSHG']
+        new_list=[]
+        if self.g.isFirstTradingDayOfWeek(context) or not self.g.buy_stocks or self.isDaily:
+            self.log.info("选取前 %s%% 板块" % str(self.sector_limit_pct))
+            ss = SectorSelection(limit_pct=self.sector_limit_pct, 
+                    isStrong=self.strong_sector, 
+                    min_max_strength=self.strength_threthold, 
+                    useIntradayData=self.useIntradayData,
+                    useAvg=self.useAvg,
+                    avgPeriod=self.avgPeriod,
+                    context=context)
+            new_list = ss.processAllSectorStocks(context)
+            self.g.filtered_sectors = ss.processAllSectors(context)
         return new_list 
     
     def before_trading_start(context):

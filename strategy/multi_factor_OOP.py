@@ -394,7 +394,7 @@ class Update_Params_Auto(Rule):
             if isinstance(rule, Adjust_position):
                 for r3 in rule.rules:
                     if isinstance(r3, Buy_stocks_chan) or isinstance(r3, Buy_stocks_var):
-                        r3.update_params(context, {'buy_count': g.buy_count, 'pos_control': context.port_pos_control})
+                        r3.update_params(context, {'buy_count': context.buy_count, 'pos_control': context.port_pos_control})
 
     def __str__(self):
         return '参数自动调整'
@@ -451,6 +451,7 @@ class Sell_stocks_chan(Sell_stocks):
             pass
 
         # ML check
+        # to_sell_biaoli = []
         to_sell_biaoli = context.mlb.gauge_stocks(context.portfolio.positions.keys(), isLong=False)
         
         to_sell = list(set(to_sell+to_sell_biaoli+to_sell_intraday))
@@ -499,7 +500,8 @@ class Sell_stocks_chan(Sell_stocks):
         return to_sell
 
     def before_trading_start(self, context):
-        context.mlb = ML_biaoli_check({'threthold':0.95, 'rq':True, 'model_path':'cnn_lstm_model_index.h5','extra_training':True})
+        context.mlb = ML_biaoli_check({'threthold':0.95, 'rq':True, 'model_path':'cnn_lstm_model_index.h5','extra_training':False})
+        pass
 
     def adjust(self, context, data, sell_stocks):
         # 卖出在待卖股票列表中的股票
@@ -528,7 +530,7 @@ class Buy_stocks_chan(Buy_stocks):
         if self.is_to_return:
             self.log_warn('无法执行买入!! self.is_to_return 未开启')
             return
-        if len([stock for stock in context.portfolio.positions if stock not in g.money_fund])==self.buy_count:
+        if len([stock for stock in context.portfolio.positions if stock not in context.money_fund])==self.buy_count:
             self.log.info("满仓等卖")
             return
 
@@ -714,7 +716,7 @@ class Buy_stocks_chan(Buy_stocks):
             for stock in buy_stocks:
                 if stock in self.g.sell_stocks:
                     continue
-                if context.portfolio.positions[stock].total_amount == 0:
+                if context.portfolio.positions[stock].quantity == 0:
                     if self.g.open_position(self, stock, value, 0):
                         if len(context.portfolio.positions) == self.buy_count:
                             break
@@ -774,7 +776,7 @@ class Buy_stocks_var(Buy_stocks_chan):
         for stock in trade_ratio:
             if stock in self.g.sell_stocks and stock not in self.money_fund:
                 continue
-            if context.portfolio.positions[stock].total_amount == 0:
+            if context.portfolio.positions[stock].quantity == 0:
                 if self.g.open_position(self, stock, context.portfolio.total_value*trade_ratio[stock],0):
                     if len(context.portfolio.positions) == self.buy_count+1:
                         break        

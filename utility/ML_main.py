@@ -111,12 +111,12 @@ class ML_biaoli_check(object):
     def gauge_long(self, stock):
         y_class, pred = self.model_predict(stock)
         conf = self.interpret(pred)
-        return conf[-1][-1] and len(y_class) == 2 and (y_class[-1] == 1 or (y_class[-2] == -1 and y_class[-1] == 0))
+        return conf[-1] and len(y_class) >= 2 and (y_class[-1] == 1 or (y_class[-2] == -1 and y_class[-1] == 0))
         
     def gauge_short(self, stock):
         y_class, pred = self.model_predict(stock)
         conf = self.interpret(pred)
-        return conf[-1][-1] and len(y_class) == 2 and (y_class[-1] == 1 or (y_class[-2] == 1 and y_class[-1] == 0))
+        return conf[-1] and len(y_class) >= 2 and (y_class[-1] == 1 or (y_class[-2] == 1 and y_class[-1] == 0))
         
     def model_predict(self, stock):
         mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq)
