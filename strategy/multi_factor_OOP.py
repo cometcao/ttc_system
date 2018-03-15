@@ -10,6 +10,9 @@ from oop_stop_loss import *
 from oop_select_stock import *
 from oop_sort_stock import *
 from oop_record_stats import *
+from ML_main import *
+import traceback
+import sys
 # from oop_trading_sync import *
 
 
@@ -120,7 +123,7 @@ def select_strategy(context):
                         #         , max=5
                         #         , isComplex=True),
                         ],
-            'order_by': 'valuation.market_cap',
+            'order_by': 'fundamentals.eod_derivative_indicator.market_cap',
             'sort': SortType.asc,
             'by_sector': False,
             'limit':50}],
@@ -150,8 +153,7 @@ def select_strategy(context):
                             # (TaType.MA, '1d', 60),
                             ],
             'isLong':True}], # 确保大周期安全
-        [True, '', '日线周线级别表里买点筛选', Filter_Week_Day_Long_Pivot_Stocks, {'monitor_levels':context.monitor_levels}],
-        [True, '', '过滤ST,停牌,涨跌停股票', Filter_common, {}],
+        [False, '', '日线周线级别表里买点筛选', Filter_Week_Day_Long_Pivot_Stocks, {'monitor_levels':context.monitor_levels}],
         [True, '', '权重排序', SortRules, {
             'config': [
                 [True, 'Sort_std_data', '波动率排序', Sort_std_data, {
@@ -162,7 +164,7 @@ def select_strategy(context):
                     'sort': SortType.desc
                     , 'weight': 100}],
                 [False, '', '市值排序', Sort_financial_data, {
-                    'factor': 'valuation.market_cap',
+                    'factor': 'fundamentals.eod_derivative_indicator.market_cap',
                     'sort': SortType.asc
                     , 'weight': 100}],
                 [False, '', 'EVS排序', Sort_financial_data, {
@@ -170,11 +172,11 @@ def select_strategy(context):
                     'sort': SortType.asc
                     , 'weight': 100}],
                 [False, '', '流通市值排序', Sort_financial_data, {
-                    'factor': 'valuation.circulating_market_cap',
+                    'factor': 'fundamentals.eod_derivative_indicator.a_share_market_val_2',
                     'sort': SortType.asc
                     , 'weight': 100}],
                 [False, '', 'P/S排序', Sort_financial_data, {
-                    'factor': 'valuation.ps_ratio',
+                    'factor': 'fundamentals.eod_derivative_indicator.ps_ratio',
                     'sort': SortType.asc
                     , 'weight': 100}],
                 [False, '', 'GP排序', Sort_financial_data, {
@@ -254,7 +256,7 @@ def select_strategy(context):
             'benchmark': '000300.XSHG'  # 指定基准为次新股指
         }],
         [True, '', '持仓信息打印器', Show_position, {}],
-        [True, '', '统计执行器', Stat, {'trade_stats':True}],
+        [True, '', '统计执行器', Stat, {'trade_stats':False}],
         [False, '', '自动调参器', Update_Params_Auto, {
             'ps_threthold':0.618,
             'pb_threthold':0.618,
@@ -357,7 +359,7 @@ class Update_Params_Auto(Rule):
     
     def dynamicBuyCount(self, context):
         import math
-        context.buy_count = int(math.ceil(math.log(context.portfolio.portfolio_value/10000)))
+        context.buy_count = int(math.ceil(math.log(context.portfolio.total_value/10000)))
         
     def doubleIndexControl(self, index1, index2, target=0, period=20):
         gr_index1 = get_growth_rate(index1, period)
@@ -385,7 +387,7 @@ class Update_Params_Auto(Rule):
                                         # FD_Factor(evs_query_string, min=0, max=context.evs_limit, isComplex=True),
                                         # FD_Factor(eve_query_string, min=0, max=context.eve_limit, isComplex=True),
                                         ],
-                            'order_by': 'valuation.circulating_market_cap',
+                            'order_by': 'eod_derivative_indicator.a_share_market_val_2',
                             'sort': SortType.asc,
                             'by_sector':False,
                             'limit':50})
@@ -409,7 +411,7 @@ class Sell_stocks_chan(Sell_stocks):
         # 日线级别卖点
         cti = None
         TA_Factor.global_var = self.g
-        self.g.monitor_short_cm.updateGaugeStockList(newStockList=context.portfolio.positions.keys(), levels=[self.monitor_levels[-1]]) # gauge 30m level status
+        # self.g.monitor_short_cm.updateGaugeStockList(newStockList=context.portfolio.positions.keys(), levels=[self.monitor_levels[-1]]) # gauge 30m level status
         if context.now.hour < 11: # 10点之前
             cti = checkTAIndicator_OR({
                 'TA_Indicators':[
@@ -449,8 +451,7 @@ class Sell_stocks_chan(Sell_stocks):
             pass
 
         # ML check
-        mlb = ML_biaoli_check()
-        to_sell_biaoli = mlb.gauge_stocks(context.portfolio.positions.keys(), isLong=False)
+        to_sell_biaoli = context.mlb.gauge_stocks(context.portfolio.positions.keys(), isLong=False)
         
         to_sell = list(set(to_sell+to_sell_biaoli+to_sell_intraday))
         if to_sell:
@@ -458,9 +459,9 @@ class Sell_stocks_chan(Sell_stocks):
             self.adjust(context, data, to_sell)
             # remove stocks from short gauge
             sold_stocks = [stock for stock in to_sell if stock not in context.portfolio.positions.keys()] # make sure stock sold successfully
-            self.g.monitor_short_cm.displayMonitorMatrix(to_sell)
-            self.recordTrade(to_sell) # record all selling candidate
-            self.g.monitor_short_cm.removeGaugeStockList(sold_stocks)
+            # self.g.monitor_short_cm.displayMonitorMatrix(to_sell)
+            # self.recordTrade(to_sell) # record all selling candidate
+            # self.g.monitor_short_cm.removeGaugeStockList(sold_stocks)
         self.g.intraday_long_stock = [stock for stock in self.g.intraday_long_stock if stock in context.portfolio.positions.keys()]
 
     def intradayShortFilter(self, context, data):
@@ -497,15 +498,17 @@ class Sell_stocks_chan(Sell_stocks):
         to_sell = cti_short_check.filter(context, data, intraday_short_check) if cti_short_check else []
         return to_sell
 
+    def before_trading_start(self, context):
+        context.mlb = ML_biaoli_check({'threthold':0.95, 'rq':True, 'model_path':'cnn_lstm_model_index.h5','extra_training':True})
+
     def adjust(self, context, data, sell_stocks):
         # 卖出在待卖股票列表中的股票
         # 对于因停牌等原因没有卖出的股票则继续持有
-        for pindex in self.g.op_pindexs:
-            for stock in context.subportfolios[pindex].long_positions.keys():
-                if stock in sell_stocks:
-                    position = context.subportfolios[pindex].long_positions[stock]
-                    self.g.close_position(self, position, True, pindex)
-
+        for stock in context.portfolio.positions.keys():
+            if stock in sell_stocks:
+                position = context.portfolio.positions[stock]
+                self.g.close_position(self, position, True, data)
+    
     def __str__(self):
         return '股票调仓卖出规则：卖出在对应级别卖点'
 
@@ -537,7 +540,7 @@ class Buy_stocks_chan(Buy_stocks):
             return
 
         to_buy = self.daily_list
-        self.g.monitor_long_cm.updateGaugeStockList(newStockList=self.daily_list, levels=[self.monitor_levels[-1]])
+        # self.g.monitor_long_cm.updateGaugeStockList(newStockList=self.daily_list, levels=[self.monitor_levels[-1]])
         # 技术分析用于不买在卖点
         not_to_buy = self.dailyShortFilter(context, data, to_buy)
         
@@ -559,9 +562,9 @@ class Buy_stocks_chan(Buy_stocks):
             self.adjust(context, data, to_buy)
             bought_stocks = [stock for stock in context.portfolio.positions.keys() if stock in to_buy]
             #transfer long gauge to short gauge
-            self.g.monitor_short_cm.appendStockList(self.g.monitor_long_cm.getGaugeStockList(bought_stocks))
-            self.g.monitor_long_cm.displayMonitorMatrix(to_buy)
-            self.recordTrade(bought_stocks)
+            # self.g.monitor_short_cm.appendStockList(self.g.monitor_long_cm.getGaugeStockList(bought_stocks))
+            # self.g.monitor_long_cm.displayMonitorMatrix(to_buy)
+            # self.recordTrade(bought_stocks)
             self.send_port_info(context)
         elif context.now.hour >= 14:
             self.adjust(context, data, [])
@@ -613,8 +616,7 @@ class Buy_stocks_chan(Buy_stocks):
             to_buy_list = cta.filter(context, data, to_buy)
             
             # ML check
-            mlb = ML_biaoli_check()
-            to_buy_list = mlb.gauge_stocks(to_buy_list, isLong=True)
+            to_buy_list = context.mlb.gauge_stocks(to_buy_list, isLong=True)
             
             # 之前的日内选股的票排除掉如果被更大级别买点覆盖
             self.g.intraday_long_stock = [stock for stock in self.g.intraday_long_stock if stock not in to_buy_list]        
@@ -688,10 +690,10 @@ class Buy_stocks_chan(Buy_stocks):
             remove_from_candidate = cti_short_check.filter(context, data, to_buy)
             not_to_buy += remove_from_candidate
 
-        not_to_buy += self.g.monitor_long_cm.filterUpTrendDownTrend(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
-        not_to_buy += self.g.monitor_long_cm.filterUpTrendUpNode(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
-        not_to_buy += self.g.monitor_long_cm.filterUpNodeDownTrend(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
-        not_to_buy += self.g.monitor_long_cm.filterUpNodeUpNode(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
+        # not_to_buy += self.g.monitor_long_cm.filterUpTrendDownTrend(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
+        # not_to_buy += self.g.monitor_long_cm.filterUpTrendUpNode(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
+        # not_to_buy += self.g.monitor_long_cm.filterUpNodeDownTrend(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
+        # not_to_buy += self.g.monitor_long_cm.filterUpNodeUpNode(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
         
         ## not_to_buy += self.g.monitor_long_cm.filterDownNodeUpNode(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
         not_to_buy = list(set(not_to_buy))
@@ -706,22 +708,21 @@ class Buy_stocks_chan(Buy_stocks):
         # 始终保持持仓数目为g.buy_stock_count
         # 根据股票数量分仓
         # 此处只根据可用金额平均分配购买，不能保证每个仓位平均分配
-        for pindex in self.g.op_pindexs:
-            position_count = len(context.subportfolios[pindex].long_positions)
-            if self.buy_count > position_count:
-                value = context.subportfolios[pindex].total_value * self.pos_control / self.buy_count
-                for stock in buy_stocks:
-                    if stock in self.g.sell_stocks:
-                        continue
-                    if context.subportfolios[pindex].long_positions[stock].total_amount == 0:
-                        if self.g.open_position(self, stock, value, pindex):
-                            if len(context.subportfolios[pindex].long_positions) == self.buy_count:
-                                break
+        position_count = len(context.portfolio.positions)
+        if self.buy_count > position_count:
+            value = context.portfolio.total_value * self.pos_control / self.buy_count
+            for stock in buy_stocks:
+                if stock in self.g.sell_stocks:
+                    continue
+                if context.portfolio.positions[stock].total_amount == 0:
+                    if self.g.open_position(self, stock, value, 0):
+                        if len(context.portfolio.positions) == self.buy_count:
+                            break
 
     def after_trading_end(self, context):
         self.g.sell_stocks = []
         self.daily_list = []
-        
+
     def __str__(self):
         return '股票调仓买入规则：买在对应级别买点'
         
@@ -753,54 +754,52 @@ class Buy_stocks_var(Buy_stocks_chan):
             self.adjust_new_pos(context, data, buy_stocks)
     
     def adjust_new_pos(self, context, data, buy_stocks):
-        for pindex in self.g.op_pindexs:
-            position_count = len([stock for stock in context.subportfolios[pindex].positions.keys() if stock not in self.money_fund and stock not in buy_stocks])
-            trade_ratio = {}
-            if self.buy_count > position_count:
-                buy_num = self.buy_count - position_count
-                trade_ratio = self.pc_var.buy_the_stocks(context, buy_stocks[:buy_num])
-            else:
-                trade_ratio = self.pc_var.func_rebalance(context)
+        position_count = len([stock for stock in context.portfolio.positions.keys() if stock not in self.money_fund and stock not in buy_stocks])
+        trade_ratio = {}
+        if self.buy_count > position_count:
+            buy_num = self.buy_count - position_count
+            trade_ratio = self.pc_var.buy_the_stocks(context, buy_stocks[:buy_num])
+        else:
+            trade_ratio = self.pc_var.func_rebalance(context)
 
-            # sell money_fund if not in list
-            for stock in context.subportfolios[pindex].long_positions.keys():
-                position = context.subportfolios[pindex].long_positions[stock]
-                if stock in self.money_fund: 
-                    if (stock not in trade_ratio or trade_ratio[stock] == 0.0):
-                        self.g.close_position(self, position, True, pindex)
-                    else:
-                        self.g.open_position(self, stock, context.subportfolios[pindex].total_value*trade_ratio[stock],pindex)
-                        
-            for stock in trade_ratio:
-                if stock in self.g.sell_stocks and stock not in self.money_fund:
-                    continue
-                if context.subportfolios[pindex].long_positions[stock].total_amount == 0:
-                    if self.g.open_position(self, stock, context.subportfolios[pindex].total_value*trade_ratio[stock],pindex):
-                        if len(context.subportfolios[pindex].long_positions) == self.buy_count+1:
-                            break        
+        # sell money_fund if not in list
+        for stock in context.portfolio.positions.keys():
+            position = context.portfolio.positions[stock]
+            if stock in self.money_fund: 
+                if (stock not in trade_ratio or trade_ratio[stock] == 0.0):
+                    self.g.close_position(self, position, True, data)
+                else:
+                    self.g.open_position(self, stock, context.portfolio.total_value*trade_ratio[stock],0)
+                    
+        for stock in trade_ratio:
+            if stock in self.g.sell_stocks and stock not in self.money_fund:
+                continue
+            if context.portfolio.positions[stock].total_amount == 0:
+                if self.g.open_position(self, stock, context.portfolio.total_value*trade_ratio[stock],0):
+                    if len(context.portfolio.positions) == self.buy_count+1:
+                        break        
         
     def adjust_all_pos(self, context, data, buy_stocks):
         # 买入股票或者进行调仓
         # 始终保持持仓数目为g.buy_count
-        for pindex in self.g.op_pindexs:
-            to_buy_num = len(buy_stocks)
-            # exclude money_fund
-            holding_positon_exclude_money_fund = [stock for stock in context.subportfolios[pindex].positions.keys() if stock not in self.money_fund]
-            position_count = len(holding_positon_exclude_money_fund)
-            trade_ratio = {}
-            if self.buy_count <= position_count+to_buy_num: # 满仓数
-                buy_num = self.buy_count - position_count
-                trade_ratio = self.pc_var.buy_the_stocks(context, holding_positon_exclude_money_fund+buy_stocks[:buy_num])
-            else: # 分仓数
-                trade_ratio = self.pc_var.buy_the_stocks(context, holding_positon_exclude_money_fund+buy_stocks)
+        to_buy_num = len(buy_stocks)
+        # exclude money_fund
+        holding_positon_exclude_money_fund = [stock for stock in context.portfolio.positions.keys() if stock not in self.money_fund]
+        position_count = len(holding_positon_exclude_money_fund)
+        trade_ratio = {}
+        if self.buy_count <= position_count+to_buy_num: # 满仓数
+            buy_num = self.buy_count - position_count
+            trade_ratio = self.pc_var.buy_the_stocks(context, holding_positon_exclude_money_fund+buy_stocks[:buy_num])
+        else: # 分仓数
+            trade_ratio = self.pc_var.buy_the_stocks(context, holding_positon_exclude_money_fund+buy_stocks)
 
-            current_ratio = self.g.getCurrentPosRatio(context)
-            order_stocks = self.getOrderByRatio(current_ratio, trade_ratio)
-            for stock in order_stocks:
-                if stock in self.g.sell_stocks:
-                    continue
-                if self.g.open_position(self, stock, context.subportfolios[pindex].total_value*trade_ratio[stock],pindex):
-                    pass
+        current_ratio = self.g.getCurrentPosRatio(context)
+        order_stocks = self.getOrderByRatio(current_ratio, trade_ratio)
+        for stock in order_stocks:
+            if stock in self.g.sell_stocks:
+                continue
+            if self.g.open_position(self, stock, context.portfolio.total_value*trade_ratio[stock],0):
+                pass
     
     def getOrderByRatio(self, current_ratio, target_ratio):
         diff_ratio = [(stock, target_ratio[stock]-current_ratio[stock]) for stock in target_ratio if stock in current_ratio] \

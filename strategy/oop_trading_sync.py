@@ -47,10 +47,10 @@ class XueQiu_order(Op_stocks_record):
     def on_sell_stock(self,position,order,is_normal,pindex=0,context=None):
         try:
             # if not order.is_buy:
-            target_amount = 0 if order.action == 'close' and order.status == OrderStatus.held else position.total_amount
-            target_pct = target_amount * order.price / context.portfolio.total_value * 100
-            self.log.info("xue qiu sell %s to target %s" % (position.security, target_pct))
-            self.xueqiu.appendOrder(order.security[:6], target_pct, 0)
+            target_amount = 0 if order.action == 'close' and order.status == OrderStatus.held else position.quantity
+            target_pct = target_amount * order.avg_price / context.portfolio.total_value * 100
+            self.log.info("xue qiu sell %s to target %s" % (position.order_book_id, target_pct))
+            self.xueqiu.appendOrder(order.order_book_id[:6], target_pct, 0)
             pass
         except:
             self.log.error('雪球交易失败:' + str(order))
@@ -60,10 +60,10 @@ class XueQiu_order(Op_stocks_record):
     def on_buy_stock(self,stock,order,pindex=0,context=None):
         try:
             # if order.is_buy:
-            target_amount = context.portfolio.positions[stock].total_amount if order.status == OrderStatus.held else order.filled
-            target_pct = target_amount * order.price / context.portfolio.total_value * 100
+            target_amount = context.portfolio.positions[stock].quantity if order.status == OrderStatus.held else order.filled_quantity
+            target_pct = target_amount * order.avg_price / context.portfolio.total_value * 100
             self.log.info("xue qiu buy %s to target %s" % (stock, target_pct))
-            self.xueqiu.appendOrder(order.security[:6], target_pct, 0)
+            self.xueqiu.appendOrder(order.order_book_id[:6], target_pct, 0)
             pass
         except:
             self.log.error('雪球交易失败:' + str(order))
@@ -166,17 +166,17 @@ class Shipane_manager(Op_stocks_record):
         )
         position_str += "<table border=\"1\"><tr><th>股票代码</th><th>持仓</th><th>当前价</th><th>盈亏</th><th>持仓比</th></tr>"
         for position in pf.positions.values():
-            stock = position.security
-            if position.price - position.avg_cost > 0:
+            stock = position.order_book_id
+            if position.pnl > 0:
                 tr_color = 'red'
             else:
                 tr_color = 'green'
-            stock_raite = (position.total_amount * position.price) / total_values * 100
+            stock_raite = (position.quantity * position.avg_price) / total_values * 100
             position_str += '<tr style="color:%s"><td> %s </td><td> %d </td><td> %.2f </td><td> %.2f%% </td><td> %.2f%%</td></tr>' % (
                 tr_color,
                 show_stock(normalize_code(stock)),
-                position.total_amount, position.price,
-                (position.price - position.avg_cost) / position.avg_cost * 100,
+                position.quantity, position.avg_price,
+                position.pnl,
                 stock_raite
             )
 
@@ -194,15 +194,15 @@ class Shipane_manager(Op_stocks_record):
         table = PrettyTable(["股票", "持仓", "当前价", "盈亏", "持仓比"])
         for stock in pf.positions.keys():
             position = pf.positions[stock]
-            if position.total_amount == 0:
+            if position.quantity == 0:
                 continue
             stock_str = show_stock(normalize_code(stock))
-            stock_raite = (position.total_amount * position.price) / total_values * 100
+            stock_raite = position.value_percent
             table.add_row([
                 stock_str,
-                position.total_amount,
-                position.price,
-                "%.2f%%" % ((position.price - position.avg_cost) / position.avg_cost * 100),
+                position.quantity,
+                position.avg_price,
+                "%.2f%%" % (position.pnl),
                 "%.2f%%" % (stock_raite)]
             )
         return position_str + '\n' + str(table)
@@ -363,16 +363,16 @@ class Email_notice(Op_stocks_record):
         position_str += "<table border=\"1\"><tr><th>股票代码</th><th>持仓</th><th>当前价</th><th>盈亏</th><th>持仓比</th></tr>"
         for stock in context.portfolio.positions.keys():
             position = context.portfolio.positions[stock]
-            if position.price - position.avg_cost > 0:
+            if position.pnl > 0:
                 tr_color = 'red'
             else:
                 tr_color = 'green'
-            stock_raite = (position.total_amount * position.price) / total_values * 100
+            stock_raite = position.value_percent
             position_str += '<tr style="color:%s"><td> %s </td><td> %d </td><td> %.2f </td><td> %.2f%% </td><td> %.2f%%</td></tr>' % (
                 tr_color,
                 show_stock(stock),
-                position.total_amount, position.price,
-                (position.price - position.avg_cost) / position.avg_cost * 100,
+                position.quantity, position.avg_price,
+                position.pnl,
                 stock_raite
             )
 

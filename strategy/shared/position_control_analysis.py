@@ -82,7 +82,7 @@ class PositionControlVar(object):
     # 根据预设的 risk_money 和 confidencelevel 来计算，可以买入该多少权益类资产
     def func_getequity_value(self, context, equity_ratio):
         def __func_getdailyreturn(stock, freq, lag):
-            hStocks = history(lag, freq, 'close', stock, df=True)
+            hStocks = SecurityDataManager.get_data_rq(stock, count=lag, period=freq, fields=['close'], skip_suspended=False, df=True)
             dailyReturns = hStocks.resample('D', how='last').pct_change().fillna(value=0, method=None, axis=0).values
             return dailyReturns
 
@@ -148,9 +148,9 @@ class PositionControlVar(object):
             order_target_value(stock, value)
 
         def __func_tradeBond(context, stock, Value):
-            hStocks = history(1, '1d', 'close', stock, df=False)
-            curPrice = hStocks[stock]
-            curValue = float(context.portfolio.positions[stock].total_amount * curPrice)
+            hStocks = SecurityDataManager.get_data_rq(stock, count=1, period='1d', fields=['close'], skip_suspended=False, df=False)
+            curPrice = hStocks[-1]
+            curValue = float(context.portfolio.positions[stock].quantity * curPrice)
             deltaValue = abs(Value - curValue)
             if deltaValue > (curPrice * 100):
                 if Value > curValue:
@@ -168,8 +168,7 @@ class PositionControlVar(object):
             if stock in self.moneyfund:
                 __func_tradeBond(context, stock, total_value * ratio)
             else:
-                curPrice = history(1, '1d', 'close', stock, df=False)[stock][-1]
-                curValue = context.portfolio.positions[stock].total_amount * curPrice
+                curValue = context.portfolio.positions[stock].market_value
                 Quota = total_value * ratio
                 if Quota:
                     if abs(Quota - curValue) / Quota >= 0.25:
@@ -184,17 +183,13 @@ class PositionControlVar(object):
 
         trade_list = list(trade_ratio.keys())
 
-        hStocks = history(1, '1d', 'close', trade_list, df=False)
-
         myholdstock = list(context.portfolio.positions.keys())
         total_value = context.portfolio.total_value
 
         # 已有仓位
         holdDict = {}
-        hholdstocks = history(1, '1d', 'close', myholdstock, df=False)
         for stock in myholdstock:
-            tmpW = round((context.portfolio.positions[stock].total_amount * hholdstocks[stock]) / total_value, 2)
-            holdDict[stock] = float(tmpW)
+            holdDict[stock] = context.portfolio.positions[stock].value_percent
 
         # 对已有仓位做排序
         tmpDict = {}

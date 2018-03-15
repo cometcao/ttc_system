@@ -59,7 +59,6 @@ class MLKbarPrep(object):
         for level in MLKbarPrep.monitor_level:
             stock_df = None
             if not self.isAnal:
-                print("TEST2")
                 local_count = self.count if level == '1d' else self.count * 8 # assuming 30m
                 stock_df = SecurityDataManager.get_data_rq(stock, count=local_count, period=level, fields=['open','close','high','low', 'total_turnover'], skip_suspended=True, df=True, include_now=False)
             else:
@@ -67,7 +66,6 @@ class MLKbarPrep(object):
                 previous_trading_day=get_trading_dates(start_date='2006-01-01', end_date=today)[-self.count]
                 stock_df = SecurityDataManager.get_research_data_rq(stock, start_date=previous_trading_day, end_date=today, period=level, fields = ['open','close','high','low', 'total_turnover'], skip_suspended=True)
             stock_df = self.prepare_df_data(stock_df)
-            print("TEST3")
             self.stock_df_dict[level] = stock_df    
     
     def prepare_df_data(self, stock_df):
@@ -85,7 +83,6 @@ class MLKbarPrep(object):
         return stock_df
     
     def prepare_training_data(self):
-        print("TEST5")
         higher_df = self.stock_df_dict[MLKbarPrep.monitor_level[0]]
         lower_df = self.stock_df_dict[MLKbarPrep.monitor_level[1]]
         high_df_tb = higher_df.dropna(subset=['new_index'])
@@ -105,24 +102,38 @@ class MLKbarPrep(object):
             print(high_df_tb)
         high_dates = high_df_tb.index
         
-        first_high_date = str(high_dates[-3].date())
-        previous_high_date = str(high_dates[-2].date())
-        last_high_date = str(high_dates[-1].date())
-        
-        trunk_lower_df_first = lower_df.loc[first_high_date:previous_high_date, :]
-        if self.isDebug:
-            print(trunk_lower_df_first)
-        self.create_ml_data_set(trunk_lower_df_first, None)          
-        
-        trunk_lower_df_pivot = lower_df.loc[previous_high_date:last_high_date, :]
-        if self.isDebug:
-            print(trunk_lower_df_pivot)
-        self.create_ml_data_set(trunk_lower_df_pivot, None)
-
-        trunk_lower_df = lower_df.loc[last_high_date:, :]
-        if self.isDebug:
-            print(trunk_lower_df)
-        self.create_ml_data_set(trunk_lower_df, None)
+        for i in range(-3, 0, 1):
+            try:
+                previous_date = str(high_dates[i].date())
+            except IndexError:
+                continue
+            trunk_df = None
+            if i+1 < 0:
+                next_date = str(high_dates[i+1].date())
+                trunk_df = lower_df.loc[previous_date:next_date, :]
+            else:
+                trunk_df = lower_df.loc[previous_date:, :]
+            if self.isDebug:
+                print(trunk_df)
+            self.create_ml_data_set(trunk_df, None)
+               
+#         previous_high_date = str(high_dates[-2].date())
+#         first_high_date = str(high_dates[-3].date())
+#         trunk_lower_df_first = lower_df.loc[first_high_date:previous_high_date, :]
+#         if self.isDebug:
+#             print(trunk_lower_df_first)
+#         self.create_ml_data_set(trunk_lower_df_first, None)          
+#         
+#         last_high_date = str(high_dates[-1].date())
+#         trunk_lower_df_pivot = lower_df.loc[previous_high_date:last_high_date, :]
+#         if self.isDebug:
+#             print(trunk_lower_df_pivot)
+#         self.create_ml_data_set(trunk_lower_df_pivot, None)
+# 
+#         trunk_lower_df = lower_df.loc[last_high_date:, :]
+#         if self.isDebug:
+#             print(trunk_lower_df)
+#         self.create_ml_data_set(trunk_lower_df, None)
         return self.data_set
         
     def create_ml_data_set(self, trunk_df, label): 
@@ -186,22 +197,21 @@ class MLDataPrep(object):
         self.isRQ = rq
         self.unique_index = []
     
-    def retrieve_stocks_data(self, stocks, period_count=60, filename='cnn_training.pkl'):
+    def retrieve_stocks_data(self, stocks, period_count=60, filename=None):
         data_list = label_list = []
         for stock in stocks:
             print ("working on stock: {0}".format(stock))
             mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug)
             if self.isRQ:
-                print("TEST!")
                 mlk.retrieve_stock_data_rq(stock)
             else:
                 mlk.retrieve_stock_data(stock)
-            print("TEST4")
             dl, ll = mlk.prepare_training_data()
             data_list = data_list + dl
             label_list = label_list + ll   
-        if data_list and label_list:
+        if filename:
             self.save_dataset((data_list, label_list), filename)
+        return (data_list, label_list)
     
     def prepare_stock_data_predict(self, stock, period_count=60):
         mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug)
@@ -226,10 +236,7 @@ class MLDataPrep(object):
     def prepare_stock_data_cnn(self, filenames, padData=True, test_portion=0.1, random_seed=42, background_data_generation=True):
         data_list = label_list = []
         for file in filenames:
-            A, B = self.load_dataset(file)
-            if background_data_generation:
-                A, B = self.prepare_background_data(A, B)
-            
+            A, B = self.load_dataset(file)            
             if pd.isnull(np.array(A)).any() or pd.isnull(np.array(B)).any(): 
                 print("Data contains nan")
                 print(A)
@@ -239,10 +246,15 @@ class MLDataPrep(object):
             data_list = A + data_list 
             label_list = B + label_list
             print("loaded data set: {0}".format(file))
-
+        return self.prepare_stock_data_set(data_list, label_list, padData, test_portion, random_seed, background_data_generation)
+    
+    def prepare_stock_data_set(self, data_list, label_list, padData=True, test_portion=0.1, random_seed=42, background_data_generation=True):
         if not data_list or not label_list:
             print("Invalid file content")
             return
+
+        if background_data_generation:
+            data_list, label_list = self.prepare_background_data(data_list, label_list)
 
         if padData:
             data_list = self.pad_each_training_array(data_list)
@@ -284,11 +296,13 @@ class MLDataPrep(object):
         # save a dataset to file
     def save_dataset(self, dataset, filename):
         dump(dataset, open(filename, 'wb'))
+#         put_file(filename, dataset, append=False)
         print('Saved: %s' % filename)
         
     # load a clean dataset
     def load_dataset(self, filename):
         return load(open(filename, 'rb'))
+#         return get_file(filename)
 
     def pad_each_training_array(self, data_list):
         new_shape = self.findmaxshape(data_list)

@@ -91,13 +91,19 @@ class Period_condition(Weight_Base):
 
 
 '''===================================调仓相关============================'''
-
-
-
-# '''---------------卖出股票规则--------------'''
-class Sell_stocks(Rule):
+class Adjust_stocks(Rule):
     def __init__(self, params):
         Rule.__init__(self, params)
+    
+    def send_port_info(self, context):
+        port_msg = [(context.portfolio.positions[stock].order_book_id, context.portfolio.positions[stock].value_percent) for stock in context.portfolio.positions]
+        self.log.info(str(port_msg))
+#         send_message(port_msg, channel='weixin')
+
+# '''---------------卖出股票规则--------------'''
+class Sell_stocks(Adjust_stocks):
+    def __init__(self, params):
+        Adjust_stocks.__init__(self, params)
         self.use_short_filter = params.get('use_short_filter', False)
         self.money_fund = params.get('money_fund', ['511880.XSHG'])
         
@@ -136,9 +142,9 @@ class Sell_stocks(Rule):
 
 
 # '''---------------买入股票规则--------------'''
-class Buy_stocks(Rule):
+class Buy_stocks(Adjust_stocks):
     def __init__(self, params):
-        Rule.__init__(self, params)
+        Adjust_stocks.__init__(self, params)
         self.buy_count = params.get('buy_count', 3)
         self.use_long_filter = params.get('use_long_filter', False)
         self.use_short_filter = params.get('use_short_filter', False)
@@ -206,11 +212,6 @@ class Buy_stocks(Rule):
         self.g.sell_stocks = []
         self.to_buy = []
 
-    def send_port_info(self, context):
-        port_msg = [(context.portfolio.positions[stock].security, context.portfolio.positions[stock].value_percent) for stock in context.portfolio.positions]
-        self.log.info(str(port_msg))
-#         send_message(port_msg, channel='weixin')
-        
     def recordTrade(self, stock_list):
         for stock in stock_list:
             biaoLiStatus = self.g.monitor_long_cm.getGaugeStockList(stock).values

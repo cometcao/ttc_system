@@ -67,7 +67,7 @@ def get_close_price(security, n, unit='1d'):
     '''
     cur_price = np.nan
     for i in range(3):
-        cur_price = SecurityDataManager.get_data_rq(security, count=n, period=unit, fields=['close'], skip_suspended=True, df=True, include_now=False)['close'][0]
+        cur_price = SecurityDataManager.get_data_rq(security, count=n, period=unit, fields=['close'], skip_suspended=True, df=True, include_now=False)['close'].values[0]
         if not math.isnan(cur_price):
             break
     return cur_price

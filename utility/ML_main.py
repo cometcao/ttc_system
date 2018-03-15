@@ -90,14 +90,22 @@ class ML_biaoli_check(object):
         self.threthold = params.get('threthold', 0.9)
         self.model_path = params.get('model_path', 'training_model/cnn_lstm_model_base.h5')
         self.rq = params.get('rq', True)
+        self.isAnal = params.get('isAnal', False)
         self.extra_training = params.get('extra_training', False)
+        self.prepare_model()
+
+    
+    def prepare_model(self):
+        self.mdp = MLDataProcess(model_name=self.model_path, isAnal=self.isAnal)
+        self.mdp.load_model(model_name=self.model_path)
+        self.mdp.model_name = None # we don't want to save the modified model
         
     def gauge_stocks(self, stocks, isLong=True):
         if not stocks:
             return []
         if self.extra_training:
-            mld = MLDataPrep(isAnal=False, rq=self.rq)
-            mld.retrieve_stocks_data(stocks, period_count=125, filename='training_data/temp_training.pkl')
+            mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq)
+            self.data, self.label = mld.retrieve_stocks_data(stocks, period_count=120, filename=None)
         return [stock for stock in stocks if (self.gauge_long(stock) if isLong else self.gauge_short(stock))]
         
     def gauge_long(self, stock):
@@ -111,21 +119,18 @@ class ML_biaoli_check(object):
         return conf[-1][-1] and len(y_class) == 2 and (y_class[-1] == 1 or (y_class[-2] == 1 and y_class[-1] == 0))
         
     def model_predict(self, stock):
-        mld = MLDataPrep(isAnal=False, rq=self.rq)
+        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq)
         data_set = mld.prepare_stock_data_predict(stock) # 000001.XSHG
         
-        mdp = MLDataProcess(model_name=None)
-        mdp.load_model(model_name=self.model_path)
-        mdp.model_name = None # don't save
-        
         if self.extra_training:
-            x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(filenames=['training_data/temp_training.pkl'])
-            mdp.process_model(mdp.model, x_train, x_test, y_train, y_test, batch_size = 50,epochs = 5)
+            x_train, x_test, y_train, y_test = mld.prepare_stock_data_set(self.data, self.label)
+            x_train, x_test = self.mdp.define_conv_lstm_dimension(x_train, x_test)
+            self.mdp.process_model(self.mdp.model, x_train, x_test, y_train, y_test, batch_size = 50,epochs = 5)
         
         unique_index = np.array([-1, 0, 1])
-        return mdp.model_predict_cnn_lstm(data_set, unique_index)
+        return self.mdp.model_predict_cnn_lstm(data_set, unique_index)
     
     def interpret(self, pred):
         """Our confidence level must be above the threthold"""
         max_val = np.max(pred, axis=1)
-        return max_val > pred
+        return max_val > self.threthold

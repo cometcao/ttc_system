@@ -34,6 +34,23 @@ class JqDataRetriever(DataRetriever):
     def get_research_data(security, start_date='2006-01-01', end_date=str(datetime.datetime.today()), count=100, period='1d', fields=None, skip_suspended=False, adjust_type='pre', df=True):
         return get_price(security, count=count, end_date=end_date, frequency=period, fields = fields, skip_paused=skip_suspended, df=df)
 
+
+def convertIntTimestamptodatetime(time):
+    year = int(time / 1e10)
+    time = time % 1e10 
+    month = int(time / 1e8)
+    time = time % 1e8
+    day = int(time / 1e6)
+    time = time % 1e6
+    hour = int(time / 1e4)
+    time = time % 1e4
+    minute = int(time / 100)
+    time = time % 100
+    second = int(time)
+    timestamp = np.datetime64(datetime.datetime(year, month, day, hour, minute, second))
+    return timestamp
+    
+
 class RqDataRetriever(DataRetriever):
     @staticmethod
     def get_data(security, count=100, period='1d', fields=None, skip_suspended=False, adjust_type='pre', df=True, include_now=False):
@@ -42,11 +59,14 @@ class RqDataRetriever(DataRetriever):
         data_array = history_bars(security, bar_count=count, frequency=period, fields = fields, skip_suspended=skip_suspended, include_now=include_now)
         if df:
             data_array = pd.DataFrame(data_array, columns=fields)
+            data_array['datetimestamp'] = data_array.apply(lambda row: convertIntTimestamptodatetime(row['datetime']), axis=1)
+            data_array.set_index('datetimestamp', inplace=True, drop=True)
+            data_array = data_array.drop(['datetime'], axis=1)
         return data_array
 
     @staticmethod
     def get_research_data(security, start_date='2006-01-01', end_date=None, period='1d', fields=None, skip_suspended=False, adjust_type='pre', df=True):
-        data_df = get_price(security, start_date=start_date, end_date=end_date, frequency=period, fields = fields, skip_paused=skip_suspended, adjust_type=adjust_type)
+        data_df = get_price(security, start_date=start_date, end_date=end_date, frequency=period, fields = fields, skip_suspended=skip_suspended, adjust_type=adjust_type)
         if not df:
             data_df = data_df.values
         return data_df

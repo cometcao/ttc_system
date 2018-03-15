@@ -94,10 +94,10 @@ class StrategyStats(object):
             if order.status == OrderStatus.held:
                 order_id = order.order_id
                 order_tms = np.datetime64(order.add_time) 
-                order_value = order.price * order.filled
+                order_value = order.avg_price * order.filled_quantity
                 order_action = order.action
                 order_side = order.side
-                order_stock = order.security
+                order_stock = order.order_book_id
                 BL_status, TA_type, TA_period = condition
                 try:
                     BL_status = [item.value if item is not None else (np.nan,np.nan) for item in BL_status]

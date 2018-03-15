@@ -249,7 +249,7 @@ def isGoldCross(i,j, macd):
 def inOpenOrder(security):
     orders = get_open_orders()
     for _order in orders.values():
-        if _order.security == security:
+        if _order.order_book_id == security:
             return True
     return False
 

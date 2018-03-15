@@ -11,6 +11,7 @@ except:
 from oop_strategy_frame import *
 from strategy_stats import *
 from prettytable import PrettyTable
+from securityDataManager import *
 import numpy as np
 
 
@@ -24,11 +25,11 @@ class Op_stocks_record(Adjust_expand):
 
     def on_buy_stock(self, stock, order, new_pindex=0,context=None):
         self.position_has_change = True
-        self.op_buy_stocks.append([stock, order.filled])
+        self.op_buy_stocks.append([stock, order.filled_quantity])
 
     def on_sell_stock(self, position, order, is_normal, new_pindex=0,context=None):
         self.position_has_change = True
-        self.op_sell_stocks.append([position.security, -order.filled])
+        self.op_sell_stocks.append([position.order_book_id, -order.filled_quantity])
 
     def after_adjust_end(self, context, data):
         self.op_buy_stocks = self.merge_op_list(self.op_buy_stocks)
@@ -86,11 +87,11 @@ class Show_position(Rule):
         self.op_buy_stocks = []
 
     def on_sell_stock(self, position, order, is_normal, new_pindex=0, context=None):
-        self.op_sell_stocks.append([position.security, order.filled])
+        self.op_sell_stocks.append([position.order_book_id, order.filled_quantity])
         pass
 
     def on_buy_stock(self, stock, order, new_pindex=0, context=None):
-        self.op_buy_stocks.append([stock, order.filled])
+        self.op_buy_stocks.append([stock, order.filled_quantity])
         pass
 
     # # 调仓后调用用
@@ -100,7 +101,7 @@ class Show_position(Rule):
     # ''' ------------------------------获取持仓信息，普通文本格式------------------------------------------'''
     def __get_portfolio_info_text(self, context, op_sfs=[0]):
         sub_str = ''
-        table = PrettyTable(["仓号", "股票", "持仓", "当前价", "盈亏", "持仓比"])
+        table = PrettyTable(["仓号", "股票", "持仓", "成本价", "当前价", "盈亏", "持仓比"])
         # table.padding_width = 1# One space between column edges and contents (default)
 
         cash = context.portfolio.cash
@@ -114,20 +115,22 @@ class Show_position(Rule):
         new_stocks = [x[0] for x in self.op_buy_stocks]
         for stock in context.portfolio.positions.keys():
             position = context.portfolio.positions[stock]
+            stock_price = SecurityDataManager.get_data_rq(stock, count=1, period='1m', fields=['close'], skip_suspended=True, df=False)[-1][0]
             if sf_id in op_sfs and stock in new_stocks:
                 stock_str = show_stock(stock) + ' *'
             else:
                 stock_str = show_stock(stock)
-            stock_raite = (position.total_amount * position.price) / total_values * 100
+            stock_raite = position.value_percent
             table.add_row([sf_id_str,
                            stock_str,
-                           position.total_amount,
-                           position.price,
-                           "%.2f%%" % ((position.price - position.avg_cost) / position.avg_cost * 100),
+                           position.quantity,
+                           position.avg_price,
+                           stock_price,
+                           "%.2f%%" % (position.pnl/1000),
                            "%.2f%%" % (stock_raite)]
                           )
         if sf_id < len(self.g.stock_pindexs) - 1:
-            table.add_row(['----', '---------------', '-----', '----', '-----', '-----'])
+            table.add_row(['----', '---------------', '-----', '----', '----', '-----', '-----'])
         sub_str += '[仓号: %d] [总值:%d] [持股数:%d] [仓位:%.2f%%] \n' % (sf_id,
                                                                  total_values,
                                                                  len(context.portfolio.positions)
@@ -164,7 +167,7 @@ class Stat(Rule):
     def makeOrderRecords(self, orders):
         order_record = []
         for order_id, order_obj in orders.items():
-            stock = order_obj.security
+            stock = order_obj.order_book_id
             if stock in g.money_fund:
                 continue
             if order_obj.action == 'open' and order_obj.side == 'long':
@@ -180,9 +183,10 @@ class Stat(Rule):
         return order_record
 
     def on_sell_stock(self, position, order, is_normal, pindex=0,context=None):
-        if order.filled > 0:
+        if order.filled_quantity > 0:
             # 只要有成交，无论全部成交还是部分成交，则统计盈亏
-            self.watch(position.order_book_id, order.FILLED, position.avg_price, position.market_value/position.quantity)
+            stock_price = SecurityDataManager.get_data_rq(position.order_book_id, count=1, period='1m', fields=['close'], skip_suspended=True, df=False)[-1][0]
+            self.watch(position.order_book_id, order.filled_quantity, position.avg_price, stock_price)
 
     def on_buy_stock(self,stock,order,pindex=0,context=None):
         pass

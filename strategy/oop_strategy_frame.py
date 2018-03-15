@@ -10,6 +10,7 @@ try:
 except:
     pass
 from common_include import *
+from ML_main import *
 import enum
 import math
 '''=================================基础类======================================='''
@@ -72,15 +73,8 @@ class Global_variable(object):
     # 报单失败或者报单成功但被取消（此时成交量等于0），返回False
     # 报单成功，触发所有规则的when_buy_stock函数
     def open_position(self, sender, security, value, pindex=0):
-        cur_price = get_close_price(security, 1, '1m')
-        if math.isnan(cur_price):
-            return False
-        # 通过当前价，四乘五入的计算要买的股票数。
-        amount = int(round(value / cur_price / 100) * 100)
-        new_value = amount * cur_price
-
-        order = order_target_value(security, new_value)
-        if order != None and order.FILLED > 0:
+        order = order_target_value(security, value)
+        if order != None and order.filled_quantity > 0:
             # 订单成功，则调用规则的买股事件 。（注：这里只适合市价，挂价单不适合这样处理）
             self._owner.on_buy_stock(security, order, pindex,self.context)
             return True
@@ -93,7 +87,7 @@ class Global_variable(object):
             return False
         position = self.context.portfolio.positions[security] if self.context is not None else None
         _order = order(security, amount, pindex=pindex)
-        if _order != None and _order.FILLED > 0:
+        if _order != None and _order.filled_quantity > 0:
             # 订单成功，则调用规则的买股事件 。（注：这里只适合市价，挂价单不适合这样处理）
             if amount > 0:
                 self._owner.on_buy_stock(security, _order, pindex,self.context)
@@ -106,20 +100,19 @@ class Global_variable(object):
     # 平仓成功并全部成交，返回True
     # 报单失败或者报单成功但被取消（此时成交量等于0），或者报单非全部成交，返回False
     # 报单成功，触发所有规则的when_sell_stock函数
-    def close_position(self, sender, position, is_normal=True, pindex=0):
-        security = position.security
+    def close_position(self, sender, position, is_normal=True, data=None):
+        security = position.order_book_id
         order = order_target_value(security, 0)  # 可能会因停牌失败
         if order != None:
-            if order.FILLED > 0:
-                self._owner.on_sell_stock(position, order, is_normal, pindex,self.context)
+            if order.filled_quantity > 0:
+                self._owner.on_sell_stock(position, order, is_normal, 0,self.context)
                 if security not in self.sell_stocks:
                     self.sell_stocks.append(security)
                 return True
-            else:
+            elif data:
                 print("卖出%s失败, 尝试跌停价挂单" % (security))
-                current_data = get_current_data()
-                lo = LimitOrderStyle(current_data[security].low_limit)
-                order_target_value(security, 0, style=lo, pindex=pindex) # 尝试跌停卖出
+                lo = LimitOrder(data[security].limit_down)
+                order_target_value(security, 0, style=lo) # 尝试跌停卖出
         return False
 
     # 清空卖出所有持仓
@@ -128,10 +121,10 @@ class Global_variable(object):
         pindexs = self._owner.before_clear_position(context, pindexs)
         # 对传入的子仓集合进行遍历清仓
         if context.portfolio.positions:
-            sender.log.info(("[%d]==> 清仓，卖出所有股票") % (pindex))
+            sender.log.info(("[%d]==> 清仓，卖出所有股票") % (0))
             for stock in context.portfolio.positions.keys():
                 position = context.portfolio.positions[stock]
-                self.close_position(sender, position, False, pindex)
+                self.close_position(sender, position, False)
         # 调用规则器的清仓事件
         self._owner.on_clear_position(context, pindexs)
 
