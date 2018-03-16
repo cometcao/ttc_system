@@ -220,6 +220,8 @@ class MLDataPrep(object):
         else:
             mlk.retrieve_stock_data(stock)
         predict_dataset = mlk.prepare_predict_data()
+        if len(predict_dataset) == 0:
+            return None
         
         predict_dataset = self.pad_each_training_array(predict_dataset)
 #         if self.isDebug:

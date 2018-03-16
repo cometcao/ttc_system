@@ -353,12 +353,12 @@ class Filter_Week_Day_Long_Pivot_Stocks(Filter_stock_list):
         if not self.enable_filter:
             return combined_list
         
-        monitor_list = self.matchStockForMonitor()
+        monitor_list = self.matchStockForMonitor(context)
         monitor_list = self.removeStockForMonitor(monitor_list) # remove unqulified stocks
         monitor_list = list(set(monitor_list + self.g.head_stocks)) # add head stocks
         return monitor_list 
 
-    def matchStockForMonitor(self):
+    def matchStockForMonitor(self, context):
         monitor_list = self.g.monitor_long_cm.filterDownTrendUpTrend(level_list=['5d','1d'], update_df=False)
         monitor_list += self.g.monitor_long_cm.filterUpNodeUpTrend(level_list=['5d','1d'], update_df=False)
         monitor_list += self.g.monitor_long_cm.filterDownNodeUpTrend(level_list=['5d','1d'], update_df=False)
@@ -366,7 +366,7 @@ class Filter_Week_Day_Long_Pivot_Stocks(Filter_stock_list):
         monitor_list += self.g.monitor_long_cm.filterDownNodeDownNode(level_list=['5d','1d'], update_df=False)
         monitor_list += self.g.monitor_long_cm.filterUpTrendDownNode(level_list=['5d','1d'], update_df=False)
         
-        if g.port_pos_control == 1.0:
+        if context.port_pos_control == 1.0:
             monitor_list += self.g.monitor_long_cm.filterUpTrendUpTrend(level_list=['5d','1d'], update_df=False)
         monitor_list = list(set(monitor_list))
         return monitor_list

@@ -127,7 +127,7 @@ class Show_position(Rule):
                            position.avg_price,
                            stock_price,
                            "%.2f%%" % (position.pnl/1000),
-                           "%.2f%%" % (stock_raite)]
+                           "%.2f%%" % (stock_raite * 100)]
                           )
         if sf_id < len(self.g.stock_pindexs) - 1:
             table.add_row(['----', '---------------', '-----', '----', '----', '-----', '-----'])

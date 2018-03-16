@@ -23,7 +23,6 @@ def copy(path):
         f.write(c)
 
 
-
 class MLDataProcess(object):
     def __init__(self, model_name=None, isAnal=False):
         self.model_name = model_name

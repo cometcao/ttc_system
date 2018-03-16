@@ -182,17 +182,19 @@ class Global_variable(object):
             pos_ratio[stock] = pos.value_percent
         return pos_ratio
     
-    def getFundamentalThrethold(self, factor, threthold = 0.95):
+    def getFundamentalThrethold(self, factor, context, threthold = 0.95):
         eval_factor = eval(factor)
         queryDf = get_fundamentals(query(
-            eval_factor, valuation.code
+            eval_factor,
             ).order_by(
                 eval_factor.asc()
-            ))
+            ), entry_date=context.now.date()) 
+        factor_title = factor.split(".")[-1]
+        queryDf = queryDf[factor_title].stack()#
         queryDf = queryDf.dropna()
         total_num = queryDf.shape[0]
         threthold_index = int(total_num * threthold)
-        return queryDf[queryDf.columns.values[0]][threthold_index]  
+        return queryDf[threthold_index]  
 
 
 # ''' ==============================规则基类================================'''
@@ -547,7 +549,7 @@ class Set_sys_params(Rule):
             pass
         try:
             # 过滤log
-            log.set_level(*(self._params.get('level', ['order', 'error'])))
+            logger.set_level(*(self._params.get('level', ['order', 'error'])))
         except:
             pass
         try:
