@@ -72,8 +72,8 @@ class Global_variable(object):
     # 报单成功并成交（包括全部成交或部分成交，此时成交量大于0），返回True
     # 报单失败或者报单成功但被取消（此时成交量等于0），返回False
     # 报单成功，触发所有规则的when_buy_stock函数
-    def open_position(self, sender, security, value, pindex=0):
-        order = order_target_value(security, value)
+    def open_position(self, sender, security, percent, pindex=0):
+        order = order_target_percent(security, percent)
         if order != None and order.filled_quantity > 0:
             # 订单成功，则调用规则的买股事件 。（注：这里只适合市价，挂价单不适合这样处理）
             self._owner.on_buy_stock(security, order, pindex,self.context)
@@ -102,7 +102,7 @@ class Global_variable(object):
     # 报单成功，触发所有规则的when_sell_stock函数
     def close_position(self, sender, position, is_normal=True, data=None):
         security = position.order_book_id
-        order = order_target_value(security, 0)  # 可能会因停牌失败
+        order = order_target_percent(security, 0)  # 可能会因停牌失败
         if order != None:
             if order.filled_quantity > 0:
                 self._owner.on_sell_stock(position, order, is_normal, 0,self.context)
@@ -112,7 +112,7 @@ class Global_variable(object):
             elif data:
                 print("卖出%s失败, 尝试跌停价挂单" % (security))
                 lo = LimitOrder(data[security].limit_down)
-                order_target_value(security, 0, style=lo) # 尝试跌停卖出
+                order_target_percent(security, 0, style=lo) # 尝试跌停卖出
         return False
 
     # 清空卖出所有持仓

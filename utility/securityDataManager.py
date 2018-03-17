@@ -60,11 +60,11 @@ class RqDataRetriever(DataRetriever):
         if df:
             if data_array.size > 0:
                 data_array = pd.DataFrame(data_array, columns=fields)
-                data_array['datetimestamp'] = data_array.apply(lambda row: convertIntTimestamptodatetime(row['datetime']), axis=1)
-                data_array.set_index('datetimestamp', inplace=True, drop=True)
-                data_array = data_array.drop(['datetime'], axis=1)
             else:
                 data_array = pd.DataFrame(columns=fields)
+            data_array['datetimestamp'] = data_array.apply(lambda row: convertIntTimestamptodatetime(row['datetime']), axis=1)
+            data_array.set_index('datetimestamp', inplace=True, drop=True)
+            data_array = data_array.drop(['datetime'], axis=1)
         return data_array
 
     @staticmethod

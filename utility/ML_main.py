@@ -103,16 +103,13 @@ class ML_biaoli_check(object):
     def gauge_stocks(self, stocks, isLong=True):
         if not stocks:
             return []
-        if self.extra_training:
-            mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq)
-            self.data, self.label = mld.retrieve_stocks_data(stocks, period_count=120, filename=None)
         return [stock for stock in stocks if (self.gauge_long(stock) if isLong else self.gauge_short(stock))]
         
     def gauge_long(self, stock):
         y_class, pred = self.model_predict(stock)
         conf = self.interpret(pred)
-        return (len(y_class) >= 2 and y_class[-2] == -1 and y_class[-1] == 0 and conf[-1] and conf[-2]) or\
-                (y_class[-1] == -1 and conf[-1])
+#         return (len(y_class) >= 2 and y_class[-2] == -1 and y_class[-1] == 0 and conf[-1] and conf[-2]) or\
+        return (y_class[-1] == -1 and conf[-1])
         
     def gauge_short(self, stock):
         y_class, pred = self.model_predict(stock)
@@ -126,14 +123,20 @@ class ML_biaoli_check(object):
         data_set = mld.prepare_stock_data_predict(stock) # 000001.XSHG
         if data_set is None: # can't predict
             return ([0],[[0]])
-        
-        if self.extra_training:
-            x_train, x_test, y_train, y_test = mld.prepare_stock_data_set(self.data, self.label)
-            x_train, x_test = self.mdp.define_conv_lstm_dimension(x_train, x_test)
-            self.mdp.process_model(self.mdp.model, x_train, x_test, y_train, y_test, batch_size = 50,epochs = 5)
-        
-        unique_index = np.array([-1, 0, 1])
-        return self.mdp.model_predict_cnn_lstm(data_set, unique_index)
+        try:
+            if self.extra_training:
+                mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq)
+                tmp_data, tmp_label = mld.retrieve_stocks_data([stock], period_count=60, filename=None)
+    
+                x_train, x_test, y_train, y_test = mld.prepare_stock_data_set(tmp_data, tmp_label)
+                x_train, x_test = self.mdp.define_conv_lstm_dimension(x_train, x_test)
+                self.mdp.process_model(self.mdp.model, x_train, x_test, y_train, y_test, batch_size = 1,epochs = 5)
+            
+            unique_index = np.array([-1, 0, 1])
+            return self.mdp.model_predict_cnn_lstm(data_set, unique_index)
+        except Exception as e: 
+            print(e)
+            return ([0],[[0]])
     
     def interpret(self, pred):
         """Our confidence level must be above the threthold"""

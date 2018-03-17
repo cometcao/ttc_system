@@ -19,8 +19,14 @@ from keras import optimizers
 hack_path = '/tmp/test.h5'
 def copy(path):
     c = get_file(path)
-    with open(hack_path, 'wb') as f:
-        f.write(c)
+    i = 0
+    while i < 3:
+        try:
+            with open(hack_path, 'wb') as f:
+                f.write(c)
+                break
+        except:
+            i+=1
 
 
 class MLDataProcess(object):

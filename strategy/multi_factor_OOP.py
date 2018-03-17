@@ -101,7 +101,7 @@ def select_strategy(context):
     pick_config = [
         [True, '', '缠论强弱势板块', Pick_rank_sector,{
                         'strong_sector':True, 
-                        'sector_limit_pct': 13,
+                        'sector_limit_pct': 8,
                         'strength_threthold': 0, 
                         'isDaily': False, 
                         'useIntradayData':False,
@@ -410,7 +410,8 @@ class Sell_stocks_chan(Sell_stocks):
         # 日线级别卖点
         cti = None
         TA_Factor.global_var = self.g
-        self.g.monitor_short_cm.updateGaugeStockList(newStockList=context.portfolio.positions.keys(), levels=[self.monitor_levels[-1]]) # gauge 30m level status
+        sell_check=[stock for stock in context.portfolio.positions.keys() if stock not in self.money_fund]
+        self.g.monitor_short_cm.updateGaugeStockList(newStockList=sell_check, levels=[self.monitor_levels[-1]]) # gauge 30m level status
         if context.now.hour < 11: # 10点之前
             cti = checkTAIndicator_OR({
                 'TA_Indicators':[
@@ -463,7 +464,7 @@ class Sell_stocks_chan(Sell_stocks):
         self.g.intraday_long_stock = [stock for stock in self.g.intraday_long_stock if stock in context.portfolio.positions.keys()]
 
     def before_trading_start(self, context):
-        context.mlb = ML_biaoli_check({'threthold':0.95, 'rq':True, 'model_path':'cnn_lstm_model_index.h5','extra_training':False})
+        context.mlb = ML_biaoli_check({'threthold':0.95, 'rq':True, 'model_path':'cnn_lstm_model_index.h5','extra_training':True})
         pass
 
     def adjust(self, context, data, sell_stocks):
@@ -615,12 +616,12 @@ class Buy_stocks_chan(Buy_stocks):
         # 此处只根据可用金额平均分配购买，不能保证每个仓位平均分配
         position_count = len(context.portfolio.positions)
         if self.buy_count > position_count:
-            value = context.portfolio.total_value * self.pos_control / self.buy_count
+            percent = self.pos_control / self.buy_count
             for stock in buy_stocks:
                 if stock in self.g.sell_stocks:
                     continue
                 if context.portfolio.positions[stock].quantity == 0:
-                    if self.g.open_position(self, stock, value, 0):
+                    if self.g.open_position(self, stock, percent, 0):
                         if len(context.portfolio.positions) == self.buy_count:
                             break
 
@@ -674,13 +675,13 @@ class Buy_stocks_var(Buy_stocks_chan):
                 if (stock not in trade_ratio or trade_ratio[stock] == 0.0):
                     self.g.close_position(self, position, True, data)
                 else:
-                    self.g.open_position(self, stock, context.portfolio.total_value*trade_ratio[stock],0)
+                    self.g.open_position(self, stock, trade_ratio[stock],0)
                     
         for stock in trade_ratio:
             if stock in self.g.sell_stocks and stock not in self.money_fund:
                 continue
             if context.portfolio.positions[stock].quantity == 0:
-                if self.g.open_position(self, stock, context.portfolio.total_value*trade_ratio[stock],0):
+                if self.g.open_position(self, stock, trade_ratio[stock],0):
                     if len(context.portfolio.positions) == self.buy_count+1:
                         break        
         
@@ -703,7 +704,7 @@ class Buy_stocks_var(Buy_stocks_chan):
         for stock in order_stocks:
             if stock in self.g.sell_stocks:
                 continue
-            if self.g.open_position(self, stock, context.portfolio.total_value*trade_ratio[stock],0):
+            if self.g.open_position(self, stock, trade_ratio[stock],0):
                 pass
     
     def getOrderByRatio(self, current_ratio, target_ratio):

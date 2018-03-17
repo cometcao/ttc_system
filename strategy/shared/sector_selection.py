@@ -75,7 +75,7 @@ class SectorSelection(object):
             message += sector + ':'
             message += ','.join([instruments(s).symbol for s in stocks])
             message += '***'
-        send_message(message, channel='weixin')      
+        send_message(message, channel='weixin')
 
     def processAllSectors(self, sendMsg=False, display=False):
         if self.filtered_industry: # ignore concept case here
