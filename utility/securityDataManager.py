@@ -56,16 +56,22 @@ class RqDataRetriever(DataRetriever):
     def get_data(security, count=100, period='1d', fields=None, skip_suspended=False, adjust_type='pre', df=True, include_now=False):
         if df and 'datetime' not in fields:
             fields.append('datetime')
-        data_array = history_bars(security, bar_count=count, frequency=period, fields = fields, skip_suspended=skip_suspended, include_now=include_now)
-        if df:
-            if data_array.size > 0:
-                data_array = pd.DataFrame(data_array, columns=fields)
-            else:
-                data_array = pd.DataFrame(columns=fields)
-            data_array['datetimestamp'] = data_array.apply(lambda row: convertIntTimestamptodatetime(row['datetime']), axis=1)
-            data_array.set_index('datetimestamp', inplace=True, drop=True)
-            data_array = data_array.drop(['datetime'], axis=1)
-        return data_array
+        
+        try:
+            data_array = history_bars(security, bar_count=count, frequency=period, fields = fields, skip_suspended=skip_suspended, include_now=include_now)
+            if df:
+                if data_array.size > 0:
+                    data_array = pd.DataFrame(data_array, columns=fields)
+                else:
+                    data_array = pd.DataFrame(columns=fields)
+                data_array['datetimestamp'] = data_array.apply(lambda row: convertIntTimestamptodatetime(row['datetime']), axis=1)
+                data_array.set_index('datetimestamp', inplace=True, drop=True)
+                data_array = data_array.drop(['datetime'], axis=1)
+            return data_array
+        except Exception as e:
+            print("stock {0} data error: {1}".format(security, e))
+            return pd.DataFrame(columns=fields) if df else np.array([])
+
 
     @staticmethod
     def get_research_data(security, start_date='2006-01-01', end_date=None, period='1d', fields=None, skip_suspended=False, adjust_type='pre', df=True):

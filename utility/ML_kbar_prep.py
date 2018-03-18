@@ -30,7 +30,7 @@ class MLKbarPrep(object):
     '''
 
     monitor_level = ['1d', '30m']
-    def __init__(self, count=100, isAnal=False, isNormalize=True, manual_select=False, useMinMax=True, sub_max_count=168, isDebug=False):
+    def __init__(self, count=100, isAnal=False, isNormalize=True, manual_select=False, useMinMax=True, sub_max_count=168, isDebug=False, include_now=False):
         self.isDebug = isDebug
         self.isAnal = isAnal
         self.count = count
@@ -42,6 +42,7 @@ class MLKbarPrep(object):
         self.sub_max_count = sub_max_count
         self.data_set = []
         self.label_set = []
+        self.include_now = include_now
     
     def retrieve_stock_data(self, stock):
         for level in MLKbarPrep.monitor_level:
@@ -60,7 +61,7 @@ class MLKbarPrep(object):
             stock_df = None
             if not self.isAnal:
                 local_count = self.count if level == '1d' else self.count * 8 # assuming 30m
-                stock_df = SecurityDataManager.get_data_rq(stock, count=local_count, period=level, fields=['open','close','high','low', 'total_turnover'], skip_suspended=True, df=True, include_now=False)
+                stock_df = SecurityDataManager.get_data_rq(stock, count=local_count, period=level, fields=['open','close','high','low', 'total_turnover'], skip_suspended=True, df=True, include_now=self.include_now)
             else:
                 today = datetime.datetime.today()
                 previous_trading_day=get_trading_dates(start_date='2006-01-01', end_date=today)[-self.count]
@@ -213,8 +214,8 @@ class MLDataPrep(object):
             self.save_dataset((data_list, label_list), filename)
         return (data_list, label_list)
     
-    def prepare_stock_data_predict(self, stock, period_count=60):
-        mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug)
+    def prepare_stock_data_predict(self, stock, period_count=60, include_now=True):
+        mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug, include_now=include_now)
         if self.isRQ:
             mlk.retrieve_stock_data_rq(stock)
         else:

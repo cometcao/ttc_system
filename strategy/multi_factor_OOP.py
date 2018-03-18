@@ -416,24 +416,22 @@ class Sell_stocks_chan(Sell_stocks):
             cti = checkTAIndicator_OR({
                 'TA_Indicators':[
                                 (TaType.BOLL_MACD,'1d',233),
-                                # (TaType.BOLL_MACD,'60m',233),
-                                # (TaType.MACD,'60m',233),
                                 (TaType.MACD,'1d',233),
-                                # (TaType.BOLL,'1d',100), 
                                 ],
-                'isLong':False}) 
+                'isLong':False, 
+                'use_latest_data':False
+            }) 
         elif context.now.hour >= 14: # after 14:00
             cti = checkTAIndicator_OR({
                 'TA_Indicators':[
-                                # (TaType.BOLL,'240m',100), 
-                                (TaType.BOLL_MACD,'240m',233), # moved from morning check
-                                # (TaType.BOLL_MACD,'60m',233),
-                                # (TaType.MACD,'60m',233),
-                                (TaType.MACD,'240m',233),
-                                # (TaType.TRIX_STATUS, '240m', 100),
-                                (TaType.KDJ_CROSS, '240m', 100)
+                                (TaType.BOLL_MACD,'1d',233), # moved from morning check
+                                (TaType.MACD,'1d',233),
+                                (TaType.TRIX_STATUS, '1d', 100),
+                                # (TaType.KDJ_CROSS, '1d', 100)
                     ], 
-                'isLong':False}) 
+                'isLong':False,
+                'use_latest_data':True
+            }) 
         else:
             cti = checkTAIndicator_OR({
                 'TA_Indicators':[
@@ -449,8 +447,8 @@ class Sell_stocks_chan(Sell_stocks):
             pass
 
         # ML check
-        ml_check = [stock for stock in context.portfolio.positions.keys() if stock not in self.money_fund]
-        to_sell_biaoli = context.mlb.gauge_stocks(ml_check, isLong=False)
+        # to_sell_biaoli = context.mlb.gauge_stocks(sell_check, isLong=False)
+        to_sell_biaoli = []
         
         to_sell = list(set(to_sell+to_sell_biaoli))
         if to_sell:
@@ -464,7 +462,7 @@ class Sell_stocks_chan(Sell_stocks):
         self.g.intraday_long_stock = [stock for stock in self.g.intraday_long_stock if stock in context.portfolio.positions.keys()]
 
     def before_trading_start(self, context):
-        context.mlb = ML_biaoli_check({'threthold':0.95, 'rq':True, 'model_path':'cnn_lstm_model_index.h5','extra_training':True})
+        # context.mlb = ML_biaoli_check({'threthold':0.95, 'rq':True, 'model_path':'cnn_lstm_model_index.h5','extra_training':True})
         pass
 
     def adjust(self, context, data, sell_stocks):
@@ -520,7 +518,7 @@ class Buy_stocks_chan(Buy_stocks):
         to_buy = self.dailyLongFilter(context, data, to_buy)
         
         # ML check
-        to_buy = context.mlb.gauge_stocks(to_buy, isLong=True)
+        # to_buy = context.mlb.gauge_stocks(to_buy, isLong=True)
         
         if to_buy:
             buy_msg = '日内待买股:\n' + join_list(["[%s]" % (show_stock(x)) for x in to_buy], ' ', 10)
@@ -545,34 +543,39 @@ class Buy_stocks_chan(Buy_stocks):
             self.send_port_info(context)
     
     def dailyLongFilter(self, context, data, to_buy):
-        to_buy_list = []
         TA_Factor.global_var = self.g 
         
-        if context.now.hour >= 14:
-            cta = checkTAIndicator_OR({
-            'TA_Indicators':[
-                            (TaType.MACD,'60m',233),
-                            (TaType.MACD,'240m',233),
-                            (TaType.BOLL_MACD, '60m', 233),
-                            (TaType.BOLL_MACD, '240m', 233),
-                            (TaType.RSI, '240m', 100),
-                            (TaType.KDJ_CROSS, '240m', 100),
-                            ],
-            'isLong':True})
-        else:
-            cta = checkTAIndicator_OR({
+        cta = checkTAIndicator_OR({
             'TA_Indicators':[
                             (TaType.MACD,'60m',233),
                             (TaType.BOLL_MACD, '60m', 233),
                             ],
             'isLong':True})
         to_buy_list = cta.filter(context, data, to_buy)
+        
+        if context.now.hour >= 14:
+            cta = checkTAIndicator_OR({
+            'TA_Indicators':[
+                            (TaType.MACD,'1d',233),
+                            (TaType.BOLL_MACD, '1d', 233),
+                            (TaType.RSI, '1d', 100),
+                            (TaType.KDJ_CROSS, '1d', 100),
+                            ],
+            'isLong':True, 
+            'use_latest_data':True
+            })
+            to_buy_list += cta.filter(context, data, to_buy)
             
         return to_buy_list
 
     def dailyShortFilter(self, context, data, to_buy):
-        not_to_buy = []
-        cti_short_check = None
+        cti_short_check = checkTAIndicator_OR({
+            'TA_Indicators':[
+                            (TaType.MACD,'60m',233),
+                            (TaType.BOLL_MACD,'60m',233),
+                            ], 
+            'isLong':False})
+        not_to_buy = cti_short_check.filter(context, data, to_buy)
         if context.now.hour < 11:
             cti_short_check = checkTAIndicator_OR({
                 'TA_Indicators':[
@@ -581,24 +584,19 @@ class Buy_stocks_chan(Buy_stocks):
                                 (TaType.BOLL,'1d',40),
                                 (TaType.TRIX_STATUS, '1d', 100)], 
                 'isLong':False})
-        
+            not_to_buy += cti_short_check.filter(context, data, to_buy)
         elif context.now.hour >= 14:
             cti_short_check = checkTAIndicator_OR({
                 'TA_Indicators':[
-                                (TaType.MACD,'240m',233),
-                                (TaType.BOLL_MACD,'240m',233),
-                                (TaType.BOLL,'240m',40),
-                                (TaType.TRIX_STATUS, '240m', 100), 
+                                (TaType.MACD,'1d',233),
+                                (TaType.BOLL_MACD,'1d',233),
+                                (TaType.BOLL,'1d',40),
+                                (TaType.TRIX_STATUS, '1d', 100), 
                                 ], 
-                'isLong':False})
-        else:
-            cti_short_check = checkTAIndicator_OR({
-                'TA_Indicators':[
-                                (TaType.MACD,'60m',233),
-                                (TaType.BOLL_MACD,'60m',233),
-                                ], 
-                'isLong':False})
-        not_to_buy = cti_short_check.filter(context, data, to_buy)
+                'isLong':False, 
+                'use_latest_data':True
+            })
+            not_to_buy += cti_short_check.filter(context, data, to_buy)
 
         not_to_buy += self.g.monitor_long_cm.filterUpTrendDownTrend(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
         not_to_buy += self.g.monitor_long_cm.filterUpTrendUpNode(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
