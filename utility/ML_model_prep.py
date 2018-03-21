@@ -22,10 +22,12 @@ def copy(path):
     i = 0
     while i < 3:
         try:
+#             put_file(hack_path)
             with open(hack_path, 'wb') as f:
                 f.write(c)
-                break
-        except:
+            break
+        except Exception as e:
+            print(e)
             i+=1
 
 
@@ -88,7 +90,7 @@ class MLDataProcess(object):
     
     def define_conv_lstm_model(self, x_train, x_test, y_train, y_test, num_classes, batch_size = 50,epochs = 5):
         x_train, x_test = self.define_conv_lstm_dimension(x_train, x_test)
-        
+
         input_shape = None
         a, b, c, d, e = x_train.shape
         if K.image_data_format() == 'channels_first':
@@ -97,11 +99,7 @@ class MLDataProcess(object):
         else:
             # convert class vectors to binary class matrices
             input_shape = (b, c, d, e)
-        
-#         y_train = to_categorical(y_train, num_classes)
-#         y_test = to_categorical(y_test, num_classes)
-        
-        # define CNN model
+
         model = Sequential()
         model.add(ConvLSTM2D(32, 
                              kernel_size=(3, 1), 

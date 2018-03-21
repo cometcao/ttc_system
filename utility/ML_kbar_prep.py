@@ -44,28 +44,32 @@ class MLKbarPrep(object):
         self.label_set = []
         self.include_now = include_now
     
-    def retrieve_stock_data(self, stock):
+    def retrieve_stock_data(self, stock, end_date=None):
         for level in MLKbarPrep.monitor_level:
             local_count = self.count if level == '1d' else self.count * 8
             stock_df = None
             if not self.isAnal:
                 stock_df = attribute_history(stock, local_count, level, fields = ['open','close','high','low', 'money'], skip_paused=True, df=True)  
             else:
-                latest_trading_day = get_trade_days(count=1)[-1]
+                latest_trading_day = end_date if end_date is not None else get_trade_days(count=1)[-1]
                 stock_df = get_price(stock, count=local_count, end_date=latest_trading_day, frequency=level, fields = ['open','close','high','low', 'money'], skip_paused=True)          
+            if stock_df.empty:
+                continue
             stock_df = self.prepare_df_data(stock_df)
             self.stock_df_dict[level] = stock_df
     
-    def retrieve_stock_data_rq(self, stock):
+    def retrieve_stock_data_rq(self, stock, end_date=None):
         for level in MLKbarPrep.monitor_level:
             stock_df = None
             if not self.isAnal:
                 local_count = self.count if level == '1d' else self.count * 8 # assuming 30m
                 stock_df = SecurityDataManager.get_data_rq(stock, count=local_count, period=level, fields=['open','close','high','low', 'total_turnover'], skip_suspended=True, df=True, include_now=self.include_now)
             else:
-                today = datetime.datetime.today()
+                today = end_date if end_date is not None else datetime.datetime.today()
                 previous_trading_day=get_trading_dates(start_date='2006-01-01', end_date=today)[-self.count]
                 stock_df = SecurityDataManager.get_research_data_rq(stock, start_date=previous_trading_day, end_date=today, period=level, fields = ['open','close','high','low', 'total_turnover'], skip_suspended=True)
+            if stock_df.empty:
+                continue
             stock_df = self.prepare_df_data(stock_df)
             self.stock_df_dict[level] = stock_df    
     
@@ -84,6 +88,8 @@ class MLKbarPrep(object):
         return stock_df
     
     def prepare_training_data(self):
+        if len(self.stock_df_dict) == 0:
+            return [], []
         higher_df = self.stock_df_dict[MLKbarPrep.monitor_level[0]]
         lower_df = self.stock_df_dict[MLKbarPrep.monitor_level[1]]
         high_df_tb = higher_df.dropna(subset=['new_index'])
@@ -99,8 +105,7 @@ class MLKbarPrep(object):
         higher_df = self.stock_df_dict[MLKbarPrep.monitor_level[0]]
         lower_df = self.stock_df_dict[MLKbarPrep.monitor_level[1]]
         high_df_tb = higher_df.dropna(subset=['new_index'])
-        if self.isDebug:
-            print(high_df_tb)
+        print(high_df_tb)
         high_dates = high_df_tb.index
         
         for i in range(-3, 0, 1):
@@ -198,15 +203,16 @@ class MLDataPrep(object):
         self.isRQ = rq
         self.unique_index = []
     
-    def retrieve_stocks_data(self, stocks, period_count=60, filename=None):
+    def retrieve_stocks_data(self, stocks, period_count=60, filename=None, today_date=None):
         data_list = label_list = []
         for stock in stocks:
-            print ("working on stock: {0}".format(stock))
+            if self.isAnal:
+                print ("working on stock: {0}".format(stock))
             mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug)
             if self.isRQ:
-                mlk.retrieve_stock_data_rq(stock)
+                mlk.retrieve_stock_data_rq(stock, today_date)
             else:
-                mlk.retrieve_stock_data(stock)
+                mlk.retrieve_stock_data(stock, today_date)
             dl, ll = mlk.prepare_training_data()
             data_list = data_list + dl
             label_list = label_list + ll   
@@ -214,12 +220,12 @@ class MLDataPrep(object):
             self.save_dataset((data_list, label_list), filename)
         return (data_list, label_list)
     
-    def prepare_stock_data_predict(self, stock, period_count=60, include_now=True):
+    def prepare_stock_data_predict(self, stock, period_count=60, include_now=True, today_date=None):
         mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug, include_now=include_now)
         if self.isRQ:
-            mlk.retrieve_stock_data_rq(stock)
+            mlk.retrieve_stock_data_rq(stock, today_date)
         else:
-            mlk.retrieve_stock_data(stock)
+            mlk.retrieve_stock_data(stock, today_date)
         predict_dataset = mlk.prepare_predict_data()
         if len(predict_dataset) == 0:
             return None

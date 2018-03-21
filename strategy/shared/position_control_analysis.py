@@ -82,8 +82,9 @@ class PositionControlVar(object):
     # 根据预设的 risk_money 和 confidencelevel 来计算，可以买入该多少权益类资产
     def func_getequity_value(self, context, equity_ratio):
         def __func_getdailyreturn(stock, freq, lag):
-            hStocks = SecurityDataManager.get_data_rq(stock, count=lag, period=freq, fields=['close'], skip_suspended=False, df=True)
-            dailyReturns = hStocks.resample('D', how='last').pct_change().fillna(value=0, method=None, axis=0).values
+            today = context.now.date()
+            previous_date = get_trading_dates(start_date='2006-01-01', end_date=today)[-lag]
+            dailyReturns = get_price_change_rate(stock, start_date=previous_date, end_date=today).values
             return dailyReturns
 
         def __func_getStd(stock, freq, lag):
@@ -108,14 +109,15 @@ class PositionControlVar(object):
             if np.isnan(__equity_value):
                 __equity_value = 0
 
-            # print __equity_value
-            # print __portfolio_VaR
+#             print ("__func_getEquity_value:{0}".format(__risk_money))
+#             print ("__func_getEquity_value:{0}".format(__equity_value))
+#             print ("__func_getEquity_value:{0}".format(__portfolio_VaR))
                 
             return __equity_value
 
         risk_money = self.risk_money
         equity_value, bonds_value = 0, 0
-
+        
         equity_value = __func_getEquity_value(equity_ratio, risk_money, self.confidencelevel)
         portfolio_value = context.portfolio.total_value
         if equity_value > portfolio_value:

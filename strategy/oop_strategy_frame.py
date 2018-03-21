@@ -163,13 +163,13 @@ class Global_variable(object):
         return count if init else -count  # 统计结束，返回结果。init为True返回正数，为False返回负数。
     
     def isFirstTradingDayOfWeek(self, context):
-        trading_days = get_trading_dates(start_date='2016-01-01', end_date=context.now)[-2:]
+        trading_days = get_trading_dates(start_date='2016-01-01', end_date=context.now.date())[-2:]
         today = trading_days[-1]
         last_trading_day = trading_days[-2]
         return (today.isocalendar()[1] != last_trading_day.isocalendar()[1])
         
     def isFirstTradingDayOfMonth(self, context):
-        trading_days = get_trading_dates(start_date='2016-01-01', end_date=context.now)[-2:]
+        trading_days = get_trading_dates(start_date='2016-01-01', end_date=context.now.date())[-2:]
         today = trading_days[-1]
         last_trading_day = trading_days[-2]
         return (today.month != last_trading_day.month)

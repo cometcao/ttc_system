@@ -14,7 +14,7 @@ except:
 
 from enum import Enum 
 import datetime
-
+import pandas as pd
 
 class DataRetriever():
     @staticmethod
@@ -56,21 +56,24 @@ class RqDataRetriever(DataRetriever):
     def get_data(security, count=100, period='1d', fields=None, skip_suspended=False, adjust_type='pre', df=True, include_now=False):
         if df and 'datetime' not in fields:
             fields.append('datetime')
-        
         try:
             data_array = history_bars(security, bar_count=count, frequency=period, fields = fields, skip_suspended=skip_suspended, include_now=include_now)
             if df:
-                if data_array.size > 0:
+                if data_array is not None and data_array.size > 0:
                     data_array = pd.DataFrame(data_array, columns=fields)
+                    data_array['datetimestamp'] = data_array.apply(lambda row: convertIntTimestamptodatetime(row['datetime']), axis=1)
+                    data_array.set_index('datetimestamp', inplace=True, drop=True)
+                    data_array = data_array.drop(['datetime'], axis=1)
                 else:
                     data_array = pd.DataFrame(columns=fields)
-                data_array['datetimestamp'] = data_array.apply(lambda row: convertIntTimestamptodatetime(row['datetime']), axis=1)
-                data_array.set_index('datetimestamp', inplace=True, drop=True)
-                data_array = data_array.drop(['datetime'], axis=1)
             return data_array
         except Exception as e:
             print("stock {0} data error: {1}".format(security, e))
-            return pd.DataFrame(columns=fields) if df else np.array([])
+            print("count{0}, period{1}, fields{2}, skip_suspended{3}, adjust_type{4}, df{5}, include_now{6}".format(count, period, fields, skip_suspended, adjust_type, df, include_now))
+            if df:
+                return pd.DataFrame(columns=fields)
+            else: 
+                return np.array([])
 
 
     @staticmethod

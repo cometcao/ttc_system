@@ -32,17 +32,8 @@ class Pick_stocks2(Group_rules):
         if to_run_one and self.has_run:
             # self.log.info('设置一天只选一次，跳过选股。')
             return
-        
-        stock_list = self.g.monitor_buy_list
-        if self.g.buy_stocks: 
-            stock_list = self.g.buy_stocks
-        for rule in self.rules:
-            if isinstance(rule, Filter_stock_list):
-                stock_list = rule.filter(context, data, stock_list)
-    
-        self.g.monitor_buy_list = stock_list
 
-        self.log.info('今日选股:\n' + join_list(["[%s]" % (show_stock(x)) for x in stock_list], ' ', 10))
+        self.log.info('今日选股:\n' + join_list(["[%s]" % (show_stock(x)) for x in self.g.monitor_buy_list], ' ', 10))
         self.has_run = True
 
     def before_trading_start(self, context):
@@ -53,6 +44,15 @@ class Pick_stocks2(Group_rules):
             if isinstance(rule, Create_stock_list):
                 self.g.buy_stocks = rule.filter(context, data)
                 break
+
+        stock_list = self.g.monitor_buy_list
+        if self.g.buy_stocks: 
+            stock_list = self.g.buy_stocks
+        for rule in self.rules:
+            if isinstance(rule, Filter_stock_list):
+                stock_list = rule.filter(context, data, stock_list)
+    
+        self.g.monitor_buy_list = stock_list
 
     def __str__(self):
         return self.memo
@@ -291,7 +291,7 @@ class Pick_rank_sector(Create_stock_list):
     def filter(self, context, data):
 #         new_list = ['002714.XSHE', '603159.XSHG', '603703.XSHG','000001.XSHE','000002.XSHE','600309.XSHG','002230.XSHE','600392.XSHG','600291.XSHG']
         new_list=[]
-        if self.g.isFirstTradingDayOfWeek(context) or not self.g.buy_stocks or self.isDaily:
+        if self.g.isFirstTradingDayOfWeek(context) or not self.g.monitor_buy_list or self.isDaily:
             self.log.info("选取前 %s%% 板块" % str(self.sector_limit_pct))
             ss = SectorSelection(limit_pct=self.sector_limit_pct, 
                     isStrong=self.strong_sector, 
