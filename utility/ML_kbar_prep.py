@@ -30,7 +30,7 @@ class MLKbarPrep(object):
     '''
 
     monitor_level = ['1d', '30m']
-    def __init__(self, count=100, isAnal=False, isNormalize=True, manual_select=False, useMinMax=True, sub_max_count=168, isDebug=False, include_now=False):
+    def __init__(self, count=100, isAnal=False, isNormalize=True, manual_select=False, useMinMax=True, sub_max_count=168, isDebug=False, include_now=False, sub_level_min_count = 2):
         self.isDebug = isDebug
         self.isAnal = isAnal
         self.count = count
@@ -38,7 +38,7 @@ class MLKbarPrep(object):
         self.useMinMax = useMinMax
         self.manual_select = manual_select
         self.stock_df_dict = {}
-        self.sub_level_min_count = 2
+        self.sub_level_min_count = sub_level_min_count
         self.sub_max_count = sub_max_count
         self.data_set = []
         self.label_set = []
@@ -105,10 +105,13 @@ class MLKbarPrep(object):
         higher_df = self.stock_df_dict[MLKbarPrep.monitor_level[0]]
         lower_df = self.stock_df_dict[MLKbarPrep.monitor_level[1]]
         high_df_tb = higher_df.dropna(subset=['new_index'])
-        print(high_df_tb)
+        if high_df_tb.shape[0] > 5:
+            print(high_df_tb.tail(5)[['tb', 'new_index']])
+        else:
+            print(high_df_tb[['tb', 'new_index']])
         high_dates = high_df_tb.index
         
-        for i in range(-3, 0, 1):
+        for i in range(-5, 0, 1):
             try:
                 previous_date = str(high_dates[i].date())
             except IndexError:
@@ -122,24 +125,23 @@ class MLKbarPrep(object):
             if self.isDebug:
                 print(trunk_df)
             self.create_ml_data_set(trunk_df, None)
+        return self.data_set
                
-#         previous_high_date = str(high_dates[-2].date())
-#         first_high_date = str(high_dates[-3].date())
-#         trunk_lower_df_first = lower_df.loc[first_high_date:previous_high_date, :]
-#         if self.isDebug:
-#             print(trunk_lower_df_first)
-#         self.create_ml_data_set(trunk_lower_df_first, None)          
-#         
-#         last_high_date = str(high_dates[-1].date())
-#         trunk_lower_df_pivot = lower_df.loc[previous_high_date:last_high_date, :]
-#         if self.isDebug:
-#             print(trunk_lower_df_pivot)
-#         self.create_ml_data_set(trunk_lower_df_pivot, None)
-# 
-#         trunk_lower_df = lower_df.loc[last_high_date:, :]
-#         if self.isDebug:
-#             print(trunk_lower_df)
-#         self.create_ml_data_set(trunk_lower_df, None)
+    def prepare_predict_data_extra(self):
+        higher_df = self.stock_df_dict[MLKbarPrep.monitor_level[0]]
+        lower_df = self.stock_df_dict[MLKbarPrep.monitor_level[1]]
+        high_df_tb = higher_df.dropna(subset=['new_index'])
+        high_dates = high_df_tb.index
+        # additional check trunk
+        for i in range(-3, -1, 2):#-5
+            try:
+                previous_date = str(high_dates[i].date())
+            except IndexError:
+                continue
+            trunk_df = lower_df.loc[previous_date:,:]
+            if self.isDebug:
+                print(trunk_df)
+            self.create_ml_data_set(trunk_df, None)
         return self.data_set
         
     def create_ml_data_set(self, trunk_df, label): 
@@ -208,7 +210,7 @@ class MLDataPrep(object):
         for stock in stocks:
             if self.isAnal:
                 print ("working on stock: {0}".format(stock))
-            mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug)
+            mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug, sub_level_min_count=2)
             if self.isRQ:
                 mlk.retrieve_stock_data_rq(stock, today_date)
             else:
@@ -220,21 +222,21 @@ class MLDataPrep(object):
             self.save_dataset((data_list, label_list), filename)
         return (data_list, label_list)
     
-    def prepare_stock_data_predict(self, stock, period_count=60, include_now=True, today_date=None):
-        mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug, include_now=include_now)
+    def prepare_stock_data_predict(self, stock, period_count=100, today_date=None):
+        mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug, sub_level_min_count=0)
         if self.isRQ:
             mlk.retrieve_stock_data_rq(stock, today_date)
         else:
             mlk.retrieve_stock_data(stock, today_date)
         predict_dataset = mlk.prepare_predict_data()
-        if len(predict_dataset) == 0:
-            return None
+        origin_pred_size = len(predict_dataset)
+        if origin_pred_size == 0:
+            return None, 0
+        predict_dataset = mlk.prepare_predict_data_extra()
         
         predict_dataset = self.pad_each_training_array(predict_dataset)
-#         if self.isDebug:
-#             print (predict_dataset.shape)
-#             print (predict_dataset)
-        return predict_dataset
+        print("original size:{0}".format(origin_pred_size))
+        return predict_dataset, origin_pred_size
         
     def encode_category(self, label_set):
         uniques, ids = np.unique(label_set, return_inverse=True)

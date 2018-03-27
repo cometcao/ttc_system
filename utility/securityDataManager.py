@@ -66,6 +66,9 @@ class RqDataRetriever(DataRetriever):
                     data_array = data_array.drop(['datetime'], axis=1)
                 else:
                     data_array = pd.DataFrame(columns=fields)
+            else:
+                if data_array is None:
+                    data_array = np.array([])
             return data_array
         except Exception as e:
             print("stock {0} data error: {1}".format(security, e))

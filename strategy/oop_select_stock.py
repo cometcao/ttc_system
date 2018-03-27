@@ -301,6 +301,7 @@ class Pick_rank_sector(Create_stock_list):
                     avgPeriod=self.avgPeriod,
                     context=context)
             new_list = ss.processAllSectorStocks(context)
+            print(new_list)
             self.g.filtered_sectors = ss.processAllSectors(context)
         return new_list 
     

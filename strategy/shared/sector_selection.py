@@ -107,7 +107,6 @@ class SectorSelection(object):
         
     def processIndustrySectors(self):
         industryStrength = []
-
         for indu in self.jqIndustry:
             try:
                 stocks = industry(indu)
@@ -183,7 +182,7 @@ class SectorSelection(object):
             MA_89 = self.simple_moving_avg(stock_df, 89)
             MA_144 = self.simple_moving_avg(stock_df, 144)
             MA_233 = self.simple_moving_avg(stock_df, 233)
-            if (stock_suspend_check is not None and not stock_suspend_check.empty and stock_suspend_check.iloc[-1,0]) or stock_df.size==0: # paused we need to remove it from calculation
+            if (stock_suspend_check is not None and not stock_suspend_check.empty and stock_suspend_check.iloc[-1,0]) or stock_df is None or stock_df.size==0: # paused we need to remove it from calculation
                 return -1 
             elif stock_df[index] < MA_5 or np.isnan(MA_5):
                 return 0 if isWeighted else 1

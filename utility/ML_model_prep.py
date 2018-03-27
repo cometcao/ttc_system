@@ -10,6 +10,10 @@ from keras.layers.normalization import BatchNormalization
 from keras.layers import Conv2D, MaxPooling2D, ConvLSTM2D
 from keras import optimizers
 
+try:
+    from rqdatac import *
+except:
+    pass
 #     import os
 #     print(os.path.abspath('.'))
 #     files_content = [f for f in os.listdir('.')]
@@ -32,10 +36,12 @@ def copy(path):
 
 
 class MLDataProcess(object):
-    def __init__(self, model_name=None, isAnal=False):
+    def __init__(self, model_name=None, isAnal=False, saveByte=False):
         self.model_name = model_name
         self.model = None
         self.isAnal = isAnal
+        self.saveByte = saveByte
+        
     
     def define_conv2d_dimension(self, x_train, x_test):
         x_train = np.expand_dims(x_train, axis=2) 
@@ -142,25 +148,37 @@ class MLDataProcess(object):
         
         self.model = model
         if self.model_name:
-            model.save(self.model_name)
+            if self.saveByte:
+                self.save_model_byte(self.model_name, self.model)
+            else:
+                model.save(self.model_name)
             print("saved to file {0}".format(self.model_name))
     
     def load_model(self, model_name):
-        if self.isAnal:
-            self.model = load_model(model_name)
+        if self.saveByte:
+            self.load_model_byte(model_name)
         else:
-            copy(model_name)
-            self.model = load_model(hack_path)
+            if self.isAnal:
+                self.model = load_model(model_name)
+            else:
+                copy(model_name)
+                self.model = load_model(hack_path)
         self.model_name = model_name
         print("loaded model: {0}".format(self.model_name))
+        
+    def save_model_byte(self, model_name, model):
+        put_file(model_name, model)
+        
+    def load_model_byte(self, model_name):
+        self.model = get_file(model_name)
 
     def model_predict_cnn(self, data_set, unique_id):
         if self.model:
             data_set = np.expand_dims(data_set, axis=2)
             prediction = np.array(self.model.predict(data_set))
-            print(prediction)
+#             print(prediction)
             y_class = unique_id[prediction.argmax(axis=-1)]
-            print(y_class)
+#             print(y_class)
         else:
             print("Invalid model")
     
@@ -169,9 +187,9 @@ class MLDataProcess(object):
             data_set = np.expand_dims(data_set, axis=2)
             data_set = np.expand_dims(data_set, axis=1)
             prediction = np.array(self.model.predict(data_set))
-            print(prediction)
+#             print(prediction)
             y_class = unique_id[prediction.argmax(axis=-1)]
-            print(y_class)
+#             print(y_class)
             return (y_class, prediction)
         else:
             print("Invalid model")

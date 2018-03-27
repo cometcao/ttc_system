@@ -152,7 +152,7 @@ def select_strategy(context):
                             # (TaType.MA, '1d', 60),
                             ],
             'isLong':True}], # 确保大周期安全
-        [True, '', '日线周线级别表里买点筛选', Filter_Week_Day_Long_Pivot_Stocks, {'monitor_levels':context.monitor_levels}],
+        [False, '', '日线周线级别表里买点筛选', Filter_Week_Day_Long_Pivot_Stocks, {'monitor_levels':context.monitor_levels}],
         [True, '', '权重排序', SortRules, {
             'config': [
                 [True, 'Sort_std_data', '波动率排序', Sort_std_data, {
@@ -411,7 +411,7 @@ class Sell_stocks_chan(Sell_stocks):
         cti = None
         TA_Factor.global_var = self.g
         sell_check=[stock for stock in context.portfolio.positions.keys() if stock not in self.money_fund]
-        self.g.monitor_short_cm.updateGaugeStockList(newStockList=sell_check, levels=[self.monitor_levels[-1]]) # gauge 30m level status
+        # self.g.monitor_short_cm.updateGaugeStockList(newStockList=sell_check, levels=[self.monitor_levels[-1]]) # gauge 30m level status
         if context.now.hour < 11: # 10点之前
             cti = checkTAIndicator_OR({
                 'TA_Indicators':[
@@ -447,8 +447,8 @@ class Sell_stocks_chan(Sell_stocks):
             pass
 
         # ML check
-        # to_sell_biaoli = context.mlb.gauge_stocks(sell_check, isLong=False)
-        to_sell_biaoli = []
+        to_sell_biaoli = context.mlb.gauge_stocks(sell_check, isLong=False)
+        # to_sell_biaoli = []
         
         to_sell = list(set(to_sell+to_sell_biaoli))
         if to_sell:
@@ -456,13 +456,18 @@ class Sell_stocks_chan(Sell_stocks):
             self.adjust(context, data, to_sell)
             # remove stocks from short gauge
             sold_stocks = [stock for stock in to_sell if stock not in context.portfolio.positions.keys()] # make sure stock sold successfully
-            self.g.monitor_short_cm.displayMonitorMatrix(to_sell)
+            # self.g.monitor_short_cm.displayMonitorMatrix(to_sell)
             # self.recordTrade(to_sell) # record all selling candidate
-            self.g.monitor_short_cm.removeGaugeStockList(sold_stocks)
+            # self.g.monitor_short_cm.removeGaugeStockList(sold_stocks)
         self.g.intraday_long_stock = [stock for stock in self.g.intraday_long_stock if stock in context.portfolio.positions.keys()]
 
     def before_trading_start(self, context):
-        # context.mlb = ML_biaoli_check({'threthold':0.95, 'rq':True, 'model_path':'cnn_lstm_model_index.h5','extra_training':True})
+        # context.mlb = ML_biaoli_check({'threthold':0.95, 'rq':True, 'model_path':'cnn_lstm_model_index.h5','extra_training':False})
+        mbt = ML_biaoli_train({'rq':True})
+        if not hasattr(context, 'mlb') or self.g.isFirstTradingDayOfWeek(context):
+            trained_model = mbt.full_training(self.g.monitor_buy_list, period_count=90)
+            if trained_model is not None:
+                context.mlb = ML_biaoli_check({'threthold':0.9999, 'rq':True, 'model_path':'cnn_lstm_model_index.h5','extra_training':False, 'model':trained_model})
         pass
 
     def adjust(self, context, data, sell_stocks):
@@ -501,7 +506,7 @@ class Buy_stocks_chan(Buy_stocks):
             return
 
         to_buy = self.daily_list
-        self.g.monitor_long_cm.updateGaugeStockList(newStockList=self.daily_list, levels=[self.monitor_levels[-1]])
+        # self.g.monitor_long_cm.updateGaugeStockList(newStockList=self.daily_list, levels=[self.monitor_levels[-1]])
         # 技术分析用于不买在卖点
         not_to_buy = self.dailyShortFilter(context, data, to_buy)
         
@@ -518,7 +523,7 @@ class Buy_stocks_chan(Buy_stocks):
         to_buy = self.dailyLongFilter(context, data, to_buy)
         
         # ML check
-        # to_buy = context.mlb.gauge_stocks(to_buy, isLong=True)
+        to_buy = context.mlb.gauge_stocks(to_buy, isLong=True)
         
         if to_buy:
             buy_msg = '日内待买股:\n' + join_list(["[%s]" % (show_stock(x)) for x in to_buy], ' ', 10)
@@ -531,8 +536,8 @@ class Buy_stocks_chan(Buy_stocks):
             self.adjust(context, data, to_buy)
             bought_stocks = [stock for stock in context.portfolio.positions.keys() if stock in to_buy]
             #transfer long gauge to short gauge
-            self.g.monitor_short_cm.appendStockList(self.g.monitor_long_cm.getGaugeStockList(bought_stocks))
-            self.g.monitor_long_cm.displayMonitorMatrix(to_buy)
+            # self.g.monitor_short_cm.appendStockList(self.g.monitor_long_cm.getGaugeStockList(bought_stocks))
+            # self.g.monitor_long_cm.displayMonitorMatrix(to_buy)
             # self.recordTrade(bought_stocks)
             self.send_port_info(context)
         elif context.now.hour >= 14:
@@ -598,10 +603,10 @@ class Buy_stocks_chan(Buy_stocks):
             })
             not_to_buy += cti_short_check.filter(context, data, to_buy)
 
-        not_to_buy += self.g.monitor_long_cm.filterUpTrendDownTrend(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
-        not_to_buy += self.g.monitor_long_cm.filterUpTrendUpNode(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
-        not_to_buy += self.g.monitor_long_cm.filterUpNodeDownTrend(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
-        not_to_buy += self.g.monitor_long_cm.filterUpNodeUpNode(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
+        # not_to_buy += self.g.monitor_long_cm.filterUpTrendDownTrend(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
+        # not_to_buy += self.g.monitor_long_cm.filterUpTrendUpNode(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
+        # not_to_buy += self.g.monitor_long_cm.filterUpNodeDownTrend(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
+        # not_to_buy += self.g.monitor_long_cm.filterUpNodeUpNode(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
         
         ## not_to_buy += self.g.monitor_long_cm.filterDownNodeUpNode(stock_list=to_buy, level_list=self.monitor_levels[1:], update_df=False)
         not_to_buy = list(set(not_to_buy))
@@ -638,8 +643,8 @@ class Buy_stocks_var(Buy_stocks_chan):
         self.money_fund = params.get('money_fund', ['511880.XSHG'])
         self.adjust_pos = params.get('adjust_pos', True)
         self.equal_pos = params.get('equal_pos', False)
-        self.p_value = params.get('p_val', 2.58)
-        self.risk_var = params.get('risk_var', 0.13)
+        self.p_value = params.get('p_val', 5)
+        self.risk_var = params.get('risk_var', 0.05)
         self.pc_var = None
 
     def adjust(self, context, data, buy_stocks):

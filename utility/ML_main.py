@@ -82,6 +82,19 @@ class ML_biaoli_train(object):
             x_test = np.expand_dims(x_test, axis=1)
             mdp.process_model(mdp.model, x_train, x_test, y_train, y_test, epochs=5)
 
+    def extra_training(self, model, stocks, period_count=90, training_data_name=None, batch_size=20, epochs=3):
+        if not stocks:
+            return model
+        
+        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq)    
+        tmp_data, tmp_label = mld.retrieve_stocks_data(stocks, period_count=period_count, filename=training_data_name)
+        x_train, x_test, y_train, y_test = mld.prepare_stock_data_set(tmp_data, tmp_label)
+        
+        mdp = MLDataProcess()
+        mdp.process_model(model, x_train, x_test, y_train, y_test, batch_size=batch_size, epochs=epochs) 
+        return mdp.model
+        
+
     def full_training(self, stocks, period_count=90, training_data_name=None, model_name=None, batch_size=20, epochs=3):
         if not stocks:
             return None
@@ -103,6 +116,9 @@ class ML_biaoli_check(object):
         self.rq = params.get('rq', True)
         self.isAnal = params.get('isAnal', False)
         self.extra_training = params.get('extra_training', False)
+        self.extra_training_period = params.get('extra_training_period', 120)
+        self.extra_training_file = params.get('extra_training_file', None)
+        self.save_new_model = params.get('save_new_model', False)
         self.model = params.get('model', None)
         if not self.model and self.model_path is not None:
             self.prepare_model()
@@ -110,8 +126,9 @@ class ML_biaoli_check(object):
     
     def prepare_model(self):
         self.mdp = MLDataProcess(model_name=self.model_path, isAnal=self.isAnal)
-        self.mdp.load_model(model_name=self.model_path)
-        self.mdp.model_name = None # we don't want to save the modified model
+        self.mdp.load_model(model_name=self.model_path)#
+        if not self.save_new_model:
+            self.mdp.model_name = None # we don't want to save the modified model
         
     def gauge_stocks(self, stocks, isLong=True, today_date=None):
         if not stocks:
@@ -119,52 +136,74 @@ class ML_biaoli_check(object):
         return [stock for stock in stocks if (self.gauge_long(stock, today_date) if isLong else self.gauge_short(stock, today_date))]
     
     def gauge_long(self, stock, today_date=None):
-        y_class, pred = self.model_predict(stock, today_date)
-        conf = self.interpret(pred)
-#         return (len(y_class) >= 2 and y_class[-2] == -1 and y_class[-1] == 0 and conf[-1] and conf[-2]) or\
-        return (y_class[-1] == -1 and conf[-1])
+        lp, _ = self.gauge_stock(stock, today_date)
+        return lp
         
     def gauge_short(self, stock, today_date=None):
-        y_class, pred = self.model_predict(stock, today_date)
-        conf = self.interpret(pred)
-        return  (len(y_class) >= 2 and y_class[-2] == 1 and y_class[-1] == 0 and conf[-1] and conf[-2]) or\
-                (y_class[-1] == 1 and conf[-1])
+        _, sp = self.gauge_stock(stock, today_date)
+        return sp
     
     def gauge_stocks_analysis(self, stocks, today_date=None):
         if not stocks:
             return [] 
-        return [self.gauge_stock(stock, today_date) for stock in stocks]
+        return [(stock, self.gauge_stock(stock, today_date)) for stock in stocks]
     
     def gauge_stock(self, stock, today_date=None):    
-        y_class, pred = self.model_predict(stock, today_date)
+        (y_class, pred), origin_size = self.model_predict(stock, today_date)
         conf = self.interpret(pred)    
         
-        long_pred = (y_class[-1] == -1 and conf[-1])
-        short_pred = (len(y_class) >= 2 and y_class[-2] == 1 and y_class[-1] == 0 and conf[-1] and conf[-2]) or\
-                (y_class[-1] == 1 and conf[-1])
+        old_pred = pred[:origin_size]
+        old_y_class = y_class[:origin_size]
+        old_conf = conf[:origin_size]    
         
+        long_pred = short_pred = False
+        # make sure current check is adequate
+        # 1 none of past pivots were predicted as 0
+        # 2 all past pivots were confident
+        try:
+            if (old_y_class[-3:-1] != 0).all():  #and old_conf.all()
+                long_pred = (old_y_class[-1] == -1 and old_conf[-1])
+                short_pred = (len(old_y_class) >= 2 and old_y_class[-2] == 1 and old_y_class[-1] == 0 and old_conf[-1] and old_conf[-2]) or\
+                        (old_y_class[-1] == 1 and old_conf[-1])
+                print(old_pred)
+                print(old_y_class)
+            else:
+                print("use gapped pivots for prediction")
+                new_y_class = y_class[origin_size:]
+                new_conf = conf[origin_size:]
+                new_pred = pred[origin_size:]
+                long_pred = (new_y_class[-1] == -1 and new_conf[-1])# or (new_y_class[-2] == -1 and new_conf[-2])
+                short_pred = (new_y_class[-1] == 1 and new_conf[-1])# or (new_y_class[-2] == 1 and new_conf[-2])
+                print(new_pred)
+                print(new_y_class)
+        except:
+            long_pred = short_pred = False
         return (long_pred, short_pred)
         
     def model_predict(self, stock, today_date=None):
         print("ML working on {0} at date {1}".format(stock, today_date if today_date else ""))
         mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq)
-        data_set = mld.prepare_stock_data_predict(stock, today_date=today_date) # 000001.XSHG
+        data_set, origin_data_length = mld.prepare_stock_data_predict(stock, today_date=today_date) # 000001.XSHG
         if data_set is None: # can't predict
-            return ([0],[[0]])
+            return ([0],[[0]], 0)
         try:
             if self.extra_training:
-                tmp_data, tmp_label = mld.retrieve_stocks_data([stock], period_count=120, filename=None, today_date=today_date)
+                tmp_data, tmp_label = mld.retrieve_stocks_data([stock], period_count=self.extra_training_period, filename=self.extra_training_file, today_date=today_date)
                 x_train, x_test, y_train, y_test = mld.prepare_stock_data_set(tmp_data, tmp_label)
                 x_train, x_test = self.mdp.define_conv_lstm_dimension(x_train, x_test)
                 self.mdp.process_model(self.mdp.model, x_train, x_test, y_train, y_test, batch_size = 30,epochs =3)
             
             unique_index = np.array([-1, 0, 1])
-            return self.mdp.model_predict_cnn_lstm(data_set, unique_index)
+            
+            return self.mdp.model_predict_cnn_lstm(data_set, unique_index), origin_data_length
         except Exception as e: 
             print(e)
-            return ([0],[[0]])
+            return ([0],[[0]], 0)
     
-    def interpret(self, pred):
+    def interpret(self, pred, thre=0):
         """Our confidence level must be above the threthold"""
         max_val = np.max(pred, axis=1)
-        return max_val > self.threthold
+        if thre == 0:
+            return max_val > self.threthold
+        else:
+            return max_val > thre
