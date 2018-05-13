@@ -7,8 +7,8 @@ try:
     from jqdata import *
 except:
     pass
-from kBarProcessor import *
-from biaoLiStatus import TopBotType
+from utility.kBarProcessor import *
+from utility.biaoLiStatus import TopBotType
 from keras.utils.np_utils import to_categorical
 from pickle import dump
 from pickle import load
@@ -17,7 +17,7 @@ import numpy as np
 import talib
 import datetime
 from sklearn.model_selection import train_test_split
-from securityDataManager import *
+from utility.securityDataManager import *
 
 # pd.options.mode.chained_assignment = None 
 
