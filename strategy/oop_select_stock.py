@@ -14,6 +14,8 @@ from oop_strategy_frame import *
 from chanMatrix import *
 from sector_selection import *
 from herd_head import *
+from ml_factor_rank import *
+from pair_trading_ols import *
 
 
 '''=========================选股规则相关==================================='''
@@ -23,6 +25,10 @@ class Pick_stocks2(Group_rules):
     def __init__(self, params):
         Group_rules.__init__(self, params)
         self.has_run = False
+        self.file_path = params.get('write_to_file', None)
+
+    def update_params(self, context, params):
+        self.file_path = params.get('write_to_file', None)
 
     def handle_data(self, context, data):
         try:
@@ -33,26 +39,34 @@ class Pick_stocks2(Group_rules):
             # self.log.info('设置一天只选一次，跳过选股。')
             return
 
-        self.log.info('今日选股:\n' + join_list(["[%s]" % (show_stock(x)) for x in self.g.monitor_buy_list], ' ', 10))
-        self.has_run = True
-
-    def before_trading_start(self, context):
-        self.has_run = False
-        
-        data =  None
-        for rule in self.rules:
-            if isinstance(rule, Create_stock_list):
-                self.g.buy_stocks = rule.filter(context, data)
-                break
-
-        stock_list = self.g.monitor_buy_list
-        if self.g.buy_stocks: 
-            stock_list = self.g.buy_stocks
+        stock_list = self.g.buy_stocks
         for rule in self.rules:
             if isinstance(rule, Filter_stock_list):
                 stock_list = rule.filter(context, data, stock_list)
     
         self.g.monitor_buy_list = stock_list
+
+        self.log.info('今日选股:\n' + join_list(["[%s]" % (show_stock(x)) for x in stock_list], ' ', 10))
+        self.has_run = True
+
+    def before_trading_start(self, context):
+        self.has_run = False
+        for rule in self.rules:
+            if isinstance(rule, Create_stock_list):
+                self.g.buy_stocks = rule.before_trading_start(context)
+
+        for rule in self.rules:
+            if isinstance(rule, Early_Filter_stock_list):
+                rule.before_trading_start(context)
+    
+        for rule in self.rules:
+            if isinstance(rule, Early_Filter_stock_list):
+                self.g.buy_stocks = rule.filter(context, self.g.buy_stocks)
+                
+        if self.file_path:
+            checking_stocks = [stock for stock in list(set(self.g.buy_stocks+context.portfolio.positions.keys())) if stock not in g.money_fund]
+            write_file(self.file_path, ",".join(checking_stocks))
+        
 
     def __str__(self):
         return self.memo
@@ -120,8 +134,8 @@ class Pick_financial_data(Filter_query):
             s += '[限制选股数:%s]' % (limit)
         return '多因子选股:' + s
 
-class Filter_financial_data2(Filter_stock_list):
-    def normal_filter(self, context, data, stock_list):
+class Filter_financial_data2(Early_Filter_stock_list):
+    def normal_filter(self, context, stock_list):
         is_by_sector = self._params.get('by_sector', False)
         q = query(
             fundamentals.eod_derivative_indicator.market_cap
@@ -160,7 +174,7 @@ class Filter_financial_data2(Filter_stock_list):
         stock_list = list(get_fundamentals(q, entry_date=context.now.date())['market_cap'].columns.values)
         return stock_list
     
-    def filter_by_sector(self, context, data):
+    def filter_by_sector(self, context):
         final_list = []
         threthold_limit = self._params.get('limit', None)
         industry_sectors, concept_sectors = self.g.filtered_sectors
@@ -168,20 +182,20 @@ class Filter_financial_data2(Filter_stock_list):
         limit_num = threthold_limit/total_sector_num if threthold_limit is not None else 3
         for sector in industry_sectors:
             stock_list = get_industry_stocks(sector)
-            stock_list = self.normal_filter(context, data, stock_list)
+            stock_list = self.normal_filter(context, stock_list)
             final_list += stock_list[:limit_num]
         
         for con in concept_sectors:
             stock_list = get_concept_stocks(con)
-            stock_list = self.normal_filter(context, data, stock_list)
+            stock_list = self.normal_filter(context, stock_list)
             final_list += stock_list[:limit_num]
         return final_list
     
-    def filter(self, context, data, stock_list):
+    def filter(self, context, stock_list):
         if self._params.get('by_sector', False):
-            return self.filter_by_sector(context, data)
+            return self.filter_by_sector(context)
         else:
-            return self.normal_filter(context, data, stock_list)
+            return self.normal_filter(context, stock_list)
 
     def __str__(self):
         s = ''
@@ -211,13 +225,13 @@ class Filter_financial_data2(Filter_stock_list):
         return '多因子筛选:' + s
 
 
-class Filter_FX_data(Filter_stock_list):
+class Filter_FX_data(Early_Filter_stock_list):
     def __init__(self, params):
         self.limit = params.get('limit', 100)
         self.quantlib = quantlib()
         self.value_factor = value_factor_lib()
     
-    def filter(self, context, data, stock_list):
+    def filter(self, context, stock_list):
         import datetime as dt
         statsDate = context.now.date() - dt.timedelta(1)
         #获取坏股票列表，将会剔除
@@ -230,8 +244,8 @@ class Filter_FX_data(Filter_stock_list):
         return '小佛雪选股 选取:%s' % self.limit
 
 # 根据财务数据对Stock_list进行过滤。返回符合条件的stock_list
-class Filter_financial_data(Filter_stock_list):
-    def filter(self, context, data, stock_list):
+class Filter_financial_data(Early_Filter_stock_list):
+    def filter(self, context, stock_list):
         q = query(valuation).filter(
             valuation.code.in_(stock_list)
         )
@@ -287,11 +301,14 @@ class Pick_rank_sector(Create_stock_list):
         self.useIntradayData = params.get('useIntradayData', False)
         self.useAvg = params.get('useAvg', True)
         self.avgPeriod = params.get('avgPeriod', 5)
+        self.new_list = []
         
     def filter(self, context, data):
+        return self.new_list
+    
+    def before_trading_start(self, context):
 #         new_list = ['002714.XSHE', '603159.XSHG', '603703.XSHG','000001.XSHE','000002.XSHE','600309.XSHG','002230.XSHE','600392.XSHG','600291.XSHG']
-        new_list=[]
-        if self.g.isFirstTradingDayOfWeek(context) or not self.g.monitor_buy_list or self.isDaily:
+        if self.g.isFirstTradingDayOfWeek(context) or not self.g.buy_stocks or self.isDaily:
             self.log.info("选取前 %s%% 板块" % str(self.sector_limit_pct))
             ss = SectorSelection(limit_pct=self.sector_limit_pct, 
                     isStrong=self.strong_sector, 
@@ -301,12 +318,11 @@ class Pick_rank_sector(Create_stock_list):
                     avgPeriod=self.avgPeriod,
                     context=context)
             new_list = ss.processAllSectorStocks(context)
-            print(new_list)
             self.g.filtered_sectors = ss.processAllSectors(context)
-        return new_list 
+        return self.new_list 
     
-    def before_trading_start(context):
-        pass
+    def after_trading_end(self, context):
+        self.new_list = []
     
     def __str__(self):
         if self.strong_sector:
@@ -314,6 +330,116 @@ class Pick_rank_sector(Create_stock_list):
         else:
             return '弱势板块股票 %s%% 阈值 %s' % (self.sector_limit_pct, self.strength_threthold)
 
+
+class Pick_Rank_Factor(Create_stock_list):
+    def __init__(self, params):
+        self.stock_num = params.get('stock_num', 20)
+        self.index_scope = params.get('index_scope', '000985.XSHG')
+        pass
+    
+    def filter(self, context, data):    
+        pass
+    
+    def before_trading_start(self, context):
+        mfr = ML_Factor_Rank({'stock_num':self.stock_num, 
+                              'index_scope':self.index_scope})
+        new_list = mfr.gaugeStocks()
+        return new_list
+
+    def __str__(self):
+        return "多因子回归公式选股"
+    
+
+class Pick_Pair_Trading(Create_stock_list):
+    def __init__(self, params):
+        Create_stock_list.__init__(self, params)
+        self.pair_period = params.get('pair_period', 250)
+        self.init_index_list = params.get('init_index_list', ['801010', '801780', '801790'])
+        self.isIndex = params.get('isIndex', False)
+        self.get_pair = params.get('get_pair', False)
+        self.return_pair = params.get('return_pair', 1)
+        self.new_pair = []
+    
+    def filter(self, context, data):
+        pass
+    
+    def before_trading_start(self, context):
+        initial_list = []
+        for index in self.init_index_list:
+            initial_list += get_index_stocks(index) if self.isIndex else get_industry_stocks(index) 
+        initial_list = list(set(initial_list))
+        
+        if self.get_pair and (self.g.isFirstTradingDayOfMonth(context) or not self.new_pair):    
+            data_frame = history(self.pair_period, '1d', 'close', security_list=initial_list, df=True)
+            pto = PairTradingOls({'return_pair': self.return_pair})
+            self.new_pair = pto.get_top_pair(data_frame)
+            if not self.new_pair:
+                return []
+            self.g.pair_zscore = pto.get_regression_ratio(data_frame, self.new_pair)
+            initial_list = np.array(self.new_pair).flatten().tolist()
+        return initial_list
+
+    def __str__(self):
+        return "配对交易选对股"
+    
+class Filter_Pair_Trading(Filter_stock_list):
+    def __init__(self, params):
+        Filter_stock_list.__init__(self, params)
+        self.pair_period = params.get('pair_period', 250)
+        self.pair_num_limit = params.get('pair_num_limit', 10)
+        self.return_pair = params.get('return_pair', 1)
+        self.new_pair = []
+        
+    def filter(self, context, data, stock_list):
+        self.log.info('配对筛股:\n' + join_list(["[%s]" % (show_stock(x)) for x in stock_list[-10:]], ' ', 10))
+        self.log.info('总数: {0}'.format(len(stock_list)))
+        if len(stock_list) < self.pair_num_limit:
+            return []
+        
+        if self.g.isFirstTradingDayOfMonth(context) or not self.new_pair:    
+            data_frame = history(self.pair_period, '1d', 'close', security_list=stock_list, df=True)
+            pto = PairTradingOls({'return_pair': self.return_pair})
+            self.new_pair = pto.get_top_pair(data_frame)
+            if not self.new_pair:
+                return []
+            self.g.pair_zscore = pto.get_regression_ratio(data_frame, self.new_pair)
+            self.log.info("pair stocks:{0}, pair_zscore: {1}".format(self.new_pair, self.g.pair_zscore))
+        return np.array(self.new_pair).flatten().tolist()
+        
+    def __str__(self):
+        return "配对交易选对股"    
+    
+class Filter_Rank_Sector(Early_Filter_stock_list):
+    def __init__(self, params):
+        Early_Filter_stock_list.__init__(self, params)
+        self.strong_sector = params.get('strong_sector', False)
+        self.sector_limit_pct = params.get('sector_limit_pct', 5)
+        self.strength_threthold = params.get('strength_threthold', 4)
+        self.isDaily = params.get('isDaily', False)
+        self.useIntradayData = params.get('useIntradayData', False)
+        self.useAvg = params.get('useAvg', True)
+        self.avgPeriod = params.get('avgPeriod', 5)
+        self.new_list = []
+    
+    def filter(self, context, stock_list):
+        return [stock for stock in stock_list if stock in self.new_list]
+
+    def before_trading_start(self, context):
+        if self.g.isFirstTradingDayOfMonth(context) or not self.new_list or self.isDaily:
+            self.log.info("选取前 %s%% 板块" % str(self.sector_limit_pct))
+            ss = SectorSelection(limit_pct=self.sector_limit_pct, 
+                    isStrong=self.strong_sector, 
+                    min_max_strength=self.strength_threthold, 
+                    useIntradayData=self.useIntradayData,
+                    useAvg=self.useAvg,
+                    avgPeriod=self.avgPeriod)
+            self.new_list = ss.processAllSectorStocks()
+            
+    def __str__(self):
+        if self.strong_sector:
+            return '强势板块股票 %s%% 阈值 %s' % (self.sector_limit_pct, self.strength_threthold)
+        else:
+            return '弱势板块股票 %s%% 阈值 %s' % (self.sector_limit_pct, self.strength_threthold)
 
 class Filter_Week_Day_Long_Pivot_Stocks(Filter_stock_list):
     def __init__(self, params):
@@ -420,8 +546,8 @@ class Filter_Herd_head_stocks(Filter_stock_list):
 #######################################################
 
 # '''------------------创业板过滤器-----------------'''
-class Filter_gem(Filter_stock_list):
-    def filter(self, context, data, stock_list):
+class Filter_gem(Early_Filter_stock_list):
+    def filter(self, context, stock_list):
         self.log.info("过滤创业板股票")
         return [stock for stock in stock_list if stock[0:3] != '300']
 

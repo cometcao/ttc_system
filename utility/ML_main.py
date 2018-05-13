@@ -111,7 +111,8 @@ class ML_biaoli_train(object):
 class ML_biaoli_check(object):
     """use CNNLSTM to predict biaoli level"""
     def __init__(self, params):
-        self.threthold = params.get('threthold', 0.9)
+        self.long_threthold = params.get('long_threthold', 0.999)
+        self.short_threthold = params.get('short_threthold', 0.99)
         self.model_path = params.get('model_path', None)
         self.rq = params.get('rq', True)
         self.isAnal = params.get('isAnal', False)
@@ -120,6 +121,8 @@ class ML_biaoli_check(object):
         self.extra_training_file = params.get('extra_training_file', None)
         self.save_new_model = params.get('save_new_model', False)
         self.model = params.get('model', None)
+        self.isDebug = params.get('isDebug', False)
+        self.use_latest_pivot = params.get('use_latest_pivot', True)
         if not self.model and self.model_path is not None:
             self.prepare_model()
 
@@ -136,53 +139,64 @@ class ML_biaoli_check(object):
         return [stock for stock in stocks if (self.gauge_long(stock, today_date) if isLong else self.gauge_short(stock, today_date))]
     
     def gauge_long(self, stock, today_date=None):
-        lp, _ = self.gauge_stock(stock, today_date)
+        lp, _ = self.gauge_stock(stock, today_date, check_status=True)
         return lp
         
     def gauge_short(self, stock, today_date=None):
-        _, sp = self.gauge_stock(stock, today_date)
+        _, sp = self.gauge_stock(stock, today_date, check_status=True)
         return sp
-    
-    def gauge_stocks_analysis(self, stocks, today_date=None):
+        
+    def gauge_stocks_analysis(self, stocks, today_date=None, check_status=False):
         if not stocks:
             return [] 
-        return [(stock, self.gauge_stock(stock, today_date)) for stock in stocks]
+        return [(stock, self.gauge_stock(stock, today_date, check_status=check_status)) for stock in stocks]
     
-    def gauge_stock(self, stock, today_date=None):    
+    def gauge_stock(self, stock, today_date=None, check_status=False):    
         (y_class, pred), origin_size = self.model_predict(stock, today_date)
-        conf = self.interpret(pred)    
+        long_conf, short_conf = self.interpret(pred)    
         
         old_pred = pred[:origin_size]
         old_y_class = y_class[:origin_size]
-        old_conf = conf[:origin_size]    
+        old_long_conf = long_conf[:origin_size]    
+        old_short_conf = short_conf[:origin_size]
         
         long_pred = short_pred = False
         # make sure current check is adequate
         # 1 none of past pivots were predicted as 0
         # 2 all past pivots were confident
         try:
-            if (old_y_class[-3:-1] != 0).all():  #and old_conf.all()
-                long_pred = (old_y_class[-1] == -1 and old_conf[-1])
-                short_pred = (len(old_y_class) >= 2 and old_y_class[-2] == 1 and old_y_class[-1] == 0 and old_conf[-1] and old_conf[-2]) or\
-                        (old_y_class[-1] == 1 and old_conf[-1])
-                print(old_pred)
-                print(old_y_class)
+            if self.use_latest_pivot or (old_y_class[-3:-1] != 0).all():  # old_conf.all()
+                long_pred = (old_y_class[-1] == -1 and old_long_conf[-1])
+                short_pred = (old_y_class[-1] == 1 and old_short_conf[-1])
+                       
+                if check_status:
+                    long_pred = long_pred or (len(old_y_class) >= 2 and old_y_class[-2] == -1 and old_y_class[-1] == 0 and old_long_conf[-1] and old_long_conf[-2]) 
+                    short_pred = short_pred or (len(old_y_class) >= 2 and old_y_class[-2] == 1 and old_y_class[-1] == 0 and old_short_conf[-1] and old_short_conf[-2])
+                    
+                if self.isDebug:
+                    print(old_pred)
+                    print(old_y_class)
             else:
-                print("use gapped pivots for prediction")
+                print("gapped pivots for prediction")
                 new_y_class = y_class[origin_size:]
-                new_conf = conf[origin_size:]
+                new_long_conf = long_conf[origin_size:]
+                new_short_conf = short_conf[origin_size:]
                 new_pred = pred[origin_size:]
-                long_pred = (new_y_class[-1] == -1 and new_conf[-1])# or (new_y_class[-2] == -1 and new_conf[-2])
-                short_pred = (new_y_class[-1] == 1 and new_conf[-1])# or (new_y_class[-2] == 1 and new_conf[-2])
-                print(new_pred)
-                print(new_y_class)
+                long_pred = (new_y_class[-1] == -1 and new_long_conf[-1])
+                short_pred = (new_y_class[-1] == 1 and new_short_conf[-1])
+                if check_status:
+                    long_pred = long_pred or (len(new_y_class) >= 2 and new_y_class[-2] == -1 and new_y_class[-1] == 0 and new_long_conf[-1] and new_long_conf[-2]) 
+                    short_pred = short_pred or (len(new_y_class) >= 2 and new_y_class[-2] == 1 and new_y_class[-1] == 0 and new_short_conf[-1] and new_short_conf[-2])                  
+                if self.isDebug:
+                    print(new_pred)
+                    print(new_y_class)
         except:
             long_pred = short_pred = False
         return (long_pred, short_pred)
         
     def model_predict(self, stock, today_date=None):
         print("ML working on {0} at date {1}".format(stock, today_date if today_date else ""))
-        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq)
+        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, isDebug=self.isDebug)
         data_set, origin_data_length = mld.prepare_stock_data_predict(stock, today_date=today_date) # 000001.XSHG
         if data_set is None: # can't predict
             return ([0],[[0]], 0)
@@ -200,10 +214,7 @@ class ML_biaoli_check(object):
             print(e)
             return ([0],[[0]], 0)
     
-    def interpret(self, pred, thre=0):
+    def interpret(self, pred):
         """Our confidence level must be above the threthold"""
         max_val = np.max(pred, axis=1)
-        if thre == 0:
-            return max_val > self.threthold
-        else:
-            return max_val > thre
+        return max_val >= self.long_threthold, max_val >= self.short_threthold

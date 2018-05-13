@@ -62,6 +62,9 @@ class Global_variable(object):
     filtered_sectors = None # 记录筛选出的强势板块
     head_stocks = [] # 记录强势票 每日轮换
     intraday_long_stock = []
+    pair_zscore = []
+    market_timing_check = {}
+    stock_index_dict = {}
 
     def __init__(self, owner):
         self._owner = owner
@@ -162,17 +165,28 @@ class Global_variable(object):
                     false_count = 0
         return count if init else -count  # 统计结束，返回结果。init为True返回正数，为False返回负数。
     
-    def isFirstTradingDayOfWeek(self, context):
-        trading_days = get_trading_dates(start_date='2016-01-01', end_date=context.now.date())[-2:]
+    def isFirstTradingDayOfWeek(self, context, num_of_day=1):
+        trading_days = get_trade_days(end_date=context.current_dt.date(), count=num_of_day+1)
         today = trading_days[-1]
-        last_trading_day = trading_days[-2]
+        last_trading_day = trading_days[-(num_of_day+1)]
         return (today.isocalendar()[1] != last_trading_day.isocalendar()[1])
         
-    def isFirstTradingDayOfMonth(self, context):
-        trading_days = get_trading_dates(start_date='2016-01-01', end_date=context.now.date())[-2:]
+    def isFirstTradingDayOfMonth(self, context, num_of_day=1):
+        trading_days = get_trade_days(end_date=context.current_dt.date(), count=num_of_day+1)
         today = trading_days[-1]
-        last_trading_day = trading_days[-2]
+        last_trading_day = trading_days[-(num_of_day+1)]
         return (today.month != last_trading_day.month)
+    
+    def isFirstNTradingDayOfPeriod(self, context, num_of_day=1, period='W'):
+        if period == 'W':
+            print ("Weekly Update Data with num {0}".format(num_of_day))
+            return self.isFirstTradingDayOfWeek(context, num_of_day)
+        elif period == 'M':
+            print ("Monthly Update Data with num {0}".format(num_of_day))
+            return self.isFirstTradingDayOfMonth(context, num_of_day)
+        else:
+            print ("Invalid period return FALSE")
+            return False
     
     def getCurrentPosRatio(self, context):
         total_value = context.portfolio.total_value

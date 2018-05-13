@@ -134,6 +134,121 @@ class Stop_loss_by_3_black_crows(Rule):
             return True
         return False
 
+# machine learning timing check
+class ML_Stock_Timing(Rule):
+    def __init__(self, params):
+        self.ml_predict_file_path = params.get('ml_file_path', None)
+    
+    def handle_data(self, context, data):
+        today_date = context.current_dt.date()
+        try:
+            trading_list = json.loads(read_file(self.ml_predict_file_path).decode())
+            trading_details = trading_list[str(today_date)]
+            trade_dict = {}
+            for trades in trading_details:
+                stock, buy, sell = trades
+                trade_dict[stock] = (buy, sell)
+            stocks_to_check = [stock for stock in list(set(context.portfolio.positions.keys() + self.g.monitor_buy_list)) if stock not in g.money_fund]
+            stocks_to_long = []
+            for stock in stocks_to_check:
+                (buy, sell) = trade_dict[stock]
+                if sell==1:
+                    self.g.sell_stocks.append(stock)
+                    if stock in self.g.monitor_buy_list:
+                        self.g.monitor_buy_list.remove(stock)
+                    if stock in context.portfolio.positions.keys():
+                        self.g.close_position(self, context.portfolio.positions[stock], True, 0)
+                if buy == 1:
+                    stocks_to_long.append(stock)
+            
+            self.g.monitor_buy_list = [stock for stock in self.g.monitor_buy_list if stock in stocks_to_long]
+            self.log.info("ML择时结果: "+join_list([show_stock(stock) for stock in self.g.monitor_buy_list], ' ', 10))
+            # make sure ML predict use check_status
+        except:
+            self.log.warn("ML prediction file missing: {0}".format(self.ml_predict_file_path))
+            return
+            
+        
+    def after_trading_end(self, context):
+        Rule.after_trading_end(self, context)
+        
+    def __str__(self):
+        return '股票AI择时'
+
+
+class Relative_Index_Timing(Rule):
+    def __init__(self, params):
+        self.market_list = params.get('market_list', ['000300.XSHG', '000016.XSHG', '399333.XSHE', '000905.XSHG', '399673.XSHE'])
+        self.M = params.get('M', 600)
+        self.N = params.get('N', 18)
+        self.buy = params.get('buy', 0.7)
+        self.sell = params.get('sell', -0.7)
+        self.period = params.get('correlation_period', 250)
+        self.strict_long = params.get('strict_long', False)
+        self.default_index = self.market_list[0]
+        self.rsrs_check = RSRS_Market_Timing({'market_list': self.market_list,
+                                              'M':self.M,
+                                              'N':self.N,
+                                              'buy':self.buy,
+                                              'sell':self.sell})
+        self.isInitialized = False
+        
+    def update_params(self, context, params):
+        self.period = params.get('correlation_period', 250)
+        self.strict_long = params.get('strict_long', False)
+        
+    def before_trading_start(self, context):
+        Rule.before_trading_start(self, context)
+        if not self.isInitialized:
+            self.rsrs_check.calculate_RSRS()
+            self.isInitialized = True
+        else:
+            self.rsrs_check.add_new_RSRS()
+            
+        for market in self.market_list:
+            self.g.market_timing_check[market]=self.rsrs_check.check_timing(market)
+        self.log.info("Index timing check: {0}".format(self.g.market_timing_check))
+        
+    def after_trading_end(self, context):
+        Rule.after_trading_end(self, context)
+        self.g.stock_index_dict = {}
+        self.g.market_timing_check = {}
+        
+    def build_stock_index_dict(self, context):
+        # find the index for candidate stock by largest correlation
+        stock_symbol_list = [stock for stock in list(set(context.portfolio.positions.keys() + self.g.monitor_buy_list)) if stock not in g.money_fund]
+        for stock in stock_symbol_list:
+            current_max_corr = 0
+            stock_df = attribute_history(stock, self.period, '1d', 'close', df=False)
+            for idx in self.market_list:
+                index_df = attribute_history(idx, self.period, '1d', 'close', df=False)
+                corr = np.corrcoef(stock_df['close'],index_df['close'])[0,1]
+                if corr >= current_max_corr:
+                    self.g.stock_index_dict[stock] = idx
+                    current_max_corr = corr
+            if stock not in self.g.stock_index_dict:
+                self.g.stock_index_dict[stock] = self.default_index
+                self.log.info("{0} set to default index {1}".format(stock, self.default_index))
+        self.log.info("stock index correlation matrix: {0}".format(self.g.stock_index_dict))
+        
+    def handle_data(self, context, data):
+        self.build_stock_index_dict(context)
+        stocks_to_check = [stock for stock in list(set(context.portfolio.positions.keys() + self.g.monitor_buy_list)) if stock not in g.money_fund]
+        for stock in stocks_to_check:
+            market = self.g.stock_index_dict[stock]
+            if self.g.market_timing_check[market] == -1:
+                self.g.sell_stocks.append(stock)
+                if stock in context.portfolio.positions.keys():
+                    self.g.close_position(self, context.portfolio.positions[stock], True, 0)
+                if stock in self.g.monitor_buy_list:
+                    self.g.monitor_buy_list.remove(stock)
+            if self.g.market_timing_check[market] != 1 and self.strict_long:
+                if stock in self.g.monitor_buy_list:
+                    self.g.monitor_buy_list.remove(stock)
+        self.log.info("candidate stocks: {0} closed position: {1}".format(self.g.monitor_buy_list, self.g.sell_stocks))
+    def __str__(self):
+        return '股票精确择时'
+    
 
 # 个股止损止盈
 class Stop_gain_loss_stocks(Rule):
@@ -276,7 +391,7 @@ class equity_curve_protect(Rule):
                         self.is_day_curve_protect = True
                         self.is_to_return=True
         if self.is_day_curve_protect:
-            # self.g.curve_protect = True
+            self.g.curve_protect = True
             self.g.clear_position(self, context, self.g.op_pindexs)
 #             self.port_value_record = []
             self.is_day_curve_protect = False
@@ -289,7 +404,7 @@ class equity_curve_protect(Rule):
         if len(self.port_value_record) > self.day_count:
             self.port_value_record.pop(0)
         self.is_to_return=False
-        # self.g.curve_protect = False
+        self.g.curve_protect = False
 
     def __str__(self):
         return '大盘资金比例止损器:[参数: %s日前资产] [保护百分数: %s]' % (
@@ -465,86 +580,76 @@ class RSRS_timing(Rule):
         
         # 设置RSRS指标中N, M的值
         self.N = params.get('N', 18)
-        self.M = params.get('M', 1100)
+        self.M = params.get('M', 600)
+        
+        self.beta_list = []
+        self.R2 = []
         
         self.market_symbol = params.get('market_symbol', '000300.XSHG')
+        self.init = False
         
 
     def handle_data(self, context, data):
-        self.calculate_RSRS(context, data)
-        # print self.RSRS_stdratio_rightdev_list
-        # print self.RSRS_stdratio_rev_list
+        if not self.init:
+            self.calculate_RSRS()
+            self.init=True
+        else:
+            self.add_new_RSRS()
+            
+        self.check_timing(context)
+
+
+    def check_timing(self, context):
+        section = self.beta_list[-self.M:]
+        mu = np.mean(section)
+        sigma = np.std(section)
+        zscore = (section-mu)/sigma
+        
         # 获得前10日交易量
+        trade_vol10 = attribute_history(self.market_symbol, 10, '1d', 'volume')
         
-        trade_vol10 = SecurityDataManager.get_data_rq(self.market_symbol, count=10, period='1d', fields=['volume'], skip_suspended=True, df=True, include_now=False)
-        
-        if self.RSRS_stdratio_rightdev_list[context.previous_date] > self.buy and \
-          corrcoef(array([trade_vol10['volume'], self.RSRS_stdratio_rev_list[:context.previous_date].tail(10)]))[0,1] > 0:
+        if zscore[-1] > self.buy \
+            and np.corrcoef(np.array([trade_vol10['volume'].values, (np.array(self.R2[-10:]) * np.array(zscore[-10:]))]))[0,1] > 0:
             self.log.info("RSRS右偏标准分大于买入阈值, 且修正标准分与前10日交易量相关系数为正")
             
         # 如果上一时间点的右偏RSRS标准分小于卖出阈值, （且修正标准分与前10日交易量相关系数为正）则空仓卖出
-        elif self.RSRS_stdratio_rightdev_list[context.previous_date] < self.sell and context.portfolio.positions[self.market_symbol].closeable_amount > 0:
-          # and corrcoef(array([trade_vol10['volume'], g.RSRS_stdratio_rev_list[:context.previous_date].tail(10)]))[0,1] > 0
+        elif zscore[-1] < self.sell:
             self.log.info("RSRS右偏标准分小于卖出阈值, 且修正标准分与前10日交易量相关系数为正")
             self.g.clear_position(self, context, self.g.op_pindexs)
-            self.is_to_return = True    
-            
-        # # 如果上一时间点的右偏RSRS标准分大于买入阈值, 则全仓买入
-        # if self.RSRS_stdratio_rightdev_list[context.previous_date] > self.buy:
-        #     pass
-        # # 如果上一时间点的右偏RSRS标准分小于卖出阈值, 则空仓卖出
-        # elif self.RSRS_stdratio_rightdev_list[context.previous_date] < self.sell and context.portfolio.positions[self.market_symbol].closeable_amount > 0:
-        #     self.log.info("RSRS右偏标准分小于卖出阈值, 且修正标准分与前10日交易量相关系数为正")
-        #     self.g.clear_position(self, context, self.g.op_pindexs)
-        #     self.is_to_return = True    
+            self.is_to_return = True 
+        
+
 
     def on_clear_position(self, context, pindexs=[0]):
-        self.g.buy_stocks = []
+        self.g.monitor_buy_list = []
 
     def after_trading_end(self, context):
         Rule.after_trading_end(self, context)
 
-    def calculate_RSRS(self, context, data):
-        # 计算出所有需要的RSRS斜率指标
-        # 计算交易日期区间长度(包括开始前一天)
-        trade_date_range = len(get_trade_days(start_date = context.run_info.start_date, end_date = context.run_info.end_date)) + 1
-        # 取出交易日期时间序列(包括开始前一天)
-        trade_date_series = get_trade_days(end_date = context.run_info.end_date, count = trade_date_range)
-        # 计算RSRS斜率的时间区间长度
-        date_range = len(get_trade_days(start_date = context.run_info.start_date, end_date = context.run_info.end_date)) + self.M
-        # 取出计算RSRS斜率的时间序列
-        date_series = get_trade_days(end_date = context.run_info.end_date, count = date_range)
-        # 建立RSRS斜率空表
-        RSRS_ratio_list = Series(np.zeros(len(date_series)), index = date_series)
-        # 填入各个日期的RSRS斜率值
-        for i in date_series:
-            RSRS_ratio_list[i] = self.RSRS_ratio(self.N, i)[0]
-        
-        # 计算交易日期的标准化RSRS指标
-        # 计算均值序列
-        trade_mean_series =  pd.rolling_mean(RSRS_ratio_list, self.M)[-trade_date_range:]
-        # 计算标准差序列
-        trade_std_series = pd.rolling_std(RSRS_ratio_list, self.M)[-trade_date_range:]
-        # 计算交易日期的标准化RSRS指标序列
-        RSRS_stdratio_list = (RSRS_ratio_list[-trade_date_range:] - trade_mean_series) /  trade_std_series
-        
-        # 计算右偏RSRS标准分
-        # 填入各个日期的RSRS相关系数
-        RSRS_ratio_R2_list = Series(np.zeros(len(date_series)), index = date_series)
-        for i in date_series:
-            RSRS_ratio_R2_list[i] = self.RSRS_ratio(self.N, i)[1]
-        # 计算交易日期的右偏RSRS指标序列  
-        self.RSRS_stdratio_rightdev_list = RSRS_stdratio_list * RSRS_ratio_R2_list[-trade_date_range:] * RSRS_ratio_list[-trade_date_range:]
-        
-        # 计算修正RSRS标准分（即在标准分基础上乘以相关系数）
-        self.RSRS_stdratio_rev_list = RSRS_stdratio_list * RSRS_ratio_R2_list[-trade_date_range:]
-      
-    # 附: RSRS斜率指标定义，第一个返回值为斜率，第二个返回值为相关系数（右偏标准分需要用到）
-    def RSRS_ratio(self, N, date):
-        stock_price_high = get_price(self.market_symbol, end_date = date, count = N)['high']
-        stock_price_low = get_price(self.market_symbol, end_date = date, count = N)['low']
-        ols_reg = ols(y = stock_price_high, x = stock_price_low)
-        return ols_reg.beta.x, ols_reg.r2
+    def calculate_RSRS(self):
+        prices = attribute_history(self.market_symbol, self.M+self.N, '1d', ['high', 'low'])
+        highs = prices.high
+        lows = prices.low
+        for i in range(len(highs))[self.N:]:
+            data_high = highs.iloc[i-self.N+1:i+1]
+            data_low = lows.iloc[i-self.N+1:i+1]
+            X = sm.add_constant(data_low)
+            model = sm.OLS(data_high,X).fit()
+            beta = model.params[1]
+            r2 = model.rsquared
+            self.beta_list.append(beta)
+            self.R2.append(r2)
+    
+    def add_new_RSRS(self):
+        prices = attribute_history(self.market_symbol, self.N, '1d', ['high', 'low'])
+        highs = prices.high
+        lows = prices.low
+        X = sm.add_constant(lows)
+        model = sm.OLS(highs, X).fit()
+        beta = model.params[1]
+        r2 = model.rsquared
+        self.beta_list.append(beta)
+        self.R2.append(r2)
 
     def __str__(self):
         return 'RSRS_rightdev[指数:%s]' % (str(self.market_symbol))

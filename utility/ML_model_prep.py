@@ -94,9 +94,9 @@ class MLDataProcess(object):
         x_test = np.expand_dims(x_test, axis=1)
         return (x_train, x_test)
     
-    def define_conv_lstm_model(self, x_train, x_test, y_train, y_test, num_classes, batch_size = 50,epochs = 5):
+    def define_conv_lstm_model(self, x_train, x_test, y_train, y_test, num_classes, batch_size = 50,epochs = 5, verbose=0):
         x_train, x_test = self.define_conv_lstm_dimension(x_train, x_test)
-
+        
         input_shape = None
         a, b, c, d, e = x_train.shape
         if K.image_data_format() == 'channels_first':
@@ -115,34 +115,63 @@ class MLDataProcess(object):
                              dropout = 0.2, 
                              recurrent_dropout = 0.2
                              ))
-        model.add(BatchNormalization())
-        model.add(ConvLSTM2D(64, 
+#         model.add(BatchNormalization())
+        model.add(ConvLSTM2D(32, 
+                             kernel_size=(3, 1), 
+                             padding='same',
+                             return_sequences=True,
+                             dropout = 0.2, 
+                             recurrent_dropout = 0.2
+                             ))        
+#         model.add(BatchNormalization())
+#         model.add(ConvLSTM2D(32, 
+#                              kernel_size=(3, 1), 
+#                              padding='same',
+#                              return_sequences=True,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))        
+#         model.add(BatchNormalization())
+#         model.add(ConvLSTM2D(32, 
+#                              kernel_size=(3, 1), 
+#                              padding='same',
+#                              return_sequences=True,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))        
+#         model.add(BatchNormalization())                 
+        model.add(ConvLSTM2D(32, 
                              kernel_size=(3, 1), 
                              padding='same',
                              return_sequences=False,
                              dropout = 0.2, 
                              recurrent_dropout = 0.2
                              ))        
-        model.add(BatchNormalization())
+        model.add(BatchNormalization())   
+
+#         model.add(MaxPooling2D(pool_size=(2, 1)))
+#         model.add(Dropout(0.25))
+         
         model.add(Flatten())
-        model.add(Dense(128, activation='relu'))
+        model.add(Dense(32, activation='relu'))
+#         model.add(BatchNormalization())
         model.add(Dense(num_classes, activation='softmax'))
         
         model.compile(loss=keras.losses.categorical_crossentropy,
-                      optimizer=keras.optimizers.Adadelta(),
-                      metrics=['accuracy'])        
+                      optimizer=keras.optimizers.Adam(), #Adadelta
+                      metrics=['accuracy'])
         
         print (model.summary())
         
-        self.process_model(model, x_train, x_test, y_train, y_test, batch_size, epochs)
+        self.process_model(model, x_train, x_test, y_train, y_test, batch_size, epochs, verbose)
     
-    def process_model(self, model, x_train, x_test, y_train, y_test, batch_size = 50,epochs = 5):  
+    def process_model(self, model, x_train, x_test, y_train, y_test, batch_size = 50,epochs = 5, verbose=0):  
         model.fit(x_train, y_train,
                   batch_size=batch_size,
                   epochs=epochs,
-                  verbose=2,
+                  verbose=verbose,
                   validation_data=(x_test, y_test))
-        score = model.evaluate(x_test, y_test, verbose=1)
+        score = model.evaluate(x_test, y_test, verbose=verbose)
         print('Test loss:', score[0])
         print('Test accuracy:', score[1])
         
