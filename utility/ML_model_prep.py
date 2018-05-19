@@ -60,10 +60,6 @@ class MLDataProcess(object):
             # convert class vectors to binary class matrices
             a, b, c, d = x_train.shape
             input_shape = (b, c, d)
-
-        
-#         y_train = to_categorical(y_train, num_classes)
-#         y_test = to_categorical(y_test, num_classes)
         
         model = Sequential()
         model.add(Conv2D(32, kernel_size=(3, 1),
@@ -92,10 +88,6 @@ class MLDataProcess(object):
         
         x_train = np.expand_dims(x_train, axis=1)
         x_test = np.expand_dims(x_test, axis=1)
-        return (x_train, x_test)
-    
-    def define_conv_lstm_model(self, x_train, x_test, y_train, y_test, num_classes, batch_size = 50,epochs = 5, verbose=0):
-        x_train, x_test = self.define_conv_lstm_dimension(x_train, x_test)
         
         input_shape = None
         a, b, c, d, e = x_train.shape
@@ -105,7 +97,17 @@ class MLDataProcess(object):
         else:
             # convert class vectors to binary class matrices
             input_shape = (b, c, d, e)
-
+            
+        return (x_train, x_test, input_shape)
+    
+    def define_conv_lstm_model(self, x_train, x_test, y_train, y_test, num_classes, batch_size = 50,epochs = 5, verbose=0):
+        x_train, x_test, input_shape = self.define_conv_lstm_dimension(x_train, x_test)
+        
+        model = self.create_conv_lstm_model_arch(input_shape, num_classes)
+        
+        self.process_model(model, x_train, x_test, y_train, y_test, batch_size, epochs, verbose)
+    
+    def create_conv_lstm_model_arch(self, input_shape, num_classes):
         model = Sequential()
         model.add(ConvLSTM2D(32, 
                              kernel_size=(3, 1), 
@@ -167,8 +169,7 @@ class MLDataProcess(object):
                       metrics=['accuracy'])
         
         print (model.summary())
-        
-        self.process_model(model, x_train, x_test, y_train, y_test, batch_size, epochs, verbose)
+        return model        
     
     def process_model(self, model, x_train, x_test, y_train, y_test, batch_size = 50,epochs = 5, verbose=0):  
         model.fit(x_train, y_train,

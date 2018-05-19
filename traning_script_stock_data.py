@@ -22,12 +22,3 @@ for x in batch(range(0, len(index_stocks)), 20): #50
 #     print(x)
     print(stocks)
     mld.retrieve_stocks_data(stocks=stocks,period_count=2500, filename='training_data/training_{0}.pkl'.format(str(x[1])))
-
-# filenames = ['training_data/cnn_training_test_index_v3_list.pkl']
-# x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(filenames)
-
-# mdp = MLDataProcess(model_name='training_data/cnn_model_index_test.h5')
-# mdp.define_conv2d_model(x_train, x_test, y_train, y_test, num_classes=3, epochs=50)
-
-# mdp = MLDataProcess(model_name='training_data/cnn_lstm_model_index_test.h5')
-# mdp.define_conv_lstm_model(x_train, x_test, y_train, y_test, num_classes=3, epochs=50)

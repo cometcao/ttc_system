@@ -1,5 +1,6 @@
 from ML_main import *
 mbc = ML_biaoli_check({'rq':False, 
+                       'ts':True,
                        'model_path':'training_model/cnn_lstm_model_base.h5', 
                        'isAnal':True,
                        'extra_training':False, 

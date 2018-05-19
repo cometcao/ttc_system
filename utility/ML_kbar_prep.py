@@ -18,6 +18,7 @@ import talib
 import datetime
 from sklearn.model_selection import train_test_split
 from utility.securityDataManager import *
+from utility.utility_ts import *
 
 # pd.options.mode.chained_assignment = None 
 
@@ -55,8 +56,8 @@ class MLKbarPrep(object):
             if not self.isAnal:
                 stock_df = attribute_history(stock, local_count, level, fields = ['open','close','high','low', 'money'], skip_paused=True, df=True)  
             else:
-                latest_trading_day = end_date if end_date is not None else get_trade_days(count=1)[-1]
-                stock_df = get_price(stock, count=local_count, end_date=latest_trading_day, frequency=level, fields = ['open','close','high','low', 'money'], skip_paused=True)          
+                latest_trading_day = end_date if end_date is not None else datetime.datetime.today()
+                stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = ['open','close','high','low', 'money'], skip_suspended=True)          
             if stock_df.empty:
                 continue
             stock_df = self.prepare_df_data(stock_df, level)
@@ -76,6 +77,17 @@ class MLKbarPrep(object):
                 continue
             stock_df = self.prepare_df_data(stock_df, level)
             self.stock_df_dict[level] = stock_df    
+        
+    def retrieve_stock_data_ts(self, stock, end_date=None):
+        today = end_date if end_date is not None else datetime.datetime.today()
+        previous_trading_day=get_trading_date_ts(count=self.count, end=today)[-self.count].date()
+        for level in MLKbarPrep.monitor_level:
+            ts_level = 'D' if level == '1d' else '30' if level == '30m' else 'D' # 'D' as default
+            stock_df = SecurityDataManager.get_data_ts(stock, start_date=previous_trading_day, end_date=today, period=ts_level)
+            if stock_df is None or stock_df.empty:
+                continue
+            stock_df = self.prepare_df_data(stock_df, level)
+            self.stock_df_dict[level] = stock_df          
     
     def prepare_df_data(self, stock_df, level):
         # MACD
@@ -160,7 +172,8 @@ class MLKbarPrep(object):
                 continue
             trunk_df = lower_df.loc[previous_date:,:]
 #             if self.isDebug:
-#                 print(trunk_df.tail(5))
+#                 print(trunk_df.head(4))
+#                 print(trunk_df.tail(4))
             self.create_ml_data_set(trunk_df, None, for_predict=True)
         return self.data_set
         
@@ -220,11 +233,13 @@ class MLKbarPrep(object):
 
 
 class MLDataPrep(object):
-    def __init__(self, isAnal=False, max_length_for_pad=fixed_length, rq=False, isDebug=False):
+    def __init__(self, isAnal=False, max_length_for_pad=fixed_length, rq=False, ts=True, isDebug=False,detailed_bg=False):
         self.isDebug = isDebug
         self.isAnal = isAnal
+        self.detailed_bg = detailed_bg
         self.max_sequence_length = max_length_for_pad
         self.isRQ = rq
+        self.isTS = ts
         self.unique_index = []
     
     def retrieve_stocks_data(self, stocks, period_count=60, filename=None, today_date=None):
@@ -233,7 +248,9 @@ class MLDataPrep(object):
             if self.isAnal:
                 print ("working on stock: {0}".format(stock))
             mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug, sub_level_min_count=0, use_standardized_sub_df=True)
-            if self.isRQ:
+            if self.isTS:
+                mlk.retrieve_stock_data_ts(stock, today_date)
+            elif self.isRQ:
                 mlk.retrieve_stock_data_rq(stock, today_date)
             else:
                 mlk.retrieve_stock_data(stock, today_date)
@@ -246,7 +263,9 @@ class MLDataPrep(object):
     
     def prepare_stock_data_predict(self, stock, period_count=100, today_date=None):
         mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug, sub_level_min_count=0, use_standardized_sub_df=True)
-        if self.isRQ:
+        if self.isTS:
+            mlk.retrieve_stock_data_ts(stock, today_date)
+        elif self.isRQ:
             mlk.retrieve_stock_data_rq(stock, today_date)
         else:
             mlk.retrieve_stock_data(stock, today_date)
@@ -292,9 +311,9 @@ class MLDataPrep(object):
             print("Invalid file content")
             return
 
-        if self.isDebug:
-            print (data_list)
-            print (label_list)
+#         if self.isDebug:
+#             print (data_list)
+#             print (label_list)
 
         if background_data_generation:
             data_list, label_list = self.prepare_background_data(data_list, label_list)
@@ -308,8 +327,8 @@ class MLDataPrep(object):
         
         if self.isDebug:
             print (x_train.shape)
-            print (x_train)
-            print (y_train)
+#             print (x_train)
+#             print (y_train)
         
         return x_train, x_test, y_train, y_test
     
@@ -318,18 +337,21 @@ class MLDataPrep(object):
         split_ratio = [0.191, 0.382, 0.5, 0.618, 0.809]
         new_background_data = []
         new_label_data = []
+#         print(len(data_set))
         for sample in data_set:
             length = sample.shape[0]
-            for split_index in split_ratio:
-                si = int(split_index * length)
-                new_data = sample[:si,:]
-                new_background_data.append(new_data)
-                new_label_data.append(TopBotType.noTopBot.value)
-#                 if self.isDebug:
-#                     print(sample.shape)
-#                     print(new_background_data[-1].shape)
-#                     print(new_label_data[-1])
-        
+            if self.detailed_bg:
+                print("use detailed background data")
+                for i in range(2, length-1, 2): # step by 2
+                    new_data = sample[:i, :] 
+                    new_background_data.append(new_data)
+                    new_label_data.append(TopBotType.noTopBot.value)
+            else:
+                for split_index in split_ratio:
+                    si = int(split_index * length)
+                    new_data = sample[:si,:]
+                    new_background_data.append(new_data)
+                    new_label_data.append(TopBotType.noTopBot.value)
         
         data_set = data_set + new_background_data
         label_set = label_set + new_label_data

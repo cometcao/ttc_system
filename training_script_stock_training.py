@@ -94,14 +94,16 @@ for file in filenames:
         continue
     
     print(file)
-    
+     
     x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(['{0}/{1}'.format(data_dir,file)])
     x_train = np.expand_dims(x_train, axis=2) 
     x_test = np.expand_dims(x_test, axis=2) 
- 
+  
     x_train = np.expand_dims(x_train, axis=1)
     x_test = np.expand_dims(x_test, axis=1)
     mdp.process_model(mdp.model, x_train, x_test, y_train, y_test, epochs=3, batch_size=5, verbose=1)
-      
+       
     file_record.append(file)
     dump(file_record, open(record_file_path, 'wb'))
+
+# mdp.model.save_weights('./training_model/cnn_lstm_model_base_weight.h5')
