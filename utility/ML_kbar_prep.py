@@ -341,7 +341,6 @@ class MLDataPrep(object):
         for sample in data_set:
             length = sample.shape[0]
             if self.detailed_bg:
-                print("use detailed background data")
                 for i in range(2, length-1, 2): # step by 2
                     new_data = sample[:i, :] 
                     new_background_data.append(new_data)

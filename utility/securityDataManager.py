@@ -21,6 +21,7 @@ from enum import Enum
 import datetime
 import pandas as pd
 import tushare as ts
+import json
 
 class DataRetriever():
     @staticmethod
@@ -43,7 +44,9 @@ class JqDataRetriever(DataRetriever):
     
     @staticmethod
     def authenticate():
-        jqdatasdk.auth("13056788287", "June06062015")
+        with open('auth.json', encoding='utf-8') as data_file:
+            data = json.loads(data_file.read())
+        jqdatasdk.auth(data["user"], data["password"])
 
 
 class TSDataRetriever(DataRetriever):
