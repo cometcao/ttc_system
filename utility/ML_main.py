@@ -58,7 +58,7 @@ class ML_biaoli_train(object):
         x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(initial_data_path)
         
         mdp = MLDataProcess(model_name=model_name)
-        mdp.define_conv_lstm_model(x_train, x_test, y_train, y_test, num_classes=3, epochs=epochs)        
+        mdp.define_conv_lstm_model(x_train, x_test, y_train, y_test, num_classes=3, epochs=epochs, verbose=2)        
         
         # filenames = ['training_data/cnn_training_test_index_v3_list.pkl']
         # x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(filenames)

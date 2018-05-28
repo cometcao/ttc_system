@@ -109,59 +109,59 @@ class MLDataProcess(object):
     
     def create_conv_lstm_model_arch(self, input_shape, num_classes):
         model = Sequential()
-        model.add(ConvLSTM2D(32, 
+        model.add(ConvLSTM2D(96, 
                              kernel_size=(3, 1), 
                              input_shape=input_shape,
                              padding='same',
-                             return_sequences=True, 
+                             return_sequences=False, 
                              dropout = 0.2, 
                              recurrent_dropout = 0.2
                              ))
-        model.add(ConvLSTM2D(32, 
-                             kernel_size=(3, 1), 
-                             padding='same',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))        
-        model.add(BatchNormalization())
-        model.add(ConvLSTM2D(32, 
-                             kernel_size=(3, 1), 
-                             padding='same',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))
-        model.add(ConvLSTM2D(32, 
-                             kernel_size=(3, 1), 
-                             padding='same',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))  
-        model.add(BatchNormalization())
-        model.add(ConvLSTM2D(32, 
-                             kernel_size=(3, 1), 
-                             padding='same',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))        
-        model.add(ConvLSTM2D(32, 
-                             kernel_size=(3, 1), 
-                             padding='same',
-                             return_sequences=False,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))        
+#         model.add(ConvLSTM2D(32, 
+#                              kernel_size=(3, 1), 
+#                              padding='same',
+#                              return_sequences=True,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))        
+#         model.add(BatchNormalization())
+#         model.add(ConvLSTM2D(32, 
+#                              kernel_size=(3, 1), 
+#                              padding='same',
+#                              return_sequences=True,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))
+#         model.add(ConvLSTM2D(64, 
+#                              kernel_size=(3, 1), 
+#                              padding='same',
+#                              return_sequences=True,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))  
+#         model.add(BatchNormalization())
+#         model.add(ConvLSTM2D(32, 
+#                              kernel_size=(3, 1), 
+#                              padding='same',
+#                              return_sequences=True,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))        
+#         model.add(ConvLSTM2D(96, 
+#                              kernel_size=(3, 1), 
+#                              padding='same',
+#                              return_sequences=False,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))
         model.add(BatchNormalization())   
 
 #         model.add(MaxPooling2D(pool_size=(2, 1)))
 #         model.add(Dropout(0.25))
          
         model.add(Flatten())
-        model.add(Dense(128, activation='relu'))
-#         model.add(BatchNormalization())
+        model.add(Dense(32, activation='relu'))
+        model.add(BatchNormalization())
         model.add(Dense(num_classes, activation='softmax'))
         
         model.compile(loss=keras.losses.categorical_crossentropy,
@@ -200,6 +200,7 @@ class MLDataProcess(object):
                 self.model = load_model(hack_path)
         self.model_name = model_name
         print("loaded model: {0}".format(self.model_name))
+        print (self.model.summary())
         
     def save_model_byte(self, model_name, model):
         put_file(model_name, model)

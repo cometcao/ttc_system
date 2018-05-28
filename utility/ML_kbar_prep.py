@@ -48,6 +48,7 @@ class MLKbarPrep(object):
         self.label_set = []
         self.include_now = include_now
         self.use_standardized_sub_df = use_standardized_sub_df
+        self.num_of_debug_display = 4
     
     def retrieve_stock_data(self, stock, end_date=None):
         for level in MLKbarPrep.monitor_level:
@@ -137,13 +138,13 @@ class MLKbarPrep(object):
         lower_df = self.stock_df_dict[MLKbarPrep.monitor_level[1]]
         high_df_tb = higher_df.dropna(subset=['new_index'])
         if self.isDebug:
-            if high_df_tb.shape[0] > 5:
-                print(high_df_tb.tail(5)[['tb', 'new_index']])
+            if high_df_tb.shape[0] > self.num_of_debug_display:
+                print(high_df_tb.tail(self.num_of_debug_display)[['tb', 'new_index']])
             else:
                 print(high_df_tb[['tb', 'new_index']])
         high_dates = high_df_tb.index
         
-        for i in range(-5, 0, 1):
+        for i in range(-self.num_of_debug_display-1, 0, 1): #-5
             try:
                 previous_date = str(high_dates[i].date())
             except IndexError:
@@ -155,7 +156,7 @@ class MLKbarPrep(object):
             else:
                 trunk_df = lower_df.loc[previous_date:, :]
 #             if self.isDebug:
-#                 print(trunk_df.tail(5))
+#                 print(trunk_df.tail(self.num_of_debug_display))
             self.create_ml_data_set(trunk_df, None, for_predict=True)
         return self.data_set
                
@@ -165,15 +166,15 @@ class MLKbarPrep(object):
         high_df_tb = higher_df.dropna(subset=['new_index'])
         high_dates = high_df_tb.index
         # additional check trunk
-        for i in range(-5, -1, 2):#-5
+        for i in range(-self.num_of_debug_display-1, -1, 2):#-5
             try:
                 previous_date = str(high_dates[i].date())
             except IndexError:
                 continue
             trunk_df = lower_df.loc[previous_date:,:]
 #             if self.isDebug:
-#                 print(trunk_df.head(4))
-#                 print(trunk_df.tail(4))
+#                 print(trunk_df.head(self.num_of_debug_display))
+#                 print(trunk_df.tail(self.num_of_debug_display))
             self.create_ml_data_set(trunk_df, None, for_predict=True)
         return self.data_set
         
