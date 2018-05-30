@@ -225,7 +225,8 @@ class ML_biaoli_check(object):
         mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, isDebug=self.isDebug)
         data_set, origin_data_length = mld.prepare_stock_data_predict(stock, today_date=today_date) # 000001.XSHG
         if data_set is None: # can't predict
-            return ([0],[[0]], 0)
+            print("None dataset, return [0],[[0]], 0")
+            return (([0],[[0]]), 0)
         try:
             if self.extra_training:
                 tmp_data, tmp_label = mld.retrieve_stocks_data([stock], period_count=self.extra_training_period, filename=self.extra_training_file, today_date=today_date)
@@ -238,7 +239,7 @@ class ML_biaoli_check(object):
             return self.mdp.model_predict_cnn_lstm(data_set, unique_index), origin_data_length
         except Exception as e: 
             print(e)
-            return ([0],[[0]], 0)
+            return (([0],[[0]]), 0)
     
     def interpret(self, pred):
         """Our confidence level must be above the threthold"""

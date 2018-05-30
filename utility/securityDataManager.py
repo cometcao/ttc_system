@@ -36,7 +36,7 @@ class DataRetriever():
 class JqDataRetriever(DataRetriever):
     @staticmethod
     def get_data(security, start_date='2006-01-01', end_date=str(datetime.datetime.today()), count=100, period='1d', fields=None, skip_suspended=False, adjust_type='pre', df=True):
-        return attribute_history(security, count, period, fields = fields, skip_paused=skip_suspended, df=df)
+        return jqdatasdk.attribute_history(security, count, period, fields = fields, skip_paused=skip_suspended, df=df)
     @staticmethod
     def get_research_data(security, start_date='2006-01-01', end_date=str(datetime.datetime.today()), count=100, period='1d', fields=None, skip_suspended=False, adjust_type='pre'):
         JqDataRetriever.authenticate()

@@ -109,51 +109,51 @@ class MLDataProcess(object):
     
     def create_conv_lstm_model_arch(self, input_shape, num_classes):
         model = Sequential()
-        model.add(ConvLSTM2D(96, 
+        model.add(ConvLSTM2D(32, 
                              kernel_size=(3, 1), 
                              input_shape=input_shape,
                              padding='same',
-                             return_sequences=False, 
+                             return_sequences=True, 
                              dropout = 0.2, 
                              recurrent_dropout = 0.2
                              ))
-#         model.add(ConvLSTM2D(32, 
-#                              kernel_size=(3, 1), 
-#                              padding='same',
-#                              return_sequences=True,
-#                              dropout = 0.2, 
-#                              recurrent_dropout = 0.2
-#                              ))        
-#         model.add(BatchNormalization())
-#         model.add(ConvLSTM2D(32, 
-#                              kernel_size=(3, 1), 
-#                              padding='same',
-#                              return_sequences=True,
-#                              dropout = 0.2, 
-#                              recurrent_dropout = 0.2
-#                              ))
-#         model.add(ConvLSTM2D(64, 
-#                              kernel_size=(3, 1), 
-#                              padding='same',
-#                              return_sequences=True,
-#                              dropout = 0.2, 
-#                              recurrent_dropout = 0.2
-#                              ))  
-#         model.add(BatchNormalization())
-#         model.add(ConvLSTM2D(32, 
-#                              kernel_size=(3, 1), 
-#                              padding='same',
-#                              return_sequences=True,
-#                              dropout = 0.2, 
-#                              recurrent_dropout = 0.2
-#                              ))        
-#         model.add(ConvLSTM2D(96, 
-#                              kernel_size=(3, 1), 
-#                              padding='same',
-#                              return_sequences=False,
-#                              dropout = 0.2, 
-#                              recurrent_dropout = 0.2
-#                              ))
+        model.add(ConvLSTM2D(32, 
+                             kernel_size=(3, 1), 
+                             padding='same',
+                             return_sequences=True,
+                             dropout = 0.2, 
+                             recurrent_dropout = 0.2
+                             ))        
+        model.add(BatchNormalization())
+        model.add(ConvLSTM2D(32, 
+                             kernel_size=(3, 1), 
+                             padding='same',
+                             return_sequences=True,
+                             dropout = 0.2, 
+                             recurrent_dropout = 0.2
+                             ))
+        model.add(ConvLSTM2D(32, 
+                             kernel_size=(3, 1), 
+                             padding='same',
+                             return_sequences=True,
+                             dropout = 0.2, 
+                             recurrent_dropout = 0.2
+                             ))  
+        model.add(BatchNormalization())
+        model.add(ConvLSTM2D(32, 
+                             kernel_size=(3, 1), 
+                             padding='same',
+                             return_sequences=True,
+                             dropout = 0.2, 
+                             recurrent_dropout = 0.2
+                             ))        
+        model.add(ConvLSTM2D(32, 
+                             kernel_size=(3, 1), 
+                             padding='same',
+                             return_sequences=False,
+                             dropout = 0.2, 
+                             recurrent_dropout = 0.2
+                             ))
         model.add(BatchNormalization())   
 
 #         model.add(MaxPooling2D(pool_size=(2, 1)))

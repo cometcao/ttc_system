@@ -12,9 +12,9 @@ mbc = ML_biaoli_check({'rq':False,
                        'long_threthold':0.9, 
                        'short_threthold':0.9, 
                        'isDebug':True, 
-                       'use_latest_pivot':True})
+                       'use_latest_pivot':False})
 
 dates = get_trading_date_ts(count=15)
 for day in dates[-1:]:
-    gauge_results = mbc.gauge_stocks_analysis(['000752.XSHE'], today_date=day)
+    gauge_results = mbc.gauge_stocks_analysis(['000421.XSHE'], today_date=day.date())
 

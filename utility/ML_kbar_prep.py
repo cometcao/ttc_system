@@ -57,10 +57,14 @@ class MLKbarPrep(object):
             if not self.isAnal:
                 stock_df = attribute_history(stock, local_count, level, fields = ['open','close','high','low', 'money'], skip_paused=True, df=True)  
             else:
-                latest_trading_day = end_date if end_date is not None else datetime.datetime.today()
+                latest_trading_day = str(end_date if end_date is not None else datetime.datetime.today().date())
+                latest_trading_day = latest_trading_day+" 15:00:00" if level == '30m' else latest_trading_day # hack for get_price to get latest 30m data
                 stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = ['open','close','high','low', 'money'], skip_suspended=True)          
             if stock_df.empty:
                 continue
+#             if self.isDebug:
+#                 print("{0}, {1}, {2}, {3}".format(stock, local_count, end_date, level))
+#                 print(stock_df.tail(self.num_of_debug_display))
             stock_df = self.prepare_df_data(stock_df, level)
             self.stock_df_dict[level] = stock_df
     
