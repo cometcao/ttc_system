@@ -4,7 +4,7 @@ from ML_main import *
 pd.options.mode.chained_assignment = None
 mbc = ML_biaoli_check({'rq':False, 
                        'ts':False,
-                       'model_path':'training_model/subprocessed/cnn_lstm_model_base.h5', 
+                       'model_path':'training_model/nosubprocessed/cnn_lstm_model_base.h5', 
                        'isAnal':True,
                        'extra_training':False, 
                        'extra_training_period':250, # 1250
@@ -12,9 +12,10 @@ mbc = ML_biaoli_check({'rq':False,
                        'long_threthold':0.9, 
                        'short_threthold':0.9, 
                        'isDebug':True, 
-                       'use_latest_pivot':False})
+                       'use_latest_pivot':False, 
+                       'use_standardized_sub_df':False})
 
 dates = get_trading_date_ts(count=15)
 for day in dates[-1:]:
-    gauge_results = mbc.gauge_stocks_analysis(['000421.XSHE'], today_date=day.date())
+    gauge_results = mbc.gauge_stocks_analysis(['600079.XSHG', '002001.XSHE'], today_date=day.date())
 

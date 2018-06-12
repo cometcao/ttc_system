@@ -35,9 +35,10 @@ class ML_biaoli_train(object):
         self.rq = params.get('rq', False)
         self.ts = params.get('ts', True)
         self.isAnal = params.get('isAnal', False)
+        self.use_standardized_sub_df = params.get('use_standardized_sub_df', True)
 
     def prepare_mass_training_data(self, folder_path='./training_data'):
-        mld = MLDataPrep(isAnal=False, rq=self.rq, ts=self.ts)
+        mld = MLDataPrep(isAnal=False, rq=self.rq, ts=self.ts, use_standardized_sub_df=self.use_standardized_sub_df)
         index_stocks = []
         for index in self.index_list:
             stocks = get_index_stocks(index) #000016.XSHG 000905.XSHG 399300.XSHE
@@ -50,11 +51,11 @@ class ML_biaoli_train(object):
             mld.retrieve_stocks_data(stocks=stocks,period_count=2500, filename='{0}/training_{1}.pkl'.format(folder_path,str(x[1])))
 
     def prepare_initial_training_data(self, initial_path):
-        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts)
+        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, use_standardized_sub_df=self.use_standardized_sub_df)
         mld.retrieve_stocks_data(stocks=self.index_list,period_count=2500, filename='{0}/training_index.pkl'.format(initial_path))
 
     def initial_training(self, initial_data_path, model_name, epochs=10):
-        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts)
+        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, use_standardized_sub_df=self.use_standardized_sub_df)
         x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(initial_data_path)
         
         mdp = MLDataProcess(model_name=model_name)
@@ -70,7 +71,7 @@ class ML_biaoli_train(object):
         # mdp.define_conv_lstm_model(x_train, x_test, y_train, y_test, num_classes=3, epochs=50)
 
     def continue_training(self, model_name, folder_path='./training_data'):
-        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts)
+        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, use_standardized_sub_df=self.use_standardized_sub_df)
         mdp = MLDataProcess(model_name=None)
         mdp.load_model(model_name)
         filenames = [f for f in listdir(folder_path) if isfile(join(folder_path, f))]
@@ -87,7 +88,7 @@ class ML_biaoli_train(object):
         if not stocks:
             return model
         
-        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, detailed_bg=detailed_bg)    
+        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, detailed_bg=detailed_bg, use_standardized_sub_df=self.use_standardized_sub_df)    
         tmp_data, tmp_label = mld.retrieve_stocks_data(stocks, period_count=period_count, filename=training_data_name)
         x_train, x_test, y_train, y_test = mld.prepare_stock_data_set(tmp_data, tmp_label)
         
@@ -99,7 +100,7 @@ class ML_biaoli_train(object):
     def full_training(self, stocks, period_count=90, training_data_name=None, model_name=None, batch_size=20, epochs=3,detailed_bg=False):
         if not stocks:
             return None
-        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, detailed_bg=detailed_bg)      
+        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, detailed_bg=detailed_bg, use_standardized_sub_df=self.use_standardized_sub_df)      
         tmp_data, tmp_label = mld.retrieve_stocks_data(stocks, period_count=period_count, filename=training_data_name)
         x_train, x_test, y_train, y_test = mld.prepare_stock_data_set(tmp_data, tmp_label)
         
@@ -112,7 +113,7 @@ class ML_biaoli_train(object):
             return None    
         
         filenames = [f for f in listdir(training_data_path) if isfile(join(training_data_path, f))]
-        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, detailed_bg=detailed_bg) 
+        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, detailed_bg=detailed_bg, use_standardized_sub_df=self.use_standardized_sub_df) 
         
         for stock in stocks:
             if stock in filenames:
@@ -149,6 +150,7 @@ class ML_biaoli_check(object):
         self.model = params.get('model', None)
         self.isDebug = params.get('isDebug', False)
         self.use_latest_pivot = params.get('use_latest_pivot', True)
+        self.use_standardized_sub_df = params.get('use_standardized_sub_df', True)
         if not self.model and self.model_path is not None:
             self.prepare_model()
 
@@ -211,8 +213,8 @@ class ML_biaoli_check(object):
                 long_pred = (new_y_class[-1] == -1 and new_long_conf[-1])
                 short_pred = (new_y_class[-1] == 1 and new_short_conf[-1])
                 if check_status:
-                    long_pred = long_pred or (len(new_y_class) >= 2 and new_y_class[-2] == -1 and new_y_class[-1] == 0 and new_long_conf[-1] and new_long_conf[-2]) 
-                    short_pred = short_pred or (len(new_y_class) >= 2 and new_y_class[-2] == 1 and new_y_class[-1] == 0 and new_short_conf[-1] and new_short_conf[-2])                  
+                    long_pred = long_pred or (len(new_y_class) >= 2 and new_y_class[-2] == -1 and new_long_conf[-2]) 
+                    short_pred = short_pred or (len(new_y_class) >= 2 and new_y_class[-2] == 1 and new_short_conf[-2])               
                 if self.isDebug:
                     print(new_pred)
                     print(new_y_class)
@@ -222,7 +224,7 @@ class ML_biaoli_check(object):
         
     def model_predict(self, stock, today_date=None):
         print("ML working on {0} at date {1}".format(stock, str(today_date) if today_date else ""))
-        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, isDebug=self.isDebug)
+        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, isDebug=self.isDebug, use_standardized_sub_df=self.use_standardized_sub_df)
         data_set, origin_data_length = mld.prepare_stock_data_predict(stock, today_date=today_date) # 000001.XSHG
         if data_set is None: # can't predict
             print("None dataset, return [0],[[0]], 0")

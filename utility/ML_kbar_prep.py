@@ -85,7 +85,7 @@ class MLKbarPrep(object):
         
     def retrieve_stock_data_ts(self, stock, end_date=None):
         today = end_date if end_date is not None else datetime.datetime.today()
-        previous_trading_day=get_trading_date_ts(count=self.count, end=today)[-self.count].date()
+        previous_trading_day=get_trading_date_ts(count=self.count, end=today)[-self.count]
         for level in MLKbarPrep.monitor_level:
             ts_level = 'D' if level == '1d' else '30' if level == '30m' else 'D' # 'D' as default
             stock_df = SecurityDataManager.get_data_ts(stock, start_date=previous_trading_day, end_date=today, period=ts_level)
@@ -238,7 +238,7 @@ class MLKbarPrep(object):
 
 
 class MLDataPrep(object):
-    def __init__(self, isAnal=False, max_length_for_pad=fixed_length, rq=False, ts=True, isDebug=False,detailed_bg=False):
+    def __init__(self, isAnal=False, max_length_for_pad=fixed_length, rq=False, ts=True, isDebug=False,detailed_bg=False, use_standardized_sub_df=True):
         self.isDebug = isDebug
         self.isAnal = isAnal
         self.detailed_bg = detailed_bg
@@ -246,13 +246,14 @@ class MLDataPrep(object):
         self.isRQ = rq
         self.isTS = ts
         self.unique_index = []
+        self.use_standardized_sub_df = use_standardized_sub_df
     
     def retrieve_stocks_data(self, stocks, period_count=60, filename=None, today_date=None):
         data_list = label_list = []
         for stock in stocks:
             if self.isAnal:
                 print ("working on stock: {0}".format(stock))
-            mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug, sub_level_min_count=0, use_standardized_sub_df=True)
+            mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug, sub_level_min_count=0, use_standardized_sub_df=self.use_standardized_sub_df)
             if self.isTS:
                 mlk.retrieve_stock_data_ts(stock, today_date)
             elif self.isRQ:
@@ -267,7 +268,7 @@ class MLDataPrep(object):
         return (data_list, label_list)
     
     def prepare_stock_data_predict(self, stock, period_count=100, today_date=None):
-        mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug, sub_level_min_count=0, use_standardized_sub_df=True)
+        mlk = MLKbarPrep(isAnal=self.isAnal, count=period_count, isNormalize=True, sub_max_count=self.max_sequence_length, isDebug=self.isDebug, sub_level_min_count=0, use_standardized_sub_df=self.use_standardized_sub_df)
         if self.isTS:
             mlk.retrieve_stock_data_ts(stock, today_date)
         elif self.isRQ:

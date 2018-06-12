@@ -160,7 +160,7 @@ class MLDataProcess(object):
 #         model.add(Dropout(0.25))
          
         model.add(Flatten())
-        model.add(Dense(32, activation='relu'))
+        model.add(Dense(128, activation='relu'))
         model.add(BatchNormalization())
         model.add(Dense(num_classes, activation='softmax'))
         
