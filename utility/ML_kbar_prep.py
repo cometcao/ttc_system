@@ -33,7 +33,8 @@ class MLKbarPrep(object):
     biaoli status, high/low prices, volume/turnover ratio/money, MACD, sequence index
     '''
 
-    monitor_level = ['1d', '30m']
+#     monitor_level = ['1d', '30m']
+    monitor_level = ['5d', '1d']
     def __init__(self, count=100, isAnal=False, isNormalize=True, manual_select=False, useMinMax=True, sub_max_count=fixed_length, isDebug=False, include_now=False, sub_level_min_count = 0, use_standardized_sub_df=False):
         self.isDebug = isDebug
         self.isAnal = isAnal
@@ -62,9 +63,9 @@ class MLKbarPrep(object):
                 stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = ['open','close','high','low', 'money'], skip_suspended=True)          
             if stock_df.empty:
                 continue
-#             if self.isDebug:
-#                 print("{0}, {1}, {2}, {3}".format(stock, local_count, end_date, level))
-#                 print(stock_df.tail(self.num_of_debug_display))
+            if self.isDebug:
+                print("{0}, {1}, {2}, {3}".format(stock, local_count, end_date, level))
+                print(stock_df.tail(self.num_of_debug_display))
             stock_df = self.prepare_df_data(stock_df, level)
             self.stock_df_dict[level] = stock_df
     

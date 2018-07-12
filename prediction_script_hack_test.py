@@ -10,17 +10,18 @@ result = {}
 
 mbc = ML_biaoli_check({'rq':False, 
                        'ts':False,
-                       'model_path':'training_model/subprocessed/002001.XSHE.h5', 
+                       'model_path':'training_model/nosubprocessed/510050.XSHG.h5', 
                        'isAnal':True,
                        'extra_training':False,
                        'extra_training_period':1250,
                        'save_new_model':False,
-                       'long_threthold':0.6, 
-                       'short_threthold':0.6, 
+                       'long_threthold':0.9, 
+                       'short_threthold':0.9, 
                        'isDebug':True,
-                       'use_latest_pivot':False})
+                       'use_latest_pivot':False, 
+                       'use_standardized_sub_df':False})
 # stocks = get_index_stocks('399300.XSHE')
-stocks = ['002001.XSHE']
+stocks = ['510050.XSHG']
 stocks.sort()
 for pre_stock in stocks:
     for day in dates:
@@ -31,7 +32,7 @@ for pre_stock in stocks:
 #     filename = 'training_result/{0}.pkl'.format(pre_stock)
 #     dump(result, open(filename, 'wb'))
 
-    filename = './training_result/{0}.jq'.format(pre_stock)
+    filename = './training_result/{0}.json'.format(pre_stock)
     with open(filename, 'w', encoding='utf-8') as outfile:
         json.dump(result, outfile)
 

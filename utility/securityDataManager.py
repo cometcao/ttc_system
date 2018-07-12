@@ -47,6 +47,11 @@ class JqDataRetriever(DataRetriever):
         with open('auth.json', encoding='utf-8') as data_file:
             data = json.loads(data_file.read())
         jqdatasdk.auth(data["user"], data["password"])
+        
+    @staticmethod
+    def get_index_stocks(index):
+        JqDataRetriever.authenticate()
+        return jqdatasdk.get_index_stocks(index)
 
 
 class TSDataRetriever(DataRetriever):
