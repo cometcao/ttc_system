@@ -13,8 +13,8 @@ except:
     pass
 
 
-from ML_kbar_prep import *
-from ML_model_prep import *
+from utility.ML_kbar_prep import *
+from utility.ML_model_prep import *
 from os import listdir
 from os.path import isfile, join
 
@@ -37,9 +37,16 @@ class ML_biaoli_train(object):
         self.isAnal = params.get('isAnal', False)
         self.isDebug = params.get('isDebug', False)
         self.use_standardized_sub_df = params.get('use_standardized_sub_df', True)
+        self.check_level = params.get('check_level', ['1d','30m'])
+        
 
     def prepare_mass_training_data(self, folder_path='./training_data'):
-        mld = MLDataPrep(isAnal=False, rq=self.rq, ts=self.ts, use_standardized_sub_df=self.use_standardized_sub_df)
+        mld = MLDataPrep(isAnal=False, 
+                         rq=self.rq, 
+                         ts=self.ts, 
+                         use_standardized_sub_df=self.use_standardized_sub_df, 
+                         isDebug=self.isDebug,
+                         monitor_level=self.check_level)
         index_stocks = []
         for index in self.index_list:
             stocks = get_index_stocks(index) #000016.XSHG 000905.XSHG 399300.XSHE
@@ -52,16 +59,25 @@ class ML_biaoli_train(object):
             mld.retrieve_stocks_data(stocks=stocks,period_count=2500, filename='{0}/training_{1}.pkl'.format(folder_path,str(x[1])))
 
     def prepare_initial_training_data(self, initial_path):
-        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, use_standardized_sub_df=self.use_standardized_sub_df, isDebug=self.isDebug)
+        mld = MLDataPrep(isAnal=self.isAnal, 
+                         rq=self.rq, ts=self.ts, 
+                         use_standardized_sub_df=self.use_standardized_sub_df, 
+                         isDebug=self.isDebug,
+                         monitor_level=self.check_level)
         mld.retrieve_stocks_data(stocks=self.index_list,period_count=2500, filename='{0}/training_index.pkl'.format(initial_path))
 
-    def initial_training(self, initial_data_path, model_name, epochs=10):
-        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, use_standardized_sub_df=self.use_standardized_sub_df, isDebug=self.isDebug)
+    def initial_training(self, initial_data_path, model_name, epochs=10, use_ccnlstm=True):
+        mld = MLDataPrep(isAnal=self.isAnal, 
+                         rq=self.rq, ts=self.ts, 
+                         use_standardized_sub_df=self.use_standardized_sub_df, 
+                         isDebug=self.isDebug,monitor_level=self.check_level)
         x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(initial_data_path)
         
         mdp = MLDataProcess(model_name=model_name)
-        mdp.define_conv_lstm_model(x_train, x_test, y_train, y_test, num_classes=3, epochs=epochs, verbose=2)        
-        
+        if use_ccnlstm:
+            mdp.define_conv_lstm_model(x_train, x_test, y_train, y_test, num_classes=3, epochs=epochs, verbose=2)        
+        else:
+            mdp.define_conv2d_model(x_train, x_test, y_train, y_test, num_classes=3, epochs=epochs, verbose=2)
         # filenames = ['training_data/cnn_training_test_index_v3_list.pkl']
         # x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(filenames)
         
@@ -72,7 +88,12 @@ class ML_biaoli_train(object):
         # mdp.define_conv_lstm_model(x_train, x_test, y_train, y_test, num_classes=3, epochs=50)
 
     def continue_training(self, model_name, folder_path='./training_data'):
-        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, use_standardized_sub_df=self.use_standardized_sub_df, isDebug=self.isDebug)
+        mld = MLDataPrep(isAnal=self.isAnal, 
+                         rq=self.rq, 
+                         ts=self.ts, 
+                         use_standardized_sub_df=self.use_standardized_sub_df, 
+                         isDebug=self.isDebug,
+                         monitor_level=self.check_level)
         mdp = MLDataProcess(model_name=None)
         mdp.load_model(model_name)
         filenames = [f for f in listdir(folder_path) if isfile(join(folder_path, f))]
@@ -89,7 +110,13 @@ class ML_biaoli_train(object):
         if not stocks:
             return model
         
-        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, detailed_bg=detailed_bg, use_standardized_sub_df=self.use_standardized_sub_df, isDebug=self.isDebug)    
+        mld = MLDataPrep(isAnal=self.isAnal, 
+                         rq=self.rq, 
+                         ts=self.ts, 
+                         detailed_bg=detailed_bg, 
+                         use_standardized_sub_df=self.use_standardized_sub_df, 
+                         isDebug=self.isDebug,
+                         monitor_level=self.check_level)    
         tmp_data, tmp_label = mld.retrieve_stocks_data(stocks, period_count=period_count, filename=training_data_name)
         x_train, x_test, y_train, y_test = mld.prepare_stock_data_set(tmp_data, tmp_label)
         
@@ -101,7 +128,12 @@ class ML_biaoli_train(object):
     def full_training(self, stocks, period_count=90, training_data_name=None, model_name=None, batch_size=20, epochs=3,detailed_bg=False):
         if not stocks:
             return None
-        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, detailed_bg=detailed_bg, use_standardized_sub_df=self.use_standardized_sub_df, isDebug=self.isDebug)      
+        mld = MLDataPrep(isAnal=self.isAnal, 
+                         rq=self.rq, ts=self.ts, 
+                         detailed_bg=detailed_bg, 
+                         use_standardized_sub_df=self.use_standardized_sub_df, 
+                         isDebug=self.isDebug,
+                         monitor_level=self.check_level)      
         tmp_data, tmp_label = mld.retrieve_stocks_data(stocks, period_count=period_count, filename=training_data_name)
         x_train, x_test, y_train, y_test = mld.prepare_stock_data_set(tmp_data, tmp_label)
         
@@ -114,7 +146,12 @@ class ML_biaoli_train(object):
             return None    
         
         filenames = [f for f in listdir(training_data_path) if isfile(join(training_data_path, f))]
-        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, detailed_bg=detailed_bg, use_standardized_sub_df=self.use_standardized_sub_df, isDebug=self.isDebug) 
+        mld = MLDataPrep(isAnal=self.isAnal, 
+                         rq=self.rq, ts=self.ts, 
+                         detailed_bg=detailed_bg, 
+                         use_standardized_sub_df=self.use_standardized_sub_df, 
+                         isDebug=self.isDebug,
+                         monitor_level=self.check_level) 
         
         for stock in stocks:
             if stock in filenames:
@@ -152,6 +189,9 @@ class ML_biaoli_check(object):
         self.isDebug = params.get('isDebug', False)
         self.use_latest_pivot = params.get('use_latest_pivot', True)
         self.use_standardized_sub_df = params.get('use_standardized_sub_df', True)
+        self.use_cnn_lstm = params.get('use_cnn_lstm', True)
+        self.use_cnn = params.get('use_cnn', False)
+        self.check_level = params.get('check_level', ['1d','30m'])
         if not self.model and self.model_path is not None:
             self.prepare_model()
 
@@ -225,7 +265,11 @@ class ML_biaoli_check(object):
         
     def model_predict(self, stock, today_date=None):
         print("ML working on {0} at date {1}".format(stock, str(today_date) if today_date else ""))
-        mld = MLDataPrep(isAnal=self.isAnal, rq=self.rq, ts=self.ts, isDebug=self.isDebug, use_standardized_sub_df=self.use_standardized_sub_df)
+        mld = MLDataPrep(isAnal=self.isAnal, 
+                         rq=self.rq, ts=self.ts, 
+                         isDebug=self.isDebug, 
+                         use_standardized_sub_df=self.use_standardized_sub_df, 
+                         monitor_level=self.check_level)
         data_set, origin_data_length = mld.prepare_stock_data_predict(stock, today_date=today_date) # 000001.XSHG
         if data_set is None: # can't predict
             print("None dataset, return [0],[[0]], 0")
@@ -239,7 +283,12 @@ class ML_biaoli_check(object):
             
             unique_index = np.array([-1, 0, 1])
             
-            return self.mdp.model_predict_cnn_lstm(data_set, unique_index), origin_data_length
+            if self.use_cnn_lstm:
+                return self.mdp.model_predict_cnn_lstm(data_set, unique_index), origin_data_length
+            elif self.use_cnn:
+                return self.mdp.model_predict_cnn(data_set, unique_index), origin_data_length
+            else:
+                return self.mdp.model_predict_cnn_lstm(data_set, unique_index), origin_data_length
         except Exception as e: 
             print(e)
             return (([0],[[0]]), 0)

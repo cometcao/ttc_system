@@ -7,13 +7,63 @@ from os.path import isfile, join
 import pickle
 
 # data_dir = 'C:/Users/MetalInvest/Desktop/ML/201805-839-1200-nomacd-subBLprocess/'
-data_dir = 'C:/Users/MetalInvest/Desktop/ML/201804-839-1200-nomacd-nosubBLprocess/'
+# data_dir = 'C:/Users/MetalInvest/Desktop/ML/201804-839-1200-nomacd-nosubBLprocess/'
+data_dir = './training_data/week_data/'
 
 record_file_path = './file_record.pkl'
 try:
     file_record = load(open(record_file_path, 'rb'))
 except:
-    file_record = [
+    file_record = []
+
+
+mld = MLDataPrep(isAnal=True,                 
+                 rq=False, 
+                 ts=False,
+                 use_standardized_sub_df=False,
+                 isDebug=False)
+
+mdp = MLDataProcess(model_name=None, isAnal=True)
+####################
+# mdp.load_model('./training_model/nosubprocessed/cnn_lstm_model_index.h5')
+# mdp.model_name = './training_model/cnn_lstm_model_base.h5'
+
+# mdp.load_model('./training_model/weekly_model/cnn_lstm_model_index_weekly.h5')
+# mdp.model_name = './training_model/weekly_model/cnn_lstm_model_base_weekly.h5'
+
+mdp.load_model('./training_model/weekly_model/cnn_model_index_weekly.h5')
+mdp.model_name = './training_model/weekly_model/cnn_model_base_weekly.h5'
+####################
+# mdp.load_model('./training_model/nosubprocessed/cnn_lstm_model_base.h5')
+# mdp.load_model('./training_model/weekly_model/cnn_lstm_model_base_weekly.h5')
+####################
+
+filenames = [f for f in listdir(data_dir) if isfile(join(data_dir, f))]
+filenames.sort()
+for file in filenames:
+    if file in file_record:
+        continue
+    
+    print(file)
+
+    x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(['{0}/{1}'.format(data_dir,file)])
+    x_train = np.expand_dims(x_train, axis=2) 
+    x_test = np.expand_dims(x_test, axis=2) 
+  
+    if False:
+        x_train = np.expand_dims(x_train, axis=1)
+        x_test = np.expand_dims(x_test, axis=1)
+    
+    mdp.process_model(mdp.model, x_train, x_test, y_train, y_test, epochs=6, batch_size=100, verbose=2)
+       
+    file_record.append(file)
+    dump(file_record, open(record_file_path, 'wb'))
+
+# mdp.model.save_weights('./training_model/cnn_lstm_model_base_weight.h5')
+
+
+
+
 #                     'training_10.pkl','training_15.pkl','training_20.pkl',
 #                    'training_25.pkl','training_30.pkl','training_35.pkl',
 #                    'training_40.pkl','training_45.pkl','training_50.pkl',
@@ -75,36 +125,3 @@ except:
 #                     'training_685.pkl','training_690.pkl','training_695.pkl',
 #                     'training_700.pkl','training_705.pkl','training_710.pkl',
 #                     'training_715.pkl','training_720.pkl','training_725.pkl',
-                   ]
-
-
-mld = MLDataPrep(isAnal=False)
-
-mdp = MLDataProcess(model_name=None, isAnal=True)
-####################
-# mdp.load_model('./training_model/nosubprocessed/cnn_lstm_model_index.h5')
-# mdp.model_name = './training_model/cnn_lstm_model_base.h5'
-####################
-mdp.load_model('./training_model/cnn_lstm_model_base.h5')
-####################
-
-filenames = [f for f in listdir(data_dir) if isfile(join(data_dir, f))]
-filenames.sort()
-for file in filenames:
-    if file in file_record:
-        continue
-    
-    print(file)
-
-    x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(['{0}/{1}'.format(data_dir,file)])
-    x_train = np.expand_dims(x_train, axis=2) 
-    x_test = np.expand_dims(x_test, axis=2) 
-  
-    x_train = np.expand_dims(x_train, axis=1)
-    x_test = np.expand_dims(x_test, axis=1)
-    mdp.process_model(mdp.model, x_train, x_test, y_train, y_test, epochs=3, batch_size=50, verbose=2)
-       
-    file_record.append(file)
-    dump(file_record, open(record_file_path, 'wb'))
-
-mdp.model.save_weights('./training_model/cnn_lstm_model_base_weight.h5')

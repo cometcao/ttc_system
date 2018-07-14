@@ -53,6 +53,11 @@ class JqDataRetriever(DataRetriever):
         JqDataRetriever.authenticate()
         return jqdatasdk.get_index_stocks(index)
 
+    @staticmethod
+    def get_trading_date(count=1):
+        JqDataRetriever.authenticate()
+        return jqdatasdk.get_trade_days(count=count)
+
 
 class TSDataRetriever(DataRetriever):
     @staticmethod
