@@ -6,7 +6,7 @@ from utility.securityDataManager import *
 
 def batch(iterable, n=1):
     l = len(iterable)
-    for ndx in range(380, l, n): # restart
+    for ndx in range(80, l, n): # restart
         yield [ndx,min(ndx + n, l)]
 
 mld = MLDataPrep(isAnal=True, 

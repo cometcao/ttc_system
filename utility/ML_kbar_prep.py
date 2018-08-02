@@ -62,9 +62,21 @@ class MLKbarPrep(object):
         self.num_of_debug_display = 4
         self.monitor_level = monitor_level
     
+#     def obtain_count(self, level): # this function relys on correctly set of self.monitor_level 
+#         if self.monitor_level[0] == '5d':
+#             if level == '5d':
+#                 return self.count
+#             else:
+#                 return self.count * 5 # '1d'
+#         if self.monitor_level[0] == '1d':
+#             if level == '1d':
+#                 return self.count
+#             else:
+#                 return self.count * 8 # '30m'
+    
     def retrieve_stock_data(self, stock, end_date=None):
         for level in self.monitor_level:
-            local_count = self.count if level == '1d' else self.count * 8
+            local_count = self.count if self.monitor_level[0] == level else self.count * 8 if level == '30m' else self.count * 5
             stock_df = None
             if not self.isAnal:
                 stock_df = attribute_history(stock, local_count, level, fields = ['open','close','high','low', 'money'], skip_paused=True, df=True)  
@@ -74,9 +86,9 @@ class MLKbarPrep(object):
                 stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = ['open','close','high','low', 'money'], skip_suspended=True)          
             if stock_df.empty:
                 continue
-            if self.isDebug:
-                print("{0}, {1}, {2}, {3}".format(stock, local_count, end_date, level))
-                print(stock_df.tail(self.num_of_debug_display))
+#             if self.isDebug:
+#                 print("{0}, {1}, {2}, {3}".format(stock, local_count, end_date, level))
+#                 print(stock_df.tail(self.num_of_debug_display))
             stock_df = self.prepare_df_data(stock_df, level)
             self.stock_df_dict[level] = stock_df
     
@@ -84,7 +96,7 @@ class MLKbarPrep(object):
         for level in self.monitor_level:
             stock_df = None
             if not self.isAnal:
-                local_count = self.count if level == '1d' else self.count * 8 # assuming 30m
+                local_count = self.count if self.monitor_level[0] == level else self.count * 8 if level == '30m' else self.count * 5
                 stock_df = SecurityDataManager.get_data_rq(stock, count=local_count, period=level, fields=['open','close','high','low', 'total_turnover'], skip_suspended=True, df=True, include_now=self.include_now)
             else:
                 today = end_date if end_date is not None else datetime.datetime.today()
@@ -104,12 +116,12 @@ class MLKbarPrep(object):
             if stock_df is None or stock_df.empty:
                 continue
             stock_df = self.prepare_df_data(stock_df, level)
-            self.stock_df_dict[level] = stock_df          
+            self.stock_df_dict[level] = stock_df
     
     def prepare_df_data(self, stock_df, level):
-        # MACD
+        # MACD # don't use it now
 #         stock_df.loc[:,'macd_raw'], _, stock_df.loc[:,'macd']  = talib.MACD(stock_df['close'].values)
-        # BiaoLi
+        stock_df = stock_df.dropna() # make sure we don't get any nan data
         stock_df = self.prepare_biaoli(stock_df, level)
         return stock_df
         
@@ -310,7 +322,8 @@ class MLDataPrep(object):
         
         predict_dataset = self.pad_each_training_array(predict_dataset)
         if self.isDebug:
-            print("original size:{0}".format(origin_pred_size))
+#             print("original size:{0}".format(origin_pred_size))
+            pass
         return predict_dataset, origin_pred_size
         
     def encode_category(self, label_set):
@@ -359,9 +372,10 @@ class MLDataPrep(object):
         x_train, x_test, y_train, y_test = train_test_split(data_list, label_list, test_size=test_portion, random_state=random_seed)
         
         if self.isDebug:
-            print (x_train.shape)
+#             print (x_train.shape)
 #             print (x_train)
 #             print (y_train)
+            pass
         
         return x_train, x_test, y_train, y_test
     

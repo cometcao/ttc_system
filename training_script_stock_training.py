@@ -31,11 +31,11 @@ mdp = MLDataProcess(model_name=None, isAnal=True)
 # mdp.load_model('./training_model/weekly_model/cnn_lstm_model_index_weekly.h5')
 # mdp.model_name = './training_model/weekly_model/cnn_lstm_model_base_weekly.h5'
 
-mdp.load_model('./training_model/weekly_model/cnn_model_index_weekly.h5')
-mdp.model_name = './training_model/weekly_model/cnn_model_base_weekly.h5'
+# mdp.load_model('./training_model/weekly_model/cnn_model_index_weekly.h5')
+# mdp.model_name = './training_model/weekly_model/cnn_model_base_weekly.h5'
 ####################
 # mdp.load_model('./training_model/nosubprocessed/cnn_lstm_model_base.h5')
-# mdp.load_model('./training_model/weekly_model/cnn_lstm_model_base_weekly.h5')
+mdp.load_model('./training_model/weekly_model/cnn_lstm_model_base_weekly.h5')
 ####################
 
 filenames = [f for f in listdir(data_dir) if isfile(join(data_dir, f))]
@@ -49,12 +49,12 @@ for file in filenames:
     x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(['{0}/{1}'.format(data_dir,file)])
     x_train = np.expand_dims(x_train, axis=2) 
     x_test = np.expand_dims(x_test, axis=2) 
-  
-    if False:
+
+    if True:
         x_train = np.expand_dims(x_train, axis=1)
         x_test = np.expand_dims(x_test, axis=1)
     
-    mdp.process_model(mdp.model, x_train, x_test, y_train, y_test, epochs=6, batch_size=100, verbose=2)
+    mdp.process_model(mdp.model, x_train, x_test, y_train, y_test, epochs=7, batch_size=100, verbose=2)
        
     file_record.append(file)
     dump(file_record, open(record_file_path, 'wb'))

@@ -21,7 +21,7 @@ mbt = ML_biaoli_train({'ts':False,
 
 #C:/Users/MetalInvest/Desktop/ML/201805-839-1200-nomacd-subBLprocess/base_data/training_index.pkl
 #C:/Users/MetalInvest/Desktop/ML/201804-839-1200-nomacd-nosubBLprocess/base_data/training_index_old.pkl
-mbt.initial_training(initial_data_path=['./training_data/week_data/training_index.pkl'],
-                     model_name='./training_model/weekly_model/cnn_model_index_weekly.h5',
-                     epochs=7, 
-                     use_ccnlstm=False)
+mbt.initial_training(initial_data_path=['./training_data/week_data/training_index_weekly.pkl'],
+                     model_name='./training_model/weekly_model/cnn_lstm_model_index_weekly.h5',
+                     epochs=13, 
+                     use_ccnlstm=True)
