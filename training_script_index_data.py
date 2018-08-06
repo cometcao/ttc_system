@@ -14,7 +14,9 @@ mbt = ML_biaoli_train({'ts':False,
                        'isAnal':True, 
                        'index_list':['000016.XSHG','000905.XSHG','399300.XSHE', '000001.XSHG', '399001.XSHE', '399333.XSHE', '399006.XSHE'],
                        'use_standardized_sub_df':False, 
-                       'isDebug':False
+                       'isDebug':False, 
+                       'check_level':['5d', '1d'],
+                       'sub_level_max_length':240 # 240 1200
                        })
 
 # mbt.prepare_initial_training_data(initial_path='./training_data/week_data') # change the class variable in ML_kbar_prep

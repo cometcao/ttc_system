@@ -37,6 +37,7 @@ class ML_biaoli_train(object):
         self.isAnal = params.get('isAnal', False)
         self.isDebug = params.get('isDebug', False)
         self.use_standardized_sub_df = params.get('use_standardized_sub_df', True)
+        self.sub_level_max_length = params.get('sub_level_max_length', 1200)
         self.check_level = params.get('check_level', ['1d','30m'])
         
 
@@ -46,12 +47,14 @@ class ML_biaoli_train(object):
                          ts=self.ts, 
                          use_standardized_sub_df=self.use_standardized_sub_df, 
                          isDebug=self.isDebug,
-                         monitor_level=self.check_level)
+                         monitor_level=self.check_level, 
+                         max_length_for_pad=self.sub_level_max_length)
         index_stocks = []
         for index in self.index_list:
             stocks = get_index_stocks(index) #000016.XSHG 000905.XSHG 399300.XSHE
             index_stocks = index_stocks + stocks
         index_stocks = list(set(index_stocks))
+        index_stocks.sort()
         
         for x in batch(range(0, len(index_stocks)), 20): #
             stocks = index_stocks[x[0]:x[1]]
@@ -63,14 +66,16 @@ class ML_biaoli_train(object):
                          rq=self.rq, ts=self.ts, 
                          use_standardized_sub_df=self.use_standardized_sub_df, 
                          isDebug=self.isDebug,
-                         monitor_level=self.check_level)
+                         monitor_level=self.check_level,
+                         max_length_for_pad=self.sub_level_max_length)
         mld.retrieve_stocks_data(stocks=self.index_list,period_count=2500, filename='{0}/training_index.pkl'.format(initial_path))
 
     def initial_training(self, initial_data_path, model_name, epochs=10, use_ccnlstm=True):
         mld = MLDataPrep(isAnal=self.isAnal, 
                          rq=self.rq, ts=self.ts, 
                          use_standardized_sub_df=self.use_standardized_sub_df, 
-                         isDebug=self.isDebug,monitor_level=self.check_level)
+                         isDebug=self.isDebug,monitor_level=self.check_level,
+                         max_length_for_pad=self.sub_level_max_length)
         x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(initial_data_path)
         
         mdp = MLDataProcess(model_name=model_name)
@@ -93,7 +98,8 @@ class ML_biaoli_train(object):
                          ts=self.ts, 
                          use_standardized_sub_df=self.use_standardized_sub_df, 
                          isDebug=self.isDebug,
-                         monitor_level=self.check_level)
+                         monitor_level=self.check_level,
+                         max_length_for_pad=self.sub_level_max_length)
         mdp = MLDataProcess(model_name=None)
         mdp.load_model(model_name)
         filenames = [f for f in listdir(folder_path) if isfile(join(folder_path, f))]
@@ -116,7 +122,8 @@ class ML_biaoli_train(object):
                          detailed_bg=detailed_bg, 
                          use_standardized_sub_df=self.use_standardized_sub_df, 
                          isDebug=self.isDebug,
-                         monitor_level=self.check_level)    
+                         monitor_level=self.check_level,
+                         max_length_for_pad=self.sub_level_max_length)    
         tmp_data, tmp_label = mld.retrieve_stocks_data(stocks, period_count=period_count, filename=training_data_name)
         x_train, x_test, y_train, y_test = mld.prepare_stock_data_set(tmp_data, tmp_label)
         
@@ -133,7 +140,8 @@ class ML_biaoli_train(object):
                          detailed_bg=detailed_bg, 
                          use_standardized_sub_df=self.use_standardized_sub_df, 
                          isDebug=self.isDebug,
-                         monitor_level=self.check_level)      
+                         monitor_level=self.check_level,
+                         max_length_for_pad=self.sub_level_max_length)      
         tmp_data, tmp_label = mld.retrieve_stocks_data(stocks, period_count=period_count, filename=training_data_name)
         x_train, x_test, y_train, y_test = mld.prepare_stock_data_set(tmp_data, tmp_label)
         
@@ -151,7 +159,8 @@ class ML_biaoli_train(object):
                          detailed_bg=detailed_bg, 
                          use_standardized_sub_df=self.use_standardized_sub_df, 
                          isDebug=self.isDebug,
-                         monitor_level=self.check_level) 
+                         monitor_level=self.check_level,
+                         max_length_for_pad=self.sub_level_max_length) 
         
         for stock in stocks:
             if stock in filenames:
@@ -192,6 +201,7 @@ class ML_biaoli_check(object):
         self.use_cnn_lstm = params.get('use_cnn_lstm', True)
         self.use_cnn = params.get('use_cnn', False)
         self.check_level = params.get('check_level', ['1d','30m'])
+        self.sub_level_max_length = params.get('sub_level_max_length', 1200)
         if not self.model and self.model_path is not None:
             self.prepare_model()
 
@@ -269,7 +279,8 @@ class ML_biaoli_check(object):
                          rq=self.rq, ts=self.ts, 
                          isDebug=self.isDebug, 
                          use_standardized_sub_df=self.use_standardized_sub_df, 
-                         monitor_level=self.check_level)
+                         monitor_level=self.check_level,
+                         max_length_for_pad=self.sub_level_max_length)
         data_set, origin_data_length = mld.prepare_stock_data_predict(stock, today_date=today_date) # 000001.XSHG
         if data_set is None: # can't predict
             print("None dataset, return [0],[[0]], 0")

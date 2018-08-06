@@ -1,5 +1,6 @@
 ######### Mass Training Data #########
 
+from utility.ML_main import *
 from utility.ML_kbar_prep import *
 from utility.ML_model_prep import *
 from utility.securityDataManager import *
@@ -13,7 +14,8 @@ mld = MLDataPrep(isAnal=True,
                  rq=False, 
                  ts=False,
                  use_standardized_sub_df=False,
-                 isDebug=False)
+                 isDebug=False, 
+                 monitor_level=['5d', '1d'])
 index_list = ['000016.XSHG','399300.XSHE', '399333.XSHE', '000905.XSHG', '399673.XSHE'] 
 index_stocks = []
 for index in index_list:
