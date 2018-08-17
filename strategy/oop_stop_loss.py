@@ -138,7 +138,10 @@ class Stop_loss_by_3_black_crows(Rule):
 class ML_Stock_Timing(Rule):
     def __init__(self, params):
         self.ml_predict_file_path = params.get('ml_file_path', None)
-        self.only_take_long_stocks = params.get('only_take_long_stocks', True)
+        self.only_take_long_stocks = params.get('only_take_long_stocks', False)
+        
+    def update_params(self, context, params):
+        self.only_take_long_stocks = params.get('only_take_long_stocks', False)
     
     def handle_data(self, context, data):
         today_date = context.current_dt.date()
@@ -150,36 +153,39 @@ class ML_Stock_Timing(Rule):
                 stock, buy, sell = trades
                 trade_dict[stock] = (buy, sell)
                 
-#             # sell holding stocks if found
-#             hold_stocks_to_check = [stock for stock in context.portfolio.positions.keys() if stock not in g.money_fund]
-#             for stock in hold_stocks_to_check:
-#                 if stock not in trade_dict:
-#                     continue            
-#                 (buy, sell) = trade_dict[stock]
-#                 if sell == 1:
-#                     self.g.sell_stocks.append(stock)
-#                     if stock in context.portfolio.positions.keys():
-#                         self.g.close_position(self, context.portfolio.positions[stock], True, 0)
+#             print("ML data for {0}, with: {1}".format(str(today_date), trade_dict))
+            # sell holding stocks if found # no need to do it
+            hold_stocks_to_check = [stock for stock in context.portfolio.positions.keys() if stock not in g.money_fund]
+            for stock in hold_stocks_to_check:
+                if stock not in trade_dict:
+                    continue            
+                (buy, sell) = trade_dict[stock]
+                if sell == 1:
+                    self.g.sell_stocks.append(stock)
+                    if stock in context.portfolio.positions.keys():
+                        print("stock {0} closed".format(stock))
+                        self.g.close_position(self, context.portfolio.positions[stock], True, 0)
             
             # filter in long point stocks
-            stocks_to_check = self.g.buy_stocks
+            stocks_to_remove = []
             stocks_to_long = []
-            for stock in stocks_to_check:
+            for stock in self.g.buy_stocks:
                 if stock not in trade_dict:
                     continue
                 (buy, sell) = trade_dict[stock]
                 if sell == 1:
                     self.g.sell_stocks.append(stock)
-                    if stock in self.g.buy_stocks:
-                        self.g.buy_stocks.remove(stock)
+                    stocks_to_remove.append(stock)
                 if buy == 1:
                     stocks_to_long.append(stock)
             if self.only_take_long_stocks:
                 self.g.buy_stocks = stocks_to_long
+            else:
+                self.g.buy_stocks = [stock for stock in self.g.buy_stocks if stock not in stocks_to_remove]
             self.log.info("ML择时结果: "+join_list([show_stock(stock) for stock in self.g.buy_stocks], ' ', 10))
             # make sure ML predict use check_status
         except:
-            self.log.warn("ML prediction file missing: {0}".format(self.ml_predict_file_path))
+            self.log.warn("ML prediction data missing: {0} {1}".format(self.ml_predict_file_path, str(today_date)))
             return
             
         

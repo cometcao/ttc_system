@@ -22,7 +22,8 @@ mld = MLDataPrep(isAnal=True,
                  rq=False, 
                  ts=False,
                  use_standardized_sub_df=False,
-                 isDebug=False)
+                 isDebug=False, 
+                 max_length_for_pad=240)
 
 mdp = MLDataProcess(model_name=None, isAnal=True)
 ####################
@@ -42,28 +43,26 @@ mdp.load_model('./training_model/weekly_model/cnn_lstm_model_base_weekly.h5')
 filenames = [f for f in listdir(data_dir) if isfile(join(data_dir, f))]
 filenames.sort()
 full_names = []
-for file in filenames[10:20]:
+for file in filenames:
     if file in file_record:
         continue
-    
+     
     print(file)
     full_names.append('{0}/{1}'.format(data_dir,file))
-
-
+ 
+ 
 x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(full_names)
 x_train = np.expand_dims(x_train, axis=2) 
 x_test = np.expand_dims(x_test, axis=2) 
-
+ 
 if True:
     x_train = np.expand_dims(x_train, axis=1)
     x_test = np.expand_dims(x_test, axis=1)
- 
+  
 mdp.process_model(mdp.model, x_train, x_test, y_train, y_test, epochs=8, batch_size=50, verbose=2)
 
-file_record.append(file)
-dump(file_record, open(record_file_path, 'wb'))
 
-
+## separate file processing
 #     x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(['{0}/{1}'.format(data_dir,file)])
 #     x_train = np.expand_dims(x_train, axis=2) 
 #     x_test = np.expand_dims(x_test, axis=2) 
@@ -76,8 +75,9 @@ dump(file_record, open(record_file_path, 'wb'))
 #        
 #     file_record.append(file)
 #     dump(file_record, open(record_file_path, 'wb'))
-# 
-# # mdp.model.save_weights('./training_model/cnn_lstm_model_base_weight.h5')
+#######################################
+
+# mdp.model.save_weights('./training_model/weekly_model/cnn_lstm_model_base_weight.h5')
 
 
 

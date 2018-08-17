@@ -6,9 +6,8 @@ from ML_kbar_prep import *
 pd.options.mode.chained_assignment = None
 
 
-stocks = ['000002.XSHE']
+stocks = ['600179.XSHG']
 
-#, '601138.XSHG', '000701.XSHE', '600115.XSHG'
 # dates = get_trading_date_ts(count=15)
 dates = JqDataRetriever.get_trading_date(count=1)
 for day in dates[-1:]:
@@ -28,7 +27,7 @@ for day in dates[-1:]:
                            'use_cnn_lstm':True,
                            'use_cnn':False,
                            'check_level':['5d','1d'],
-                           'sub_level_max_length':240})    
+                           'sub_level_max_length':240})
     gauge_results_week = mbc_week.gauge_stocks_analysis(stocks, today_date=day)
     
     
