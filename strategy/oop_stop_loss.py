@@ -163,7 +163,7 @@ class ML_Stock_Timing(Rule):
                 if sell == 1:
                     self.g.sell_stocks.append(stock)
                     if stock in context.portfolio.positions.keys():
-                        print("stock {0} closed".format(stock))
+                        print("stock {0} closed due to AI prediction".format(stock))
                         self.g.close_position(self, context.portfolio.positions[stock], True, 0)
             
             # filter in long point stocks
