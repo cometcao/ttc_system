@@ -6,9 +6,9 @@ from os import listdir
 from os.path import isfile, join
 import pickle
 
-# data_dir = 'C:/Users/MetalInvest/Desktop/ML/201805-839-nomacd-subBLprocess/'
-data_dir = 'C:/Users/MetalInvest/Desktop/ML/201804-839-nomacd-nosubBLprocess/'
-# data_dir = 'C:/Users/MetalInvest/Desktop/ML/201808-839-nomacd-nosubBLprocess-week/'
+
+# data_dir = 'F:/A_share_chan_ml_data/201804-839-nomacd-nosubBLprocess/'
+data_dir = 'F:/A_share_chan_ml_data/201808-839-nomacd-nosubBLprocess-week/'
 # data_dir = './training_data/week_data/'
 
 record_file_path = './file_record.pkl'
@@ -23,31 +23,27 @@ mld = MLDataPrep(isAnal=True,
                  ts=False,
                  use_standardized_sub_df=False,
                  isDebug=False, 
-                 max_length_for_pad=1200) #1200 240
+                 max_length_for_pad=240) #1200 240
 
 mdp = MLDataProcess(model_name=None, isAnal=True)
 ####################
 # mdp.load_model('./training_model/nosubprocessed/cnn_lstm_model_index.h5')
 # mdp.model_name = './training_model/cnn_lstm_model_base.h5'
 
-# mdp.load_model('./training_model/weekly_model/cnn_lstm_model_index_weekly.h5')
-# mdp.model_name = './training_model/weekly_model/cnn_lstm_model_base_weekly.h5'
+mdp.load_model('./training_model/weekly_model/cnn_lstm_model_index_weekly.h5')
+mdp.model_name = './training_model/weekly_model/cnn_lstm_model_base_weekly.h5'
 
 # mdp.load_model('./training_model/weekly_model/cnn_model_index_weekly.h5')
 # mdp.model_name = './training_model/weekly_model/cnn_model_base_weekly.h5'
 ####################
-mdp.load_model('./training_model/nosubprocessed/cnn_lstm_model_base.h5')
+# mdp.load_model('./training_model/nosubprocessed/cnn_lstm_model_base.h5')
 # mdp.load_model('./training_model/weekly_model/cnn_lstm_model_base_weekly.h5')
 ####################
 
 filenames = [f for f in listdir(data_dir) if isfile(join(data_dir, f))]
 filenames.sort()
 full_names = []
-for file in filenames[10:20]:
-    if file in file_record:
-        continue
-     
-    print(file)
+for file in filenames:
     full_names.append('{0}/{1}'.format(data_dir,file))
  
  
