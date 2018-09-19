@@ -191,6 +191,49 @@ class MLDataProcess(object):
                 model.save(self.model_name)
             print("saved to file {0}".format(self.model_name))
     
+    
+    def define_conv_lstm_shape(self, data_gen):
+        x_train, x_test = next(data_gen)
+        
+        input_shape = None
+        a, b, c, d, e = x_train.shape
+        if K.image_data_format() == 'channels_first':
+            # convert class vectors to binary class matrices
+            input_shape = (b, e, c, d)
+        else:
+            # convert class vectors to binary class matrices
+            input_shape = (b, c, d, e)
+        
+        data_gen.send((x_train, x_test))
+        return input_shape
+                      
+    
+    def define_conv_lstm_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 100000,epochs = 5, verbose=0):
+        input_shape = self.define_conv_lstm_shape(data_gen)
+        
+        model = self.create_conv_lstm_model_arch(input_shape, num_classes)
+        
+        self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen)
+
+        
+    def process_model_generator(self, model, generator, steps = 100000, epochs = 5, verbose = 2, validation_data=None, evaluate_generator=None):
+        model.fit_generator(generator, 
+                            steps_per_epoch = steps, 
+                            epochs = epochs, 
+                            verbose = verbose)
+        score = model.evaluate_generator(evaluate_generator, verbose = 2)
+        print('Test loss:', score[0])
+        print('Test accuracy:', score[1])        
+        
+        self.model = model
+        if self.model_name:
+            if self.saveByte:
+                self.save_model_byte(self.model_name, self.model)
+            else:
+                model.save(self.model_name)
+            print("saved to file {0}".format(self.model_name))        
+        
+    
     def load_model(self, model_name):
         if self.saveByte:
             self.load_model_byte(model_name)

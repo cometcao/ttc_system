@@ -83,14 +83,6 @@ class ML_biaoli_train(object):
             mdp.define_conv_lstm_model(x_train, x_test, y_train, y_test, num_classes=3, epochs=epochs, verbose=2)        
         else:
             mdp.define_conv2d_model(x_train, x_test, y_train, y_test, num_classes=3, epochs=epochs, verbose=2)
-        # filenames = ['training_data/cnn_training_test_index_v3_list.pkl']
-        # x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(filenames)
-        
-        # mdp = MLDataProcess(model_name='training_data/cnn_model_index_test.h5')
-        # mdp.define_conv2d_model(x_train, x_test, y_train, y_test, num_classes=3, epochs=50)
-        
-        # mdp = MLDataProcess(model_name='training_data/cnn_lstm_model_index_test.h5')
-        # mdp.define_conv_lstm_model(x_train, x_test, y_train, y_test, num_classes=3, epochs=50)
 
     def continue_training(self, model_name, folder_path='./training_data'):
         mld = MLDataPrep(isAnal=self.isAnal, 
@@ -178,6 +170,35 @@ class ML_biaoli_train(object):
             x_train, x_test, _ = mdp.define_conv_lstm_dimension(x_train, x_test)
             mdp.process_model(mdp.model, x_train, x_test, y_train, y_test, batch_size=batch_size, epochs=epochs, verbose=2) 
         
+
+    def initial_training_gen(self, initial_data_path, model_name, epochs=10, use_ccnlstm=True):
+        mld = MLDataPrep(isAnal=self.isAnal, 
+                         rq=self.rq, ts=self.ts, 
+                         use_standardized_sub_df=self.use_standardized_sub_df, 
+                         isDebug=self.isDebug,monitor_level=self.check_level,
+                         max_length_for_pad=self.sub_level_max_length)
+        data_gen, validation_gen = mld.prepare_stock_data_cnn_gen(initial_data_path)
+        
+        mdp = MLDataProcess(model_name=model_name)
+        if use_ccnlstm:
+            mdp.define_conv_lstm_model_gen(data_gen, validation_gen, num_classes=3, epochs=epochs, verbose=2)
+            
+    def continue_training_gen(self, model_name, folder_path='./training_data'):
+        mld = MLDataPrep(isAnal=self.isAnal, 
+                         rq=self.rq, 
+                         ts=self.ts, 
+                         use_standardized_sub_df=self.use_standardized_sub_df, 
+                         isDebug=self.isDebug,
+                         monitor_level=self.check_level,
+                         max_length_for_pad=self.sub_level_max_length)
+        mdp = MLDataProcess(model_name=None)
+        mdp.load_model(model_name)
+        filenames = [f for f in listdir(folder_path) if isfile(join(folder_path, f))]
+        
+        full_names = ['{0}/{1}'.format(folder_path, file) for file in filenames]
+        data_gen, validation_gen = mld.prepare_stock_data_cnn_gen(full_names)
+        mdp.process_model_generator(mdp.model, data_gen, steps=100000, epochs=5, verbose=2, validation_data=validation_gen, evaluate_generator=validation_gen) 
+
 
 #################### PREDICTION ######################
 

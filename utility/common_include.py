@@ -10,7 +10,7 @@ except:
     pass
 import enum
 import math
-from securityDataManager import *
+from utility.securityDataManager import *
 
 evs_query_string = '(valuation.market_cap*100000000+balance.total_liability+balance.minority_interests+balance.capital_reserve_fund-balance.cash_equivalents)/(income.total_operating_revenue)'
 eve_query_string = '(valuation.market_cap*100000000+balance.total_liability+balance.minority_interests+balance.capital_reserve_fund-balance.cash_equivalents)/(indicator.eps*valuation.capitalization*10000)'
@@ -114,3 +114,8 @@ def generate_portion(num):
     while num != 0:
         yield float(num) / float(total_portion)
         num -= 1
+        
+def batch(iterable, n=1):
+    l = len(iterable)
+    for ndx in range(0, l, n): # restart
+        yield [ndx,min(ndx + n, l)]
