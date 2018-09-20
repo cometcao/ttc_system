@@ -221,7 +221,7 @@ class MLDataProcess(object):
                             steps_per_epoch = steps, 
                             epochs = epochs, 
                             verbose = verbose)
-        score = model.evaluate_generator(evaluate_generator, verbose = 2)
+        score = model.evaluate_generator(evaluate_generator, verbose = 2, steps=10000)
         print('Test loss:', score[0])
         print('Test accuracy:', score[1])        
         
