@@ -208,7 +208,7 @@ class MLDataProcess(object):
         return input_shape
                       
     
-    def define_conv_lstm_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 100000,epochs = 5, verbose=0):
+    def define_conv_lstm_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0):
         input_shape = self.define_conv_lstm_shape(data_gen)
         
         model = self.create_conv_lstm_model_arch(input_shape, num_classes)
@@ -216,7 +216,7 @@ class MLDataProcess(object):
         self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen)
 
         
-    def process_model_generator(self, model, generator, steps = 100000, epochs = 5, verbose = 2, validation_data=None, evaluate_generator=None):
+    def process_model_generator(self, model, generator, steps = 10000, epochs = 5, verbose = 2, validation_data=None, evaluate_generator=None):
         model.fit_generator(generator, 
                             steps_per_epoch = steps, 
                             epochs = epochs, 

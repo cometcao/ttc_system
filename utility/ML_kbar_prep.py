@@ -354,61 +354,7 @@ class MLDataPrep(object):
             label_list = label_list + B
             print("loaded data set: {0}".format(file))
         return self.prepare_stock_data_set(data_list, label_list, padData, test_portion, random_seed, background_data_generation)
-    
-    
-    def prepare_stock_data_cnn_gen(self, filenames, padData=True, test_portion=0.1, random_seed=42, background_data_generation=True):
-        data_list = []
-        label_list = []
-        for file in filenames:
-            A, B = self.load_dataset(file)
-            
-            A_check = True
-            for item in A:     
-                if not ((item>=0).all() and (item<=1).all()): # min max value range
-                    print(item)
-                    A_check=False
-                    break
-            if not A_check:
-                print("Data invalid in file {0}".format(file))
-                continue
-
-            data_list = data_list + A
-            label_list = label_list + B
-            print("loaded data set: {0}".format(file))
-        return self.prepare_stock_data_set_gen(data_list, label_list, padData, test_portion, random_seed, background_data_generation)
-    
-    def generate_from_data(self, data, label, batch_size):
-        for i in batch(range(0, len(data)), batch_size):
-            yield data[i[0]:i[1]], label[i[0]:i[1]]
-
-    def define_conv_lstm_dimension(self, x_train, x_test):
-        x_train = np.expand_dims(x_train, axis=2) 
-        x_test = np.expand_dims(x_test, axis=2) 
         
-        x_train = np.expand_dims(x_train, axis=1)
-        x_test = np.expand_dims(x_test, axis=1)    
-        return x_train, x_test
-    
-    def prepare_stock_data_set_gen(self, data_list, label_list, padData=True, test_portion=0.1, random_seed=42, background_data_generation=True):
-        if not data_list or not label_list:
-            print("Invalid file content")
-            return
-
-        if background_data_generation:
-            data_list, label_list = self.prepare_background_data(data_list, label_list)
-
-        if padData:
-            data_list = self.pad_each_training_array(data_list)
-        
-        label_list = self.encode_category(label_list)
-        
-        x_train, x_test, y_train, y_test = train_test_split(data_list, label_list, test_size=test_portion, random_state=random_seed)
-        
-        x_train, x_test = self.define_conv_lstm_dimension(x_train, x_test)
-        
-        return self.generate_from_data(x_train, y_train, 50), self.generate_from_data(x_test, y_test, 50)
-
-    
     def prepare_stock_data_set(self, data_list, label_list, padData=True, test_portion=0.1, random_seed=42, background_data_generation=True):
         if not data_list or not label_list:
             print("Invalid file content")
@@ -508,6 +454,51 @@ class MLDataPrep(object):
             if y > max_y:
                 max_y = y
         return(max_x, max_y)
+
+    def define_conv_lstm_dimension(self, x_train):
+        x_train = np.expand_dims(x_train, axis=2)         
+        x_train = np.expand_dims(x_train, axis=1)
+        return x_train
+    
+
+    def generate_from_data(self, data, label, batch_size):
+        for i in batch(range(0, len(data)), batch_size):
+            yield data[i[0]:i[1]], label[i[0]:i[1]]    
+    
+    def generate_from_file(self, filenames, padData=True, background_data_generation=True):
+        for file in filenames:
+            A, B = self.load_dataset(file)
+            
+            A_check = True
+            for item in A:     
+                if not ((item>=0).all() and (item<=1).all()): # min max value range
+                    print(item)
+                    A_check=False
+                    break
+            if not A_check:
+                print("Data invalid in file {0}".format(file))
+                continue
+
+            print("loaded data set: {0}".format(file))
+
+            if not A or not B:
+                print("Invalid file content")
+                return
+
+            if background_data_generation:
+                A, B = self.prepare_background_data(A, B)
+
+            if padData:
+                A = self.pad_each_training_array(A)
+            
+            B = self.encode_category(B)
+            A = self.define_conv_lstm_dimension(A)
+            for i in batch(range(0, len(A)), 50):
+                yield A[i[0]:i[1]], B[i[0]:i[1]] 
+    
+    def prepare_stock_data_cnn_gen(self, filenames, padData=True, background_data_generation=True):
+        return self.generate_from_file(filenames, padData=padData, background_data_generation=background_data_generation)
+    
 #                           open      close       high        low        money  \
 # 2017-11-14 10:00:00  3446.5500  3436.1400  3450.3400  3436.1400  60749246464   
 # 2017-11-14 10:30:00  3436.7000  3433.1700  3438.7300  3431.2600  39968927744   
