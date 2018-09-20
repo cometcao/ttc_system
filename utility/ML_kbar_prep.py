@@ -466,35 +466,36 @@ class MLDataPrep(object):
             yield data[i[0]:i[1]], label[i[0]:i[1]]    
     
     def generate_from_file(self, filenames, padData=True, background_data_generation=True):
-        for file in filenames:
-            A, B = self.load_dataset(file)
-            
-            A_check = True
-            for item in A:     
-                if not ((item>=0).all() and (item<=1).all()): # min max value range
-                    print(item)
-                    A_check=False
-                    break
-            if not A_check:
-                print("Data invalid in file {0}".format(file))
-                continue
-
-            print("loaded data set: {0}".format(file))
-
-            if not A or not B:
-                print("Invalid file content")
-                return
-
-            if background_data_generation:
-                A, B = self.prepare_background_data(A, B)
-
-            if padData:
-                A = self.pad_each_training_array(A)
-            
-            B = self.encode_category(B)
-            A = self.define_conv_lstm_dimension(A)
-            for i in batch(range(0, len(A)), 50):
-                yield A[i[0]:i[1]], B[i[0]:i[1]] 
+        while True:
+            for file in filenames:
+                A, B = self.load_dataset(file)
+                
+                A_check = True
+                for item in A:     
+                    if not ((item>=0).all() and (item<=1).all()): # min max value range
+                        print(item)
+                        A_check=False
+                        break
+                if not A_check:
+                    print("Data invalid in file {0}".format(file))
+                    continue
+    
+                print("loaded data set: {0}".format(file))
+    
+                if not A or not B:
+                    print("Invalid file content")
+                    return
+    
+                if background_data_generation:
+                    A, B = self.prepare_background_data(A, B)
+    
+                if padData:
+                    A = self.pad_each_training_array(A)
+                
+                B = self.encode_category(B)
+                A = self.define_conv_lstm_dimension(A)
+                for i in batch(range(0, len(A)), 50):
+                    yield A[i[0]:i[1]], B[i[0]:i[1]] 
     
     def prepare_stock_data_cnn_gen(self, filenames, padData=True, background_data_generation=True):
         return self.generate_from_file(filenames, padData=padData, background_data_generation=background_data_generation)
