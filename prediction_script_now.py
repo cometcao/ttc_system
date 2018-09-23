@@ -33,7 +33,7 @@ for day in dates[-1:]:
     
     mbc_day = ML_biaoli_check({'rq':False, 
                            'ts':False,
-                           'model_path':'training_model/nosubprocessed/cnn_lstm_model_base.h5', 
+                           'model_path':'./training_model/cnn_lstm_model_base.h5', 
                            'isAnal':True,
                            'extra_training':False, 
                            'extra_training_period':250, # 1250

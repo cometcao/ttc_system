@@ -465,7 +465,7 @@ class MLDataPrep(object):
         for i in batch(range(0, len(data)), batch_size):
             yield data[i[0]:i[1]], label[i[0]:i[1]]    
     
-    def generate_from_file(self, filenames, padData=True, background_data_generation=True):
+    def generate_from_file(self, filenames, padData=True, background_data_generation=True, batch_size=50):
         while True:
             for file in filenames:
                 A, B = self.load_dataset(file)
@@ -494,11 +494,11 @@ class MLDataPrep(object):
                 
                 B = self.encode_category(B)
                 A = self.define_conv_lstm_dimension(A)
-                for i in batch(range(0, len(A)), 50):
+                for i in batch(range(0, len(A)), batch_size):
                     yield A[i[0]:i[1]], B[i[0]:i[1]] 
     
-    def prepare_stock_data_cnn_gen(self, filenames, padData=True, background_data_generation=True):
-        return self.generate_from_file(filenames, padData=padData, background_data_generation=background_data_generation)
+    def prepare_stock_data_cnn_gen(self, filenames, padData=True, background_data_generation=True, batch_size=50):
+        return self.generate_from_file(filenames, padData=padData, background_data_generation=background_data_generation, batch_size=batch_size)
     
 #                           open      close       high        low        money  \
 # 2017-11-14 10:00:00  3446.5500  3436.1400  3450.3400  3436.1400  60749246464   

@@ -208,19 +208,21 @@ class MLDataProcess(object):
         return input_shape
                       
     
-    def define_conv_lstm_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0):
+    def define_conv_lstm_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000):
         input_shape = self.define_conv_lstm_shape(data_gen)
         
         model = self.create_conv_lstm_model_arch(input_shape, num_classes)
         
-        self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen)
+        self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen, validation_steps)
 
         
-    def process_model_generator(self, model, generator, steps = 10000, epochs = 5, verbose = 2, validation_data=None, evaluate_generator=None):
+    def process_model_generator(self, model, generator, steps = 10000, epochs = 5, verbose = 2, validation_data=None, evaluate_generator=None, validation_steps=1000):
         model.fit_generator(generator, 
                             steps_per_epoch = steps, 
                             epochs = epochs, 
-                            verbose = verbose)
+                            verbose = verbose,
+                            validation_data = validation_data,
+                            validation_steps = validation_steps)
         score = model.evaluate_generator(evaluate_generator, verbose = verbose, steps=841)
         print('Test loss:', score[0])
         print('Test accuracy:', score[1])        
