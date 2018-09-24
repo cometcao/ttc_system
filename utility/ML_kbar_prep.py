@@ -421,7 +421,7 @@ class MLDataPrep(object):
     def pad_each_training_array(self, data_list):
         new_shape = self.findmaxshape(data_list)
         if self.max_sequence_length != 0: # force padding to global max length
-            new_shape = (self.max_sequence_length, new_shape[1])
+            new_shape = (self.max_sequence_length, new_shape[1]) 
         new_data_list = self.fillwithzeros(data_list, new_shape)
         return new_data_list
     
@@ -436,7 +436,10 @@ class MLDataPrep(object):
         length = len(inputarray)
         output = np.zeros((length,)+outputshape)
         for i in range(length):
-            output[i][:inputarray[i].shape[0],:inputarray[i].shape[1]] = inputarray[i]
+            if inputarray[i].shape[0] <= outputshape[0]:
+                output[i][:inputarray[i].shape[0],:inputarray[i].shape[1]] = inputarray[i]
+            else:
+                output[i][:outputshape[0], :outputshape[1]] = inputarray[i][-outputshape[0]:,-outputshape[1]:]
         return output
     
     def findmaxshape(self, inputarray):
