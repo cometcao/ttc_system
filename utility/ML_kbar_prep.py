@@ -440,6 +440,10 @@ class MLDataPrep(object):
                 output[i][:inputarray[i].shape[0],:inputarray[i].shape[1]] = inputarray[i]
             else:
                 output[i][:outputshape[0], :outputshape[1]] = inputarray[i][-outputshape[0]:,-outputshape[1]:]
+#                 print(inputarray[i].shape)
+#                 print(output[i].shape)
+#                 print(inputarray[i])
+#                 print(output[i])
         return output
     
     def findmaxshape(self, inputarray):
