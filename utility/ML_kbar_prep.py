@@ -128,13 +128,10 @@ class MLKbarPrep(object):
         
     
     def prepare_biaoli(self, stock_df, level):
-#         print(level)
-#         print(stock_df)
         if level == self.monitor_level[0]:
             kb = KBarProcessor(stock_df)
             # for higher level, we only need the pivot dates, getMarketBL contains more than we need, no need for join
             stock_df = kb.getMarkedBL()
-#             stock_df = stock_df.join(kb.getMarkedBL()[['new_index', 'tb']])
 
         elif level == self.monitor_level[1]:
             if self.use_standardized_sub_df:
@@ -142,10 +139,11 @@ class MLKbarPrep(object):
                 if self.sub_level_min_count != 0:
                     stock_df = kb.getMarkedBL()[['open','close','high','low', 'money', 'new_index', 'tb']]
                 else:
-                    stock_df = kb.getStandardized()[['open','close','high','low', 'money']]
+                    # stock_df = kb.getStandardized()[['open','close','high','low', 'money']]
+                    # logic change here use sub level pivot time for segmentation of background training data
+                    stock_df = kb.getIntegraded()
             else:
                 pass
-#         print(stock_df)
         return stock_df
     
     def prepare_training_data(self):
@@ -214,12 +212,15 @@ class MLKbarPrep(object):
             if sub_level_count < self.sub_level_min_count:
                 return
         
+        # intermediate trunk
+        tb_trunk_df = trunk_df.dropna(subset=['tb'])
+        
         if trunk_df.shape[0] > self.sub_max_count: # truncate
             trunk_df = trunk_df.iloc[-self.sub_max_count:,:]
         
         if self.manual_select:
             trunk_df = self.manual_select(trunk_df)
-        else:
+        else: # manual_wash
             trunk_df = self.manual_wash(trunk_df)  
         if self.isNormalize:
             trunk_df = self.normalize(trunk_df)
@@ -227,6 +228,11 @@ class MLKbarPrep(object):
         if label: # differentiate training and predicting
             self.data_set.append(trunk_df.values)
             self.label_set.append(label)
+            
+            for time_index in tb_trunk_df.index:
+                self.data_set.append(trunk_df.loc[:time_index, :])
+                self.label_set.append(TopBotType.noTopBot.value)
+            
         else:
             self.data_set.append(trunk_df.values)
         
@@ -240,9 +246,9 @@ class MLKbarPrep(object):
         return df
         
     def manual_wash(self, df):
-        if self.sub_level_min_count != 0:
-            df = df.drop(['new_index','tb'], 1, errors='ignore')
-        df = df.dropna()
+#         if self.sub_level_min_count != 0:
+        df = df.drop(['new_index','tb'], 1, errors='ignore')
+#         df = df.dropna() 
         return df
         
     def normalize(self, df):
