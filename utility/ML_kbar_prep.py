@@ -230,7 +230,7 @@ class MLKbarPrep(object):
             self.label_set.append(label)
             
             for time_index in tb_trunk_df.index:
-                self.data_set.append(trunk_df.loc[:time_index, :])
+                self.data_set.append(trunk_df.loc[:time_index, :].values)
                 self.label_set.append(TopBotType.noTopBot.value)
             
         else:
