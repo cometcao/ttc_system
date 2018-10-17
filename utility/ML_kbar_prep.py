@@ -212,8 +212,9 @@ class MLKbarPrep(object):
             if sub_level_count < self.sub_level_min_count:
                 return
         
-        # intermediate trunk
-        tb_trunk_df = trunk_df.dropna(subset=['tb'])
+        if not for_predict:
+            # intermediate trunk
+            tb_trunk_df = trunk_df.dropna(subset=['tb'])
         
         if trunk_df.shape[0] > self.sub_max_count: # truncate
             trunk_df = trunk_df.iloc[-self.sub_max_count:,:]
@@ -225,16 +226,15 @@ class MLKbarPrep(object):
         if self.isNormalize:
             trunk_df = self.normalize(trunk_df)
         
-        if label: # differentiate training and predicting
+        if for_predict: # differentiate training and predicting
+            self.data_set.append(trunk_df.values)
+        else:
             self.data_set.append(trunk_df.values)
             self.label_set.append(label)
-            
+        
             for time_index in tb_trunk_df.index:
                 self.data_set.append(trunk_df.loc[:time_index, :].values)
                 self.label_set.append(TopBotType.noTopBot.value)
-            
-        else:
-            self.data_set.append(trunk_df.values)
         
         
     def manual_select(self, df):

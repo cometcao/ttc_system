@@ -21,12 +21,13 @@ mbt = ML_biaoli_train({'ts':False,
                        'sub_level_max_length':400 # 240 1200 
                        })
 
-mbt.prepare_initial_training_data(initial_path='./training_data/base_data') # change the class variable in ML_kbar_prep
+# mbt.prepare_initial_training_data(initial_path='./training_data/base_data') # change the class variable in ML_kbar_prep
 
 # F:/A_share_chan_ml_data/201804-839-nomacd-nosubBLprocess/base_data/training_index_old.pkl
 #C:/Users/MetalInvest/Desktop/ML/201804-839-1200-nomacd-nosubBLprocess/base_data/training_index_old.pkl
 
-# mbt.initial_training(initial_data_path=['./training_data/base_data/training_index.pkl'],
-#                      model_name='./training_model/cnn_lstm_model_index.h5',
-#                      epochs=13, 
-#                      use_ccnlstm=True)
+mbt.initial_training(initial_data_path=['./training_data/base_data/training_index.pkl'],
+                     model_name='./training_model/cnn_lstm_model_index.h5',
+                     epochs=89, 
+                     use_ccnlstm=True,
+                     background_data_generation=False)
