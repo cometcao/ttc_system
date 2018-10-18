@@ -9,8 +9,8 @@ import pickle
 
 # data_dir = 'F:/A_share_chan_ml_data/201804-839-nomacd-nosubBLprocess/'
 # data_dir = 'F:/A_share_chan_ml_data/201808-839-nomacd-nosubBLprocess-week/'
-data_dir = 'F:/A_share_chan_ml_data/201809-all-nomacd-nosubBLprocess/'
-# data_dir = './training_data/week_data/'
+# data_dir = 'F:/A_share_chan_ml_data/201809-all-nomacd-nosubBLprocess/'
+data_dir = './training_data/base_data/'
 
 record_file_path = './file_record.pkl'
 try:
@@ -22,14 +22,15 @@ except:
 mld = MLDataPrep(isAnal=True,                 
                  rq=False, 
                  ts=False,
-                 use_standardized_sub_df=False,
+                 use_standardized_sub_df=True,
                  isDebug=False, 
-                 max_length_for_pad=1200) #1200 240
+                 max_length_for_pad=400) #1200 240
 
 mdp = MLDataProcess(model_name=None, isAnal=True)
 ####################
-mdp.load_model('./training_model/nosubprocessed/cnn_lstm_model_index.h5')
-mdp.model_name = './training_model/cnn_lstm_model_base.h5'
+mdp.load_model('./training_model/cnn_lstm_model_index.h5')
+# mdp.load_model('./training_model/nosubprocessed/cnn_lstm_model_index.h5')
+# mdp.model_name = './training_model/cnn_lstm_model_base.h5'
 
 # mdp.load_model('./training_model/weekly_model/cnn_lstm_model_index_weekly.h5')
 # mdp.model_name = './training_model/weekly_model/cnn_lstm_model_base_weekly.h5'
@@ -54,7 +55,7 @@ for idx in batch(range(0, len(filenames)), 4):
     full_names = []
     full_names += ['{0}/{1}'.format(data_dir,n) for n in filenames[idx[0]:idx[1]]]
  
-    x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(full_names)
+    x_train, x_test, y_train, y_test = mld.prepare_stock_data_cnn(full_names, background_data_generation=False)
     x_train = np.expand_dims(x_train, axis=2) 
     x_test = np.expand_dims(x_test, axis=2) 
      
@@ -62,7 +63,7 @@ for idx in batch(range(0, len(filenames)), 4):
         x_train = np.expand_dims(x_train, axis=1)
         x_test = np.expand_dims(x_test, axis=1)
       
-    mdp.process_model(mdp.model, x_train, x_test, y_train, y_test, epochs=3, batch_size=50, verbose=2)
+    mdp.process_model(mdp.model, x_train, x_test, y_train, y_test, epochs=233, batch_size=50, verbose=2)
 
 
 ## separate file processing

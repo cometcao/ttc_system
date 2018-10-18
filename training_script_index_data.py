@@ -28,6 +28,6 @@ mbt = ML_biaoli_train({'ts':False,
 
 mbt.initial_training(initial_data_path=['./training_data/base_data/training_index.pkl'],
                      model_name='./training_model/cnn_lstm_model_index.h5',
-                     epochs=89, 
+                     epochs=233, 
                      use_ccnlstm=True,
                      background_data_generation=False)

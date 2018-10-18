@@ -25,6 +25,17 @@ from utility.utility_ts import *
 
 fixed_length = 1200
 
+# save a dataset to file
+def save_dataset(dataset, filename):
+    dump(dataset, open(filename, 'wb'))
+#         put_file(filename, dataset, append=False)
+    print('Saved: %s' % filename)
+    
+# load a clean dataset
+def load_dataset(filename):
+    return load(open(filename, 'rb'))
+#         return get_file(filename)
+
 
 class MLKbarPrep(object):
     '''
@@ -62,18 +73,33 @@ class MLKbarPrep(object):
         self.use_standardized_sub_df = use_standardized_sub_df
         self.num_of_debug_display = 4
         self.monitor_level = monitor_level
-    
-#     def obtain_count(self, level): # this function relys on correctly set of self.monitor_level 
-#         if self.monitor_level[0] == '5d':
-#             if level == '5d':
-#                 return self.count
-#             else:
-#                 return self.count * 5 # '1d'
-#         if self.monitor_level[0] == '1d':
-#             if level == '1d':
-#                 return self.count
-#             else:
-#                 return self.count * 8 # '30m'
+
+    def grab_stock_raw_data(self, stock, end_date, fields=['open','close','high','low', 'money'], file_dir="."):
+        temp_stock_df_dict = {}
+        for level in self.monitor_level:
+            local_count = self.count if self.monitor_level[0] == level else self.count * 8 if level == '30m' else self.count * 5
+            stock_df = None
+            if not self.isAnal:
+                stock_df = attribute_history(stock, local_count, level, fields = fields, skip_paused=True, df=True)  
+            else:
+                latest_trading_day = str(end_date if end_date is not None else datetime.datetime.today().date())
+                latest_trading_day = latest_trading_day+" 15:00:00" if level == '30m' else latest_trading_day # hack for get_price to get latest 30m data
+                stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = ['open','close','high','low', 'money'], skip_suspended=True)          
+            if stock_df.empty:
+                continue
+            temp_stock_df_dict[level] = stock_df
+        save_dataset(temp_stock_df_dict, "{0}/{1}.pkl".format(file_dir, stock))
+
+    def grab_stocks_raw_data(self, stocks, end_date=None, fields=['open','close','high','low', 'money'], file_dir="."):
+        # grab the raw data and save on files
+        for stock in stocks:
+            self.grab_stock_raw_data(stock, end_date, fields, file_dir)
+            
+    def load_stock_raw_data(self, data_file_path):
+        self.stock_df_dict = load_dataset(data_file_path)
+        for level in self.monitor_level:
+            self.stock_df_dict[level] = self.prepare_df_data(self.stock_df_dict[level], level)
+        
     
     def retrieve_stock_data(self, stock, end_date=None):
         for level in self.monitor_level:
@@ -304,7 +330,7 @@ class MLDataPrep(object):
             data_list = data_list + dl
             label_list = label_list + ll   
         if filename:
-            self.save_dataset((data_list, label_list), filename)
+            save_dataset((data_list, label_list), filename)
         return (data_list, label_list)
     
     def prepare_stock_data_predict(self, stock, period_count=100, today_date=None):
@@ -340,11 +366,11 @@ class MLDataPrep(object):
         self.unique_index = uniques
         return y_code
     
-    def prepare_stock_data_cnn(self, filenames, padData=True, test_portion=0.1, random_seed=42, background_data_generation=True):
+    def prepare_stock_data_cnn(self, filenames, padData=True, test_portion=0.1, random_seed=42, background_data_generation=False):
         data_list = []
         label_list = []
         for file in filenames:
-            A, B = self.load_dataset(file)
+            A, B = load_dataset(file)
             
             A_check = True
             for item in A:     
@@ -411,18 +437,6 @@ class MLDataPrep(object):
         data_set = data_set + new_background_data
         label_set = label_set + new_label_data
         return data_set, label_set
-                
-    
-        # save a dataset to file
-    def save_dataset(self, dataset, filename):
-        dump(dataset, open(filename, 'wb'))
-#         put_file(filename, dataset, append=False)
-        print('Saved: %s' % filename)
-        
-    # load a clean dataset
-    def load_dataset(self, filename):
-        return load(open(filename, 'rb'))
-#         return get_file(filename)
 
     def pad_each_training_array(self, data_list):
         new_shape = self.findmaxshape(data_list)
@@ -481,7 +495,7 @@ class MLDataPrep(object):
     def generate_from_file(self, filenames, padData=True, background_data_generation=True, batch_size=50):
         while True:
             for file in filenames:
-                A, B = self.load_dataset(file)
+                A, B = load_dataset(file)
                 
                 A_check = True
                 for item in A:     
