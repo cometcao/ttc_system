@@ -1,3 +1,4 @@
+# -*- encoding: utf8 -*-
 ######### Mass Training Data #########
 
 from utility.ML_main import *

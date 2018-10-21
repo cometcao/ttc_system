@@ -1,3 +1,4 @@
+# -*- encoding: utf8 -*-
 ########## Index Model #############
 
 from utility.ML_main import *

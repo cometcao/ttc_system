@@ -6,7 +6,7 @@ from utility.ML_kbar_prep import *
 pd.options.mode.chained_assignment = None
 
 
-stocks = ['002466.XSHE']
+stocks = ['000030.XSHE']
 
 # dates = get_trading_date_ts(count=15)
 dates = JqDataRetriever.get_trading_date(count=1)
@@ -33,19 +33,19 @@ for day in dates[-1:]:
     
     mbc_day = ML_biaoli_check({'rq':False, 
                            'ts':False,
-                           'model_path':'./training_model/cnn_lstm_model_base.h5', 
+                           'model_path':'./training_model/subprocessed/cnn_lstm_model_index.h5', 
                            'isAnal':True,
-                           'extra_training':False, 
+                           'extra_training':True, 
                            'extra_training_period':250, # 1250
                            'save_new_model':False,
                            'long_threthold':0.9, 
                            'short_threthold':0.9, 
                            'isDebug':True, 
                            'use_latest_pivot':False, 
-                           'use_standardized_sub_df':False,
+                           'use_standardized_sub_df':True,
                            'use_cnn_lstm':True,
                            'use_cnn':False,
                            'check_level':['1d','30m'],
-                           'sub_level_max_length':1200})
+                           'sub_level_max_length':400})
     gauge_results_day = mbc_day.gauge_stocks_analysis(stocks, today_date=day)
 

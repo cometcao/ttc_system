@@ -10,6 +10,11 @@ except:
     pass
 import enum
 import math
+import json
+from pickle import dump
+from pickle import load
+import numpy as np
+import io
 from utility.securityDataManager import *
 
 evs_query_string = '(valuation.market_cap*100000000+balance.total_liability+balance.minority_interests+balance.capital_reserve_fund-balance.cash_equivalents)/(income.total_operating_revenue)'
@@ -119,3 +124,37 @@ def batch(iterable, n=1):
     l = len(iterable)
     for ndx in range(0, l, n): # restart
         yield [ndx,min(ndx + n, l)]
+        
+def save_dataset(dataset, filename):
+    dump(dataset, open(filename, 'wb'))
+    print('Saved: %s' % filename)
+    
+def load_dataset(filename):
+    print('Loaded: %s' % filename)
+    return load(open(filename, 'rb'))
+
+def save_dataset_json(dataset, filename):
+    with open(filename, 'w', encoding="latin-1") as outfile: #'utf-8'
+        memfile = io.BytesIO()
+        np.save(memfile, dataset)
+        memfile.seek(0)
+        json_dump = json.dumps(memfile.read().decode("latin-1"))    
+        outfile.write(json_dump)
+        print('Saved: %s' % filename)
+        
+def load_dataset_json(filename):    
+    with open(filename, encoding='utf-8') as data_file:
+        data = json.loads(data_file.read())
+        memfile = io.BytesIO()
+        memfile.write(json.loads(data).encode('utf-8'))
+        memfile.seek(0)
+        print('Loaded: %s' % filename)
+        return np.load(memfile)  
+    
+def save_dataset_np(dataset, filename):
+    np.save(filename, dataset)
+    print('Saved: %s' % filename)
+    
+def load_dataset_np(filename):
+    print('Loaded: %s' % filename)
+    return np.load(filename)

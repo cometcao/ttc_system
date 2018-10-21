@@ -33,6 +33,7 @@ def save_dataset(dataset, filename):
     
 # load a clean dataset
 def load_dataset(filename):
+    print("Loading file: {0}".format(filename))
     return load(open(filename, 'rb'))
 #         return get_file(filename)
 
@@ -88,15 +89,17 @@ class MLKbarPrep(object):
             if stock_df.empty:
                 continue
             temp_stock_df_dict[level] = stock_df
-        save_dataset(temp_stock_df_dict, "{0}/{1}.pkl".format(file_dir, stock))
-
+        return temp_stock_df_dict
+        
     def grab_stocks_raw_data(self, stocks, end_date=None, fields=['open','close','high','low', 'money'], file_dir="."):
         # grab the raw data and save on files
+        all_stock_df = []
         for stock in stocks:
-            self.grab_stock_raw_data(stock, end_date, fields, file_dir)
-            
-    def load_stock_raw_data(self, data_file_path):
-        self.stock_df_dict = load_dataset(data_file_path)
+            all_stock_df.append(self.grab_stock_raw_data(stock, end_date, fields, file_dir))
+        save_dataset(all_stock_df, "{0}/last_stock_{1}.pkl".format(file_dir, stocks[-1]))
+
+    def load_stock_raw_data(self, stock_df):
+        self.stock_df_dict = stock_df
         for level in self.monitor_level:
             self.stock_df_dict[level] = self.prepare_df_data(self.stock_df_dict[level], level)
         
@@ -306,6 +309,27 @@ class MLDataPrep(object):
         self.use_standardized_sub_df = use_standardized_sub_df
         self.check_level = monitor_level
     
+    def retrieve_stocks_data_from_raw(self, raw_file_path=None, filename=None):
+        data_list = []
+        label_list = []
+        mlk = MLKbarPrep(isAnal=self.isAnal, 
+                         isNormalize=True, 
+                         sub_max_count=self.max_sequence_length, 
+                         isDebug=self.isDebug, 
+                         sub_level_min_count=0, 
+                         use_standardized_sub_df=self.use_standardized_sub_df, 
+                         monitor_level=self.check_level)
+
+        df_array = load_dataset(raw_file_path)
+        for stock_df in df_array:
+            mlk.load_stock_raw_data(stock_df)
+            dl, ll = mlk.prepare_training_data()
+            data_list = data_list + dl
+            label_list = label_list + ll
+        if filename:
+            save_dataset((data_list, label_list), filename)
+        return (data_list, label_list)            
+    
     def retrieve_stocks_data(self, stocks, period_count=60, filename=None, today_date=None):
         data_list = []
         label_list = []
@@ -387,7 +411,7 @@ class MLDataPrep(object):
             print("loaded data set: {0}".format(file))
         return self.prepare_stock_data_set(data_list, label_list, padData, test_portion, random_seed, background_data_generation)
         
-    def prepare_stock_data_set(self, data_list, label_list, padData=True, test_portion=0.1, random_seed=42, background_data_generation=True):
+    def prepare_stock_data_set(self, data_list, label_list, padData=True, test_portion=0.1, random_seed=42, background_data_generation=False):
         if not data_list or not label_list:
             print("Invalid file content")
             return
@@ -492,7 +516,7 @@ class MLDataPrep(object):
         for i in batch(range(0, len(data)), batch_size):
             yield data[i[0]:i[1]], label[i[0]:i[1]]    
     
-    def generate_from_file(self, filenames, padData=True, background_data_generation=True, batch_size=50):
+    def generate_from_file(self, filenames, padData=True, background_data_generation=False, batch_size=50):
         while True:
             for file in filenames:
                 A, B = load_dataset(file)
@@ -524,7 +548,7 @@ class MLDataPrep(object):
                 for i in batch(range(0, len(A)), batch_size):
                     yield A[i[0]:i[1]], B[i[0]:i[1]] 
     
-    def prepare_stock_data_cnn_gen(self, filenames, padData=True, background_data_generation=True, batch_size=50):
+    def prepare_stock_data_cnn_gen(self, filenames, padData=True, background_data_generation=False, batch_size=50):
         return self.generate_from_file(filenames, padData=padData, background_data_generation=background_data_generation, batch_size=batch_size)
     
 #                           open      close       high        low        money  \

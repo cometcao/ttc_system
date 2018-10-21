@@ -1,3 +1,4 @@
+# -*- encoding: utf8 -*-
 ######## Mass Training #########
 
 from utility.ML_kbar_prep import *
