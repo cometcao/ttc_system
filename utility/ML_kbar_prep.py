@@ -75,10 +75,13 @@ class MLKbarPrep(object):
         self.num_of_debug_display = 4
         self.monitor_level = monitor_level
 
+    def workout_count_num(self, level):
+        return self.count if self.monitor_level[0] == level else self.count * 8 if level == '30m' else self.count * 10 if level == '120m' else self.count * 5
+
     def grab_stock_raw_data(self, stock, end_date, fields=['open','close','high','low', 'money'], file_dir="."):
         temp_stock_df_dict = {}
         for level in self.monitor_level:
-            local_count = self.count if self.monitor_level[0] == level else self.count * 8 if level == '30m' else self.count * 5
+            local_count = self.workout_count_num(level)
             stock_df = None
             if not self.isAnal:
                 stock_df = attribute_history(stock, local_count, level, fields = fields, skip_paused=True, df=True)  
@@ -106,7 +109,7 @@ class MLKbarPrep(object):
     
     def retrieve_stock_data(self, stock, end_date=None):
         for level in self.monitor_level:
-            local_count = self.count if self.monitor_level[0] == level else self.count * 8 if level == '30m' else self.count * 5
+            local_count = self.workout_count_num(level)
             stock_df = None
             if not self.isAnal:
                 stock_df = attribute_history(stock, local_count, level, fields = ['open','close','high','low', 'money'], skip_paused=True, df=True)  
@@ -126,7 +129,7 @@ class MLKbarPrep(object):
         for level in self.monitor_level:
             stock_df = None
             if not self.isAnal:
-                local_count = self.count if self.monitor_level[0] == level else self.count * 8 if level == '30m' else self.count * 5
+                local_count = self.workout_count_num(level)
                 stock_df = SecurityDataManager.get_data_rq(stock, count=local_count, period=level, fields=['open','close','high','low', 'total_turnover'], skip_suspended=True, df=True, include_now=self.include_now)
             else:
                 today = end_date if end_date is not None else datetime.datetime.today()
@@ -245,6 +248,9 @@ class MLKbarPrep(object):
             # intermediate trunk
             tb_trunk_df = trunk_df.dropna(subset=['tb'])
         
+        if len(tb_trunk_df.index) > 0: # precise sub level chunk
+            trunk_df = trunk_df.loc[tb_trunk_df.index[0]:tb_trunk_df.index[-1],:]
+        
         if trunk_df.shape[0] > self.sub_max_count: # truncate
             trunk_df = trunk_df.iloc[-self.sub_max_count:,:]
         
@@ -260,10 +266,11 @@ class MLKbarPrep(object):
         else:
             self.data_set.append(trunk_df.values)
             self.label_set.append(label)
-        
-            for time_index in tb_trunk_df.index:
-                self.data_set.append(trunk_df.loc[:time_index, :].values)
-                self.label_set.append(TopBotType.noTopBot.value)
+            
+            if len(tb_trunk_df.index) > 0:
+                for time_index in tb_trunk_df.index[1:]:
+                    self.data_set.append(trunk_df.loc[:time_index, :].values)
+                    self.label_set.append(TopBotType.noTopBot.value)
         
         
     def manual_select(self, df):
