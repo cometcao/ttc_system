@@ -76,7 +76,11 @@ class MLKbarPrep(object):
         self.monitor_level = monitor_level
 
     def workout_count_num(self, level):
-        return self.count if self.monitor_level[0] == level else self.count * 8 if level == '30m' else self.count * 10 if level == '120m' else self.count * 5
+        return self.count if self.monitor_level[0] == level \
+                        else self.count * 8 if level == '30m' \
+                        else self.count * 8 if level == '150m' \
+                        else self.count * 10 if level == '120m' \
+                        else self.count * 5
 
     def grab_stock_raw_data(self, stock, end_date, fields=['open','close','high','low', 'money'], file_dir="."):
         temp_stock_df_dict = {}
