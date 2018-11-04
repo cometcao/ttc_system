@@ -248,11 +248,11 @@ class MLKbarPrep(object):
             if sub_level_count < self.sub_level_min_count:
                 return
         
-        if not for_predict:
-            # intermediate trunk
-            tb_trunk_df = trunk_df.dropna(subset=['tb'])
+#         copy_trunk_df = trunk_df.copy(deep=True)
+        # sub level trunks
+        tb_trunk_df = trunk_df.dropna(subset=['tb'])
         
-        if len(tb_trunk_df.index) > 0: # precise sub level chunk
+        if len(tb_trunk_df.index) >= 2: # precise sub level chunk at least 2 subs
             trunk_df = trunk_df.loc[tb_trunk_df.index[0]:tb_trunk_df.index[-1],:]
         
         if trunk_df.shape[0] > self.sub_max_count: # truncate
@@ -265,16 +265,22 @@ class MLKbarPrep(object):
         if self.isNormalize:
             trunk_df = self.normalize(trunk_df)
         
+#         if trunk_df.isnull().values.any():
+#             print("NaN value found, ignore this data")
+#             print(trunk_df)
+#             print(copy_trunk_df)
+#             print(tb_trunk_df)
+#             return
+    
         if for_predict: # differentiate training and predicting
             self.data_set.append(trunk_df.values)
         else:
             self.data_set.append(trunk_df.values)
             self.label_set.append(label)
             
-            if len(tb_trunk_df.index) > 0:
-                for time_index in tb_trunk_df.index[1:]:
-                    self.data_set.append(trunk_df.loc[:time_index, :].values)
-                    self.label_set.append(TopBotType.noTopBot.value)
+            for time_index in tb_trunk_df.index[1:-2]: #  counting from cutting start
+                self.data_set.append(trunk_df.loc[:time_index, :].values)
+                self.label_set.append(TopBotType.noTopBot.value)
         
         
     def manual_select(self, df):
@@ -408,11 +414,16 @@ class MLDataPrep(object):
             A, B = load_dataset(file)
             
             A_check = True
+            i = 0
             for item in A:     
                 if not ((item>=0).all() and (item<=1).all()): # min max value range
                     print(item)
+                    print(A[i])
+                    print(B[i])
+                    print(i)
                     A_check=False
                     break
+                i += 1
             if not A_check:
                 print("Data invalid in file {0}".format(file))
                 continue
