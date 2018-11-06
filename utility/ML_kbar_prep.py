@@ -8,6 +8,8 @@ try:
 except:
     pass
 from utility.common_include import batch
+from utility.common_include import load_dataset
+from utility.common_include import save_dataset
 from utility.kBarProcessor import *
 from utility.biaoLiStatus import TopBotType
 from keras.utils.np_utils import to_categorical
@@ -25,17 +27,17 @@ from utility.utility_ts import *
 
 fixed_length = 1200
 
-# save a dataset to file
-def save_dataset(dataset, filename):
-    dump(dataset, open(filename, 'wb'))
-#         put_file(filename, dataset, append=False)
-    print('Saved: %s' % filename)
-    
-# load a clean dataset
-def load_dataset(filename):
-    print("Loading file: {0}".format(filename))
-    return load(open(filename, 'rb'))
-#         return get_file(filename)
+# # save a dataset to file
+# def save_dataset(dataset, filename):
+#     dump(dataset, open(filename, 'wb'))
+# #         put_file(filename, dataset, append=False)
+#     print('Saved: %s' % filename)
+#     
+# # load a clean dataset
+# def load_dataset(filename):
+#     print("Loading file: {0}".format(filename))
+#     return load(open(filename, 'rb'))
+# #         return get_file(filename)
 
 
 class MLKbarPrep(object):
