@@ -84,6 +84,12 @@ class MLKbarPrep(object):
                         else self.count * 10 if level == '120m' \
                         else self.count * 5
 
+    def get_high_df(self):
+        return self.stock_df_dict[self.monitor_level[0]]
+    
+    def get_low_df(self):
+        return self.stock_df_dict[self.monitor_level[1]]
+
     def grab_stock_raw_data(self, stock, end_date, fields=['open','close','high','low', 'money'], file_dir="."):
         temp_stock_df_dict = {}
         for level in self.monitor_level:
@@ -401,7 +407,7 @@ class MLDataPrep(object):
         if self.isDebug:
 #             print("original size:{0}".format(origin_pred_size))
             pass
-        return predict_dataset, origin_pred_size
+        return predict_dataset, origin_pred_size, mlk.get_high_df().ix[-1, 'tb'].value
         
     def encode_category(self, label_set):
         uniques, ids = np.unique(label_set, return_inverse=True)
