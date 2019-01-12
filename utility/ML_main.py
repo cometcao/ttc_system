@@ -273,8 +273,8 @@ class ML_biaoli_check(object):
                     long_pred = long_pred or (len(old_y_class) >= 2 and old_y_class[-2] == -1 and old_y_class[-1] == 0 and old_long_conf[-1] and old_long_conf[-2]) 
                     short_pred = short_pred or (len(old_y_class) >= 2 and old_y_class[-2] == 1 and old_y_class[-1] == 0 and old_short_conf[-1] and old_short_conf[-2])
                 else:
-                    long_pred = long_pred or (past_pivot_status == -1 and old_y_class[-1] == 0 and old_long_conf[-1]) 
-                    short_pred = short_pred or (past_pivot_status == 1 and old_y_class[-1] == 0 and old_short_conf[-1])
+                    long_pred = long_pred or (past_pivot_status == -1 and old_y_class[-1] == 0) 
+                    short_pred = short_pred or (past_pivot_status == 1 and old_y_class[-1] == 0)
                     
                 if self.isDebug:
                     print(old_pred)
