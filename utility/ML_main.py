@@ -252,7 +252,7 @@ class ML_biaoli_check(object):
         return [(stock, self.gauge_stock(stock, today_date, check_status=check_status)) for stock in stocks]
     
     def gauge_stock(self, stock, today_date=None, check_status=False):    
-        (y_class, pred), origin_size = self.model_predict(stock, today_date)
+        (y_class, pred), origin_size, past_pivot_status = self.model_predict(stock, today_date)
         long_conf, short_conf = self.interpret(pred)    
         
         old_pred = pred[:origin_size]
@@ -272,10 +272,14 @@ class ML_biaoli_check(object):
                 if check_status:
                     long_pred = long_pred or (len(old_y_class) >= 2 and old_y_class[-2] == -1 and old_y_class[-1] == 0 and old_long_conf[-1] and old_long_conf[-2]) 
                     short_pred = short_pred or (len(old_y_class) >= 2 and old_y_class[-2] == 1 and old_y_class[-1] == 0 and old_short_conf[-1] and old_short_conf[-2])
+                else:
+                    long_pred = long_pred or (past_pivot_status == -1 and old_y_class[-1] == 0 and old_long_conf[-1]) 
+                    short_pred = short_pred or (past_pivot_status == 1 and old_y_class[-1] == 0 and old_short_conf[-1])
                     
                 if self.isDebug:
                     print(old_pred)
                     print(old_y_class)
+                    print(past_pivot_status)
             else:
                 print("gapped pivots for prediction")
                 new_y_class = y_class[origin_size:]
@@ -302,7 +306,7 @@ class ML_biaoli_check(object):
                          use_standardized_sub_df=self.use_standardized_sub_df, 
                          monitor_level=self.check_level,
                          max_length_for_pad=self.sub_level_max_length)
-        data_set, origin_data_length = mld.prepare_stock_data_predict(stock, today_date=today_date) # 000001.XSHG
+        data_set, origin_data_length, past_pivot_status = mld.prepare_stock_data_predict(stock, today_date=today_date) # 000001.XSHG
         if data_set is None: # can't predict
             print("None dataset, return [0],[[0]], 0")
             return (([0],[[0]]), 0)
@@ -316,14 +320,14 @@ class ML_biaoli_check(object):
             unique_index = np.array([-1, 0, 1])
             
             if self.use_cnn_lstm:
-                return self.mdp.model_predict_cnn_lstm(data_set, unique_index), origin_data_length
+                return self.mdp.model_predict_cnn_lstm(data_set, unique_index), origin_data_length, past_pivot_status
             elif self.use_cnn:
-                return self.mdp.model_predict_cnn(data_set, unique_index), origin_data_length
+                return self.mdp.model_predict_cnn(data_set, unique_index), origin_data_length, past_pivot_status
             else:
-                return self.mdp.model_predict_cnn_lstm(data_set, unique_index), origin_data_length
+                return self.mdp.model_predict_cnn_lstm(data_set, unique_index), origin_data_length, past_pivot_status
         except Exception as e: 
             print(e)
-            return (([0],[[0]]), 0)
+            return (([0],[[0]]), 0, 0)
     
     def interpret(self, pred):
         """Our confidence level must be above the threthold"""
