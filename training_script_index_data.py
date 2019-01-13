@@ -18,8 +18,8 @@ mbt = ML_biaoli_train({'ts':False,
                        'index_list':['000016.XSHG','000905.XSHG','399300.XSHE', '000001.XSHG', '399001.XSHE', '399333.XSHE', '399006.XSHE'],
                        'use_standardized_sub_df':True, 
                        'isDebug':False, 
-                       'check_level': ['1d', '30m'], #['1d', '30m'] ['5d', '1d']
-                       'sub_level_max_length':400 # 240 1200 
+                       'check_level': ['1d', '30m'], #['1d', '30m'] ['5d', '150m']
+                       'sub_level_max_length':400 # 240 400 
                        })
 
 # mbt.prepare_initial_training_data(initial_path='./training_data/base_data') # change the class variable in ML_kbar_prep
@@ -29,6 +29,6 @@ mbt = ML_biaoli_train({'ts':False,
 
 mbt.initial_training(initial_data_path=['./training_data/base_data/training_index.pkl'],
                      model_name='./training_model/cnn_lstm_model_index.h5',
-                     epochs=233, 
+                     epochs=5, 
                      use_ccnlstm=True,
                      background_data_generation=False)

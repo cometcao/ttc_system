@@ -17,11 +17,11 @@ mld = MLDataPrep(isAnal=True,
                  monitor_level=['1d', '30m'], # ['1d', '30m'] ['5d', '150m']
                  max_length_for_pad=400) # 400 240
 
-raw_file_dir = "F:/A_share_chan_ml_data/201810-840-raw/"
-process_file_path = "F:/A_share_chan_ml_data/201810-840-nomacd-subprocesssplit/"
-
 # raw_file_dir = "F:/A_share_chan_ml_data/201810-870-raw-5d150m/"
 # process_file_path = "F:/A_share_chan_ml_data/201810-870-5d150m-subprocesssplit/"
+
+raw_file_dir = "F:/A_share_chan_ml_data/201810-870-raw-1d30m/"
+process_file_path = "F:/A_share_chan_ml_data/201810-870-1d30m-subprocesssplit/"
 
 rawfilenames = [join(raw_file_dir, f) for f in listdir(raw_file_dir) if isfile(join(raw_file_dir, f))]
 i_index = 1

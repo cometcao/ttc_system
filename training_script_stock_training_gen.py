@@ -13,10 +13,12 @@ import pickle
 # data_dir = 'F:/A_share_chan_ml_data/201809-all-nomacd-nosubBLprocess/'
 # train_data_dir = 'F:/A_share_chan_ml_data/all-process/train/'
 # test_data_dir =  'F:/A_share_chan_ml_data/all-process/test/'
-train_data_dir = 'F:/A_share_chan_ml_data/test-process/train/'
-test_data_dir =  'F:/A_share_chan_ml_data/test-process/test/'
-# train_data_dir = 'F:/A_share_chan_ml_data/check-process/train/'
-# test_data_dir =  'F:/A_share_chan_ml_data/check-process/test/'
+# train_data_dir = 'F:/A_share_chan_ml_data/test-process/train/'
+# test_data_dir =  'F:/A_share_chan_ml_data/test-process/test/'
+# train_data_dir = 'F:/A_share_chan_ml_data/5d150m-process/train/'
+# test_data_dir =  'F:/A_share_chan_ml_data/5d150m-process/test/'
+train_data_dir = 'F:/A_share_chan_ml_data/1d30m-process/train/'
+test_data_dir =  'F:/A_share_chan_ml_data/1d30m-process/test/'
 # data_dir = './training_data/week_data/'
 
 try:
@@ -30,17 +32,17 @@ mld = MLDataPrep(isAnal=True,
                  ts=False,
                  use_standardized_sub_df=True,
                  isDebug=False, 
-                 max_length_for_pad=400) #1200 240
+                 max_length_for_pad=400) #400 240
 
 mdp = MLDataProcess(model_name=None, isAnal=True)
 ####################
-# mdp.load_model('./training_model/nosubprocessed/cnn_lstm_model_index.h5')
-mdp.load_model('./training_model/subprocessed/cnn_lstm_model_base.h5')
+# mdp.load_model('./training_model/subprocessed/cnn_lstm_model_index.h5')
+mdp.load_model('./training_model/subprocessed/cnn_lstm_model_base2.h5')
 # mdp.load_model('./training_model/cnn_lstm_model_base.h5')
-mdp.model_name = './training_model/subprocessed/cnn_lstm_model_base2.h5'
-
-# mdp.load_model('./training_model/weekly_model/cnn_lstm_model_index_weekly.h5')
-# mdp.model_name = './training_model/weekly_model/cnn_lstm_model_base_weekly.h5'
+# mdp.model_name = './training_model/subprocessed/cnn_lstm_model_base2.h5'
+# mdp.model_name = './training_model/subprocessed/cnn_lstm_model_base.h5'
+# mdp.load_model('./training_model/weekly_model/cnn_lstm_model_base_weekly2.h5')
+# mdp.model_name = './training_model/weekly_model/cnn_lstm_model_base_weekly2.h5'
 
 # mdp.load_model('./training_model/weekly_model/cnn_model_index_weekly.h5')
 # mdp.model_name = './training_model/weekly_model/cnn_model_base_weekly.h5'
@@ -56,11 +58,11 @@ test_filenames = [join(test_data_dir, f) for f in listdir(test_data_dir) if isfi
 test_filenames.sort()
 
 data_gen = mld.prepare_stock_data_cnn_gen(train_filenames,
-                                batch_size=100,
+                                batch_size=100, #100
                                 background_data_generation=False)
 
 validation_gen = mld.prepare_stock_data_cnn_gen(test_filenames,
-                                batch_size=100,
+                                batch_size=100, #100
                                 background_data_generation=False)
     
 # mdp.define_conv_lstm_model_gen(data_gen, validation_gen, num_classes=3, epochs=8, verbose=2, steps=22500, batch_size=100, validation_steps=1000)
@@ -68,9 +70,9 @@ validation_gen = mld.prepare_stock_data_cnn_gen(test_filenames,
 mdp.process_model_generator(model=mdp.model, 
                                 generator=data_gen, 
                                 validation_data=validation_gen, 
-                                epochs=1, verbose=1, 
+                                epochs=3, verbose=2, 
                                 evaluate_generator=validation_gen, 
-                                steps=410000, validation_steps=100000)
+                                steps=272000, validation_steps=68000) # 40000 1000
 
 # mdp.model.save_weights('./training_model/weekly_model/cnn_lstm_model_base_weight.h5')
 

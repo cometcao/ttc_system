@@ -5,11 +5,11 @@ from sklearn.model_selection import train_test_split
 from utility.common_include import *
 import sys
 
-# data_dir = 'F:/A_share_chan_ml_data/201809-all-nomacd-nosubBLprocess/'
-# save_data_dir = 'F:/A_share_chan_ml_data/all-process/'
+# data_dir = 'F:/A_share_chan_ml_data/201810-870-5d150m-subprocesssplit/'
+# save_data_dir = 'F:/A_share_chan_ml_data/5d150m-process/'
 
-data_dir = 'F:/A_share_chan_ml_data/201810-840-nomacd-subprocesssplit/'
-save_data_dir = 'F:/A_share_chan_ml_data/test-process/'
+data_dir = 'F:/A_share_chan_ml_data/201810-870-1d30m-subprocesssplit/'
+save_data_dir = 'F:/A_share_chan_ml_data/1d30m-process/'
 
 def batch(iterable, n=1):
     l = len(iterable)
