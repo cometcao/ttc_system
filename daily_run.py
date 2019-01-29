@@ -23,7 +23,7 @@ def run_daily_ml(dates):
                            'extra_training':False,
                            'extra_training_period':90,
                            'save_new_model':False,
-                           'long_threthold':0.9, 
+                           'long_threthold':0.95, 
                            'short_threthold':0.9, 
                            'isDebug':False,
                            'use_latest_pivot':True, 
@@ -41,7 +41,7 @@ def run_daily_ml(dates):
                            'extra_training':False, 
                            'extra_training_period':250, # 1250
                            'save_new_model':False,
-                           'long_threthold':0.9, 
+                           'long_threthold':0.98, 
                            'short_threthold':0.9, 
                            'isDebug':False, 
                            'use_latest_pivot':True, 
@@ -53,10 +53,9 @@ def run_daily_ml(dates):
 
     with open("multi_factor_trading_picked_stocks.txt", 'r') as myfile:
         stocks=myfile.read().replace('\n', '')
-        print(stocks)
         stocks = stocks.split(',')
-
-    stocks.sort()
+        stocks.sort()
+        print(stocks)
 
     weekly_gauge_results = mbc_weekly.gauge_stocks_analysis(stocks, check_status=True, today_date=dates[-1])
     daily_gauge_results = mbc_day.gauge_stocks_analysis(stocks, check_status=True, today_date=dates[-1])

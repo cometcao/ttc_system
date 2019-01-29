@@ -6,7 +6,7 @@ from utility.ML_kbar_prep import *
 pd.options.mode.chained_assignment = None
 
 
-stocks = ['600738.XSHG']
+stocks = ['300070.XSHE', '300072.XSHE']
 
 
 # dates = get_trading_date_ts(count=15)
@@ -23,7 +23,7 @@ for day in dates[-1:]:
                            'long_threthold':0.95, 
                            'short_threthold':0.9, 
                            'isDebug':True, 
-                           'use_latest_pivot':True, 
+                           'use_latest_pivot':False, 
                            'use_standardized_sub_df':True, 
                            'use_cnn_lstm':True,
                            'use_cnn':False,
@@ -41,7 +41,7 @@ for day in dates[-1:]:
                            'long_threthold':0.98, 
                            'short_threthold':0.9, 
                            'isDebug':True, 
-                           'use_latest_pivot':True, 
+                           'use_latest_pivot':False, 
                            'use_standardized_sub_df':True, #  no need for prediction
                            'use_cnn_lstm':True,
                            'use_cnn':False,
