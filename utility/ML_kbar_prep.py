@@ -438,7 +438,7 @@ class MLDataPrep(object):
 
             data_list = data_list + A
             label_list = label_list + B
-            print("loaded data set: {0}".format(file))
+#             print("loaded data set: {0}".format(file))
         return self.prepare_stock_data_set(data_list, label_list, padData, test_portion, random_seed, background_data_generation)
         
     def prepare_stock_data_set(self, data_list, label_list, padData=True, test_portion=0.1, random_seed=42, background_data_generation=False):
@@ -561,7 +561,7 @@ class MLDataPrep(object):
                     print("Data invalid in file {0}".format(file))
                     continue
     
-                print("loaded data set: {0}".format(file))
+#                 print("loaded data set: {0}".format(file))
     
                 if not A or not B:
                     print("Invalid file content")
