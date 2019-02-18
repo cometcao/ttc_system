@@ -273,14 +273,14 @@ class ML_biaoli_check(object):
                 short_pred = short_pred or (len(old_y_class) >= 2 and old_y_class[-2] == 1 and old_y_class[-1] == 0 and old_short_conf[-1] and old_short_conf[-2])
                     
             if not self.use_latest_pivot and not long_pred and not short_pred: 
-                print("gapped pivots for prediction")
                 new_y_class = y_class[origin_size:]
                 new_long_conf = long_conf[origin_size:]
                 new_short_conf = short_conf[origin_size:]
                 new_pred = pred[origin_size:]
                 long_pred = long_pred or (new_y_class[-1] == -1 and new_long_conf[-1])
                 short_pred = short_pred or (new_y_class[-1] == 1 and new_short_conf[-1])             
-                if self.isDebug:
+                if self.isDebug and (long_pred or short_pred):
+                    print("gapped pivots for prediction")
                     print(new_pred)
                     print(new_y_class)
             else:
@@ -289,17 +289,20 @@ class ML_biaoli_check(object):
                     print(old_y_class)
             
             if check_status and not long_pred and not short_pred: # model not deterministic, we use past pivot point with passive logic
-                print(past_pivot_status)
-                long_pred = long_pred or (past_pivot_status == -1 and 
-                                         (old_y_class[-1] == 0 and old_long_conf[-1]) and
-                                         (len(new_y_class) >= 1 and new_y_class[-1] == 0 and new_long_conf[-1]))
+                if self.isDebug:
+                    print("check status use past pivot: {0}".format(past_pivot_status))
+                long_pred = long_pred or past_pivot_status == -1 
+#                                         (old_y_class[-1] == 0 and old_long_conf[-1]) and
+#                                         (len(new_y_class) >= 1 and new_y_class[-1] == 0 and new_long_conf[-1]))
+                                        
                 short_pred = short_pred or past_pivot_status == 1
-        except:
+        except Exception as e:
+            print("unexpected error: {0}".format(str(e)))
             long_pred = short_pred = False
         return (long_pred, short_pred)
         
     def model_predict(self, stock, today_date=None):
-        if self.isAnal:
+        if self.isDebug:
             print("ML working on {0} at date {1}".format(stock, str(today_date) if today_date else ""))
         mld = MLDataPrep(isAnal=self.isAnal, 
                          rq=self.rq, ts=self.ts, 
