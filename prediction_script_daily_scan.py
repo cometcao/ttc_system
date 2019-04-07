@@ -50,7 +50,7 @@ mbc_day = ML_biaoli_check({'rq':False,
                        'sub_level_max_length':400})
 
 
-dates = JqDataRetriever.get_trading_date(count=250)
+dates = JqDataRetriever.get_trading_date(count=300)
 for day in dates:
     if str(day) in result:
         print("{0} already done".format(str(day)))
@@ -75,5 +75,4 @@ for day in dates:
             result_file.write(result_json)
 #             json.dump(result, filename)
         print('Saved: %s' % filename)
-
 
