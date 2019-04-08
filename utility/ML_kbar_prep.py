@@ -99,8 +99,8 @@ class MLKbarPrep(object):
                 stock_df = attribute_history(stock, local_count, level, fields = fields, skip_paused=True, df=True)  
             else:
                 latest_trading_day = str(end_date if end_date is not None else datetime.datetime.today().date())
-                latest_trading_day = latest_trading_day+" 15:00:00" if level == '30m' else latest_trading_day # hack for get_price to get latest 30m data
-                stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = ['open','close','high','low', 'money'], skip_suspended=True)          
+                latest_trading_day = latest_trading_day+" 15:00:00" if level == '30m' else latest_trading_day # hack for get_price to get latest 30m data change back to 14:30:00
+                stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = fields, skip_suspended=True)          
             if stock_df.empty:
                 continue
             temp_stock_df_dict[level] = stock_df
@@ -545,6 +545,11 @@ class MLDataPrep(object):
     def generate_from_data(self, data, label, batch_size):
         for i in batch(range(0, len(data)), batch_size):
             yield data[i[0]:i[1]], label[i[0]:i[1]]    
+    
+    def keepDimension(self, targetArray, indexList):
+        tempArray = np.array(targetArray)
+        tempArray = tempArray[:,:,indexList]
+        return tempArray.tolist()
     
     def generate_from_file(self, filenames, padData=True, background_data_generation=False, batch_size=50):
         while True:
