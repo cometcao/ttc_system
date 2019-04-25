@@ -311,9 +311,10 @@ class MLKbarPrep(object):
                 # min-max
                 col_min = df[column].min()
                 col_max = df[column].max()
-                df[column]=(df[column]-col_min)/(col_max-col_min)
+                col_mean = df[column].mean()
+                df[column]=(df[column]-col_mean)/(col_max-col_min)
             else:
-                # mean std
+                # use zscore mean std
                 col_mean = df[column].mean()
                 col_std = df[column].std()
                 df[column] = (df[column] - col_mean) / col_std
@@ -321,7 +322,7 @@ class MLKbarPrep(object):
 
 
 class MLDataPrep(object):
-    def __init__(self, isAnal=False, max_length_for_pad=fixed_length, rq=False, ts=True, isDebug=False,detailed_bg=False, use_standardized_sub_df=True, monitor_level=['1d','30m']):
+    def __init__(self, isAnal=False, max_length_for_pad=fixed_length, rq=False, ts=True, useMinMax=False, isDebug=False,detailed_bg=False, use_standardized_sub_df=True, monitor_level=['1d','30m']):
         self.isDebug = isDebug
         self.isAnal = isAnal
         self.detailed_bg = detailed_bg
@@ -331,6 +332,7 @@ class MLDataPrep(object):
         self.unique_index = []
         self.use_standardized_sub_df = use_standardized_sub_df
         self.check_level = monitor_level
+        self.useMinMax = useMinMax
     
     def retrieve_stocks_data_from_raw(self, raw_file_path=None, filename=None):
         data_list = []
@@ -338,6 +340,7 @@ class MLDataPrep(object):
         mlk = MLKbarPrep(isAnal=self.isAnal, 
                          isNormalize=True, 
                          sub_max_count=self.max_sequence_length, 
+                         useMinMax=self.useMinMax,
                          isDebug=self.isDebug, 
                          sub_level_min_count=0, 
                          use_standardized_sub_df=self.use_standardized_sub_df, 
@@ -347,6 +350,7 @@ class MLDataPrep(object):
         for stock_df in df_array:
             mlk.load_stock_raw_data(stock_df)
             dl, ll = mlk.prepare_training_data()
+            
             data_list = data_list + dl
             label_list = label_list + ll
         if filename:
@@ -363,6 +367,7 @@ class MLDataPrep(object):
                              count=period_count, 
                              isNormalize=True, 
                              sub_max_count=self.max_sequence_length, 
+                             useMinMax=self.useMinMax,
                              isDebug=self.isDebug, 
                              sub_level_min_count=0, 
                              use_standardized_sub_df=self.use_standardized_sub_df, 
@@ -385,6 +390,7 @@ class MLDataPrep(object):
                          count=period_count, 
                          isNormalize=True, 
                          sub_max_count=self.max_sequence_length, 
+                         useMinMax=self.useMinMax,
                          isDebug=self.isDebug, 
                          sub_level_min_count=0, 
                          use_standardized_sub_df=self.use_standardized_sub_df,
@@ -422,7 +428,7 @@ class MLDataPrep(object):
             A_check = True
             i = 0
             for item in A:     
-                if not ((item>=0).all() and (item<=1).all()): # min max value range
+                if not ((item>=-1).all() and (item<=1).all()): # min max value range
                     print(item)
                     print(A[i])
                     print(B[i])
@@ -556,7 +562,7 @@ class MLDataPrep(object):
                 
                 A_check = True
                 for item in A:     
-                    if not ((item>=0).all() and (item<=1).all()): # min max value range
+                    if not ((item>=-1).all() and (item<=1).all()): # min max value range
                         print(item)
                         A_check=False
                         break
