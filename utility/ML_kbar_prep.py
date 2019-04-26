@@ -428,7 +428,7 @@ class MLDataPrep(object):
             A_check = True
             i = 0
             for item in A:     
-                if not ((item>=-1).all() and (item<=1).all()): # min max value range
+                if (self.useMinMax and not ((item>=-1).all() and (item<=1).all())) or np.isnan(item).any(): # min max value range
                     print(item)
                     print(A[i])
                     print(B[i])
@@ -562,7 +562,7 @@ class MLDataPrep(object):
                 
                 A_check = True
                 for item in A:     
-                    if not ((item>=-1).all() and (item<=1).all()): # min max value range
+                    if (self.useMinMax and not ((item>=-1).all() and (item<=1).all())) or np.isnan(item).any(): # min max value range or zscore
                         print(item)
                         A_check=False
                         break
