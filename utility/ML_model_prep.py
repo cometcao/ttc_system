@@ -9,6 +9,8 @@ from keras.layers import Dense, Dropout, Flatten, TimeDistributed,LSTM
 from keras.layers.normalization import BatchNormalization
 from keras.layers import Conv2D, MaxPooling2D, ConvLSTM2D
 from keras import optimizers
+from keras.callbacks import EarlyStopping
+from keras.callbacks import ModelCheckpoint
 
 try:
     from rqdatac import *
@@ -181,7 +183,7 @@ class MLDataProcess(object):
         model.add(Dense(num_classes, activation='softmax'))
         
         model.compile(loss=keras.losses.categorical_crossentropy,
-                      optimizer=keras.optimizers.Adam(), #Adadelta
+                      optimizer=keras.optimizers.Adadelta(), #Adadelta, Nadam, SGD, Adam
                       metrics=['accuracy'])
         
         print (model.summary())
@@ -222,22 +224,26 @@ class MLDataProcess(object):
         return input_shape
                       
     
-    def define_conv_lstm_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000):
+    def define_conv_lstm_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000, patience=10):
         input_shape = self.define_conv_lstm_shape(data_gen)
         
         model = self.create_conv_lstm_model_arch(input_shape, num_classes)
         
-        self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen, validation_steps)
+        self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen, validation_steps, patience)
 
         
-    def process_model_generator(self, model, generator, steps = 10000, epochs = 5, verbose = 2, validation_data=None, evaluate_generator=None, validation_steps=1000):
+    def process_model_generator(self, model, generator, steps = 10000, epochs = 5, verbose = 2, validation_data=None, evaluate_generator=None, validation_steps=1000, patience=10):
+        es = EarlyStopping(monitor='val_loss', mode='min', verbose=verbose, patience=patience)
+        mc = ModelCheckpoint('best_model.h5', monitor='val_acc', mode='max', verbose=verbose, save_best_only=True)
+        
         model.fit_generator(generator, 
                             steps_per_epoch = steps, 
                             epochs = epochs, 
                             verbose = verbose,
                             validation_data = validation_data,
-                            validation_steps = validation_steps)
-        score = model.evaluate_generator(evaluate_generator, verbose = verbose, steps=841)
+                            validation_steps = validation_steps, 
+                            callbacks=[es, mc])
+        score = model.evaluate_generator(evaluate_generator, steps=validation_steps)
         print('Test loss:', score[0])
         print('Test accuracy:', score[1])        
         
