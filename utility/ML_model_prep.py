@@ -115,6 +115,7 @@ class MLDataProcess(object):
         model = Sequential()
         model.add(ConvLSTM2D(32, 
                              kernel_size=(3, 1), 
+                             data_format='channels_last',
                              input_shape=input_shape,
                              padding='same',
                              return_sequences=True, 
@@ -217,11 +218,12 @@ class MLDataProcess(object):
             # convert class vectors to binary class matrices
             input_shape = (b, e, c, d)
         else:
-            # convert class vectors to binary class matrices
+            # channel last
             input_shape = (b, c, d, e)
         
         data_gen.send((x_train, x_test))
-        return input_shape
+        aa, bb, cc, dd = input_shape
+        return None, bb, cc, dd
                       
     
     def define_conv_lstm_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000, patience=10):

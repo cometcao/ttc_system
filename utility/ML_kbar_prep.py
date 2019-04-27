@@ -541,8 +541,8 @@ class MLDataPrep(object):
         return(max_x, max_y)
 
     def define_conv_lstm_dimension(self, x_train):
-        x_train = np.expand_dims(x_train, axis=2)         
-        x_train = np.expand_dims(x_train, axis=1)
+        x_train = np.expand_dims(x_train, axis=2)         #3
+        x_train = np.expand_dims(x_train, axis=2)
         return x_train
     
 
@@ -579,13 +579,23 @@ class MLDataPrep(object):
                 if background_data_generation:
                     A, B = self.prepare_background_data(A, B)
     
-                if padData:
-                    A = self.pad_each_training_array(A)
+#                 if padData:
+#                     A = self.pad_each_training_array(A)
                 
                 B = self.encode_category(B)
-                A = self.define_conv_lstm_dimension(A)
+#                 A = self.define_conv_lstm_dimension(A)
+                
                 for i in batch(range(0, len(A)), batch_size):
-                    yield A[i[0]:i[1]], B[i[0]:i[1]] 
+                    subA = A[i[0]:i[1]]
+                    
+                    if padData:
+                        subA = self.pad_each_training_array(subA)
+                    else:
+                        subA = np.array(subA)
+                    
+                    subA = self.define_conv_lstm_dimension(subA)
+                    
+                    yield subA, B[i[0]:i[1]] 
     
     def prepare_stock_data_cnn_gen(self, filenames, padData=True, background_data_generation=False, batch_size=50):
         return self.generate_from_file(filenames, padData=padData, background_data_generation=background_data_generation, batch_size=batch_size)
