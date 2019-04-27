@@ -261,7 +261,8 @@ class MLKbarPrep(object):
         if len(tb_trunk_df.index) >= 2: # precise sub level chunk at least 2 subs
             trunk_df = trunk_df.loc[tb_trunk_df.index[0]:tb_trunk_df.index[-1],:]
         
-        if trunk_df.shape[0] > self.sub_max_count: # truncate
+        if self.sub_max_count > 0 and trunk_df.shape[0] > self.sub_max_count: # truncate
+            print("data truncated due to max length sequence exceeded")
             trunk_df = trunk_df.iloc[-self.sub_max_count:,:]
         
         if self.manual_select:
@@ -308,7 +309,7 @@ class MLKbarPrep(object):
             if column == 'new_index' or column == 'tb':
                 continue
             if self.useMinMax:
-                # min-max
+                # min-max -1 1 / 0 1
                 col_min = df[column].min()
                 col_max = df[column].max()
                 col_mean = df[column].mean()
