@@ -7,9 +7,7 @@ try:
     from jqdata import *
 except:
     pass
-from utility.common_include import batch
-from utility.common_include import load_dataset
-from utility.common_include import save_dataset
+from utility.common_include import *
 from utility.kBarProcessor import *
 from utility.biaoLiStatus import TopBotType
 from keras.utils.np_utils import to_categorical
@@ -125,8 +123,8 @@ class MLKbarPrep(object):
                 stock_df = attribute_history(stock, local_count, level, fields = ['open','close','high','low', 'money'], skip_paused=True, df=True)  
             else:
                 latest_trading_day = str(end_date if end_date is not None else datetime.datetime.today().date())
-                latest_trading_day = latest_trading_day+" 15:00:00" if level == '30m' else latest_trading_day # hack for get_price to get latest 30m data
-                stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = ['open','close','high','low', 'money'], skip_suspended=True)          
+                latest_trading_day = latest_trading_day+" 14:30:00" if level == '30m' else latest_trading_day # hack for get_price to get latest 30m data
+                stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = ['high','low', 'money'], skip_suspended=True)          
             if stock_df.empty:
                 continue
 #             if self.isDebug:
@@ -408,7 +406,7 @@ class MLDataPrep(object):
             return None, 0
         predict_dataset = mlk.prepare_predict_data_extra()
         
-        predict_dataset = self.pad_each_training_array(predict_dataset)
+        predict_dataset = pad_each_training_array(predict_dataset, self.max_sequence_length)
         if self.isDebug:
 #             print("original size:{0}".format(origin_pred_size))
             pass
@@ -459,7 +457,7 @@ class MLDataPrep(object):
             data_list, label_list = self.prepare_background_data(data_list, label_list)
 
         if padData:
-            data_list = self.pad_each_training_array(data_list)
+            data_list = self.pad_each_training_array(data_list, self.max_sequence_length)
         
         label_list = self.encode_category(label_list)  
         
@@ -496,50 +494,6 @@ class MLDataPrep(object):
         data_set = data_set + new_background_data
         label_set = label_set + new_label_data
         return data_set, label_set
-
-    def pad_each_training_array(self, data_list):
-        new_shape = self.findmaxshape(data_list)
-        if self.max_sequence_length != 0: # force padding to global max length
-            new_shape = (self.max_sequence_length, new_shape[1]) 
-        new_data_list = self.fillwithzeros(data_list, new_shape)
-        return new_data_list
-    
-    def fillwithzeros(self, inputarray, outputshape):
-        """
-        Fills input array with dtype 'object' so that all arrays have the same shape as 'outputshape'
-        inputarray: input numpy array
-        outputshape: max dimensions in inputarray (obtained with the function 'findmaxshape')
-    
-        output: inputarray filled with zeros
-        """
-        length = len(inputarray)
-        output = np.zeros((length,)+outputshape)
-        for i in range(length):
-            if inputarray[i].shape[0] <= outputshape[0]:
-                output[i][:inputarray[i].shape[0],:inputarray[i].shape[1]] = inputarray[i]
-            else:
-                output[i][:outputshape[0], :outputshape[1]] = inputarray[i][-outputshape[0]:,-outputshape[1]:]
-#                 print(inputarray[i].shape)
-#                 print(output[i].shape)
-#                 print(inputarray[i])
-#                 print(output[i])
-        return output
-    
-    def findmaxshape(self, inputarray):
-        """
-        Finds maximum x and y in an inputarray with dtype 'object' and 3 dimensions
-        inputarray: input numpy array
-    
-        output: detected maximum shape
-        """
-        max_x, max_y = 0, 0
-        for array in inputarray:
-            x, y = array.shape
-            if x > max_x:
-                max_x = x
-            if y > max_y:
-                max_y = y
-        return(max_x, max_y)
 
     def define_conv_lstm_dimension(self, x_train):
         x_train = np.expand_dims(x_train, axis=2)         #3
@@ -581,7 +535,7 @@ class MLDataPrep(object):
                     A, B = self.prepare_background_data(A, B)
     
 #                 if padData:
-#                     A = self.pad_each_training_array(A)
+#                     A = pad_each_training_array(A, self.max_sequence_length)
                 
                 B = self.encode_category(B)
 #                 A = self.define_conv_lstm_dimension(A)
@@ -590,7 +544,7 @@ class MLDataPrep(object):
                     subA = A[i[0]:i[1]]
                     
                     if padData:
-                        subA = self.pad_each_training_array(subA)
+                        subA = pad_each_training_array(subA, self.max_sequence_length)
                     else:
                         subA = np.array(subA)
                     

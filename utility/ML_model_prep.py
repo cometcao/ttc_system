@@ -11,6 +11,7 @@ from keras.layers import Conv2D, MaxPooling2D, ConvLSTM2D
 from keras import optimizers
 from keras.callbacks import EarlyStopping
 from keras.callbacks import ModelCheckpoint
+from utility.common_include import pad_each_training_array
 
 try:
     from rqdatac import *
@@ -290,7 +291,7 @@ class MLDataProcess(object):
     def model_predict_cnn_lstm(self, data_set, unique_id):
         if self.model:
             data_set = np.expand_dims(data_set, axis=2)
-            data_set = np.expand_dims(data_set, axis=1)
+            data_set = np.expand_dims(data_set, axis=2)
             prediction = np.array(self.model.predict(data_set))
             y_class = unique_id[prediction.argmax(axis=-1)]
             return (y_class, prediction)

@@ -158,3 +158,47 @@ def save_dataset_np(dataset, filename):
 def load_dataset_np(filename):
     print('Loaded: %s' % filename)
     return np.load(filename)
+
+def pad_each_training_array(data_list, max_sequence_length):
+    new_shape = findmaxshape(data_list)
+    if max_sequence_length != 0: # force padding to global max length
+        new_shape = (max_sequence_length, new_shape[1]) 
+    new_data_list = fillwithzeros(data_list, new_shape)
+    return new_data_list
+
+def fillwithzeros(inputarray, outputshape):
+    """
+    Fills input array with dtype 'object' so that all arrays have the same shape as 'outputshape'
+    inputarray: input numpy array
+    outputshape: max dimensions in inputarray (obtained with the function 'findmaxshape')
+
+    output: inputarray filled with zeros
+    """
+    length = len(inputarray)
+    output = np.zeros((length,)+outputshape)
+    for i in range(length):
+        if inputarray[i].shape[0] <= outputshape[0]:
+            output[i][:inputarray[i].shape[0],:inputarray[i].shape[1]] = inputarray[i]
+        else:
+            output[i][:outputshape[0], :outputshape[1]] = inputarray[i][-outputshape[0]:,-outputshape[1]:]
+#                 print(inputarray[i].shape)
+#                 print(output[i].shape)
+#                 print(inputarray[i])
+#                 print(output[i])
+    return output
+
+def findmaxshape(inputarray):
+    """
+    Finds maximum x and y in an inputarray with dtype 'object' and 3 dimensions
+    inputarray: input numpy array
+
+    output: detected maximum shape
+    """
+    max_x, max_y = 0, 0
+    for array in inputarray:
+        x, y = array.shape
+        if x > max_x:
+            max_x = x
+        if y > max_y:
+            max_y = y
+    return(max_x, max_y)

@@ -310,7 +310,7 @@ class ML_biaoli_check(object):
                          use_standardized_sub_df=self.use_standardized_sub_df, 
                          monitor_level=self.check_level,
                          max_length_for_pad=self.sub_level_max_length)
-        data_set, origin_data_length, past_pivot_status = mld.prepare_stock_data_predict(stock, today_date=today_date, period_count=self.sub_level_max_length) # 000001.XSHG
+        data_set, origin_data_length, past_pivot_status = mld.prepare_stock_data_predict(stock, today_date=today_date, period_count=500) # 500 sample period
         if data_set is None: # can't predict
             print("None dataset, return [0],[[0]], 0")
             return (([0],[[0]]), 0)
