@@ -73,12 +73,12 @@ class MLKbarPrep(object):
         self.num_of_debug_display = 4
         self.monitor_level = monitor_level
 
-    def workout_count_num(self, level):
-        return self.count if self.monitor_level[0] == level \
-                        else self.count * 8 if self.monitor_level[0] == '1d' and level == '30m' \
-                        else self.count * 8 if self.monitor_level[0] == '5d' and level == '150m' \
-                        else self.count * 24 if self.monitor_level[0] == '5d' and level == '30m' \
-                        else self.count * 8
+    def workout_count_num(self, level, count):
+        return count if self.monitor_level[0] == level \
+                        else count * 8 if self.monitor_level[0] == '1d' and level == '30m' \
+                        else count * 8 if self.monitor_level[0] == '5d' and level == '150m' \
+                        else count * 40 if self.monitor_level[0] == '5d' and level == '30m' \
+                        else count * 8
 
     def get_high_df(self):
         return self.stock_df_dict[self.monitor_level[0]]
@@ -89,7 +89,7 @@ class MLKbarPrep(object):
     def grab_stock_raw_data(self, stock, end_date, fields=['open','close','high','low', 'money'], file_dir="."):
         temp_stock_df_dict = {}
         for level in self.monitor_level:
-            local_count = self.workout_count_num(level)
+            local_count = self.workout_count_num(level, self.count)
             stock_df = None
             if not self.isAnal:
                 stock_df = attribute_history(stock, local_count, level, fields = fields, skip_paused=True, df=True)  
@@ -117,7 +117,7 @@ class MLKbarPrep(object):
     
     def retrieve_stock_data(self, stock, end_date=None):
         for level in self.monitor_level:
-            local_count = self.workout_count_num(level)
+            local_count = self.workout_count_num(level, self.count)
             stock_df = None
             if not self.isAnal:
                 stock_df = attribute_history(stock, local_count, level, fields = ['open','close','high','low', 'money'], skip_paused=True, df=True)  
@@ -137,7 +137,7 @@ class MLKbarPrep(object):
         for level in self.monitor_level:
             stock_df = None
             if not self.isAnal:
-                local_count = self.workout_count_num(level)
+                local_count = self.workout_count_num(level, self.count)
                 stock_df = SecurityDataManager.get_data_rq(stock, count=local_count, period=level, fields=['open','close','high','low', 'total_turnover'], skip_suspended=True, df=True, include_now=self.include_now)
             else:
                 today = end_date if end_date is not None else datetime.datetime.today()
@@ -195,6 +195,8 @@ class MLKbarPrep(object):
         high_dates = high_df_tb.index
         for i in range(0, len(high_dates)-1):
             first_date = str(high_dates[i].date())
+            if self.monitor_level[0] == '5d': # find the full range of date for the week
+                first_date = JqDataRetriever.get_trading_date(count=5, end_date=first_date)[0]
             second_date = str(high_dates[i+1].date())
             trunk_lower_df = lower_df.loc[first_date:second_date,:]
             self.create_ml_data_set(trunk_lower_df, high_df_tb.ix[i+1, 'tb'].value, for_predict=False)
@@ -214,6 +216,8 @@ class MLKbarPrep(object):
         for i in range(-self.num_of_debug_display-1, 0, 1): #-5
             try:
                 previous_date = str(high_dates[i].date())
+                if self.monitor_level[0] == '5d': # find the full range of date for the week
+                    previous_date = JqDataRetriever.get_trading_date(count=5, end_date=previous_date)[0]
             except IndexError:
                 continue
             trunk_df = None
@@ -224,7 +228,7 @@ class MLKbarPrep(object):
                 trunk_df = lower_df.loc[previous_date:, :]
 #             if self.isDebug:
 #                 print(trunk_df.tail(self.num_of_debug_display))
-            self.create_ml_data_set(trunk_df, None, for_predict=True)
+            self.create_ml_data_set(trunk_df, high_df_tb.ix[-1,'tb'].value, for_predict=True)
         return self.data_set
                
     def prepare_predict_data_extra(self):
@@ -236,28 +240,38 @@ class MLKbarPrep(object):
         for i in range(-self.num_of_debug_display-1, -1, 2):#-5
             try:
                 previous_date = str(high_dates[i].date())
+                if self.monitor_level[0] == '5d': # find the full range of date for the week
+                    previous_date = JqDataRetriever.get_trading_date(count=5, end_date=previous_date)[0]
             except IndexError:
                 continue
             trunk_df = lower_df.loc[previous_date:,:]
 #             if self.isDebug:
 #                 print(trunk_df.head(self.num_of_debug_display))
 #                 print(trunk_df.tail(self.num_of_debug_display))
-            self.create_ml_data_set(trunk_df, None, for_predict=True)
+            self.create_ml_data_set(trunk_df, high_df_tb.ix[-1,'tb'].value, for_predict=True)
         return self.data_set
         
-    def create_ml_data_set(self, trunk_df, label, for_predict=False): 
+    def create_ml_data_set(self, trunk_df, label, for_predict=False): # if for_predict, label contain last pivot
         # at least 3 parts in the sub level
         if not for_predict and self.sub_level_min_count != 0: # we won't process sub level df
             sub_level_count = len(trunk_df['tb']) - trunk_df['tb'].isnull().sum()
             if sub_level_count < self.sub_level_min_count:
                 return
         
-#         copy_trunk_df = trunk_df.copy(deep=True)
+#         if len(tb_trunk_df.index) >= 2: # precise sub level chunk at least 2 subs
+        pivot_sub_counting_range = self.workout_count_num(self.monitor_level[1], 1)        
+        if len(trunk_df) > pivot_sub_counting_range:
+            if for_predict:
+                trunk_df = trunk_df.loc[trunk_df.ix[:pivot_sub_counting_range,'high'].idxmax():,:] if label == 1 else trunk_df.loc[trunk_df.ix[:pivot_sub_counting_range,'low'].idxmin():,:] #-1
+            else: # pivot point must be within one high period 
+                trunk_df = trunk_df.loc[trunk_df.ix[:pivot_sub_counting_range,'high'].idxmax():trunk_df.ix[-pivot_sub_counting_range:,'low'].idxmin(),:] if label == -1 else \
+                        trunk_df.loc[trunk_df.ix[:pivot_sub_counting_range,'low'].idxmin():trunk_df.ix[-pivot_sub_counting_range:,'high'].idxmax(),:] if label == 1 else \
+                        trunk_df.loc[tb_trunk_df.index[0]:tb_trunk_df.index[-1],:]
+        else:
+            return
+        
         # sub level trunks
         tb_trunk_df = trunk_df.dropna(subset=['tb'])
-        
-        if len(tb_trunk_df.index) >= 2: # precise sub level chunk at least 2 subs
-            trunk_df = trunk_df.loc[tb_trunk_df.index[0]:tb_trunk_df.index[-1],:]
         
         if self.sub_max_count > 0 and trunk_df.shape[0] > self.sub_max_count: # truncate
             print("data truncated due to max length sequence exceeded")
@@ -270,12 +284,11 @@ class MLKbarPrep(object):
         if self.isNormalize:
             trunk_df = self.normalize(trunk_df)
         
-#         if trunk_df.isnull().values.any():
-#             print("NaN value found, ignore this data")
-#             print(trunk_df)
-#             print(copy_trunk_df)
-#             print(tb_trunk_df)
-#             return
+        if trunk_df.isnull().values.any():
+            print("NaN value found, ignore this data")
+            print(trunk_df)
+            print(tb_trunk_df)
+            return
     
         if for_predict: # differentiate training and predicting
             self.data_set.append(trunk_df.values)
@@ -283,9 +296,17 @@ class MLKbarPrep(object):
             self.data_set.append(trunk_df.values)
             self.label_set.append(label)
             
-            for time_index in tb_trunk_df.index[1:-2]: #  counting from cutting start
-                self.data_set.append(trunk_df.loc[:time_index, :].values)
-                self.label_set.append(TopBotType.noTopBot.value)
+            for time_index in tb_trunk_df.index[-3:]: #  counting from cutting start
+                sub_trunk_df = trunk_df.loc[:time_index, :]
+                if not sub_trunk_df.empty and tb_trunk_df.loc[time_index, 'tb'].value == label:
+                    self.data_set.append(sub_trunk_df.values)
+                    self.label_set.append(label)                    
+            
+            for time_index in tb_trunk_df.index[:-3]: #  counting from cutting start
+                sub_trunk_df = trunk_df.loc[:time_index, :]
+                if not sub_trunk_df.empty:
+                    self.data_set.append(sub_trunk_df.values)
+                    self.label_set.append(TopBotType.noTopBot.value)
         
         
     def manual_select(self, df):
