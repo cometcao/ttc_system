@@ -237,7 +237,8 @@ class MLDataProcess(object):
         
     def process_model_generator(self, model, generator, steps = 10000, epochs = 5, verbose = 2, validation_data=None, evaluate_generator=None, validation_steps=1000, patience=10):
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=verbose, patience=patience)
-        mc = ModelCheckpoint('best_model.h5', monitor='val_acc', mode='max', verbose=verbose, save_best_only=True)
+        mc_loss = ModelCheckpoint('best_model_loss.h5', monitor='val_loss', mode='min', verbose=verbose, save_best_only=True)
+        mc_acc = ModelCheckpoint('best_model_acc.h5', monitor='val_acc', mode='max', verbose=verbose, save_best_only=True)
         
         model.fit_generator(generator, 
                             steps_per_epoch = steps, 
@@ -245,7 +246,7 @@ class MLDataProcess(object):
                             verbose = verbose,
                             validation_data = validation_data,
                             validation_steps = validation_steps, 
-                            callbacks=[es, mc])
+                            callbacks=[es, mc_loss, mc_acc])
         score = model.evaluate_generator(evaluate_generator, steps=validation_steps)
         print('Test loss:', score[0])
         print('Test accuracy:', score[1])        
