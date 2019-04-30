@@ -293,8 +293,9 @@ class MLKbarPrep(object):
         if for_predict: # differentiate training and predicting
             self.data_set.append(trunk_df.values)
         else:
-            self.data_set.append(trunk_df.values)
-            self.label_set.append(label)
+            if not trunk_df.empty:
+                self.data_set.append(trunk_df.values)
+                self.label_set.append(label)
             
             for time_index in tb_trunk_df.index[-3:]: #  counting from cutting start
                 sub_trunk_df = trunk_df.loc[:time_index, :]
@@ -535,10 +536,11 @@ class MLDataPrep(object):
         while True:
             for file in filenames:
                 A, B = load_dataset(file)
-                
                 A_check = True
                 for item in A:     
-                    if (self.useMinMax and not ((item>=-1).all() and (item<=1).all())) or np.isnan(item).any(): # min max value range or zscore
+                    if (self.useMinMax and not ((item>=-1).all() and (item<=1).all())) or \
+                    np.isnan(item).any() or \
+                    item.size == 0: # min max value range or zscore
                         print(item)
                         A_check=False
                         break
@@ -563,7 +565,6 @@ class MLDataPrep(object):
                 
                 for i in batch(range(0, len(A)), batch_size):
                     subA = A[i[0]:i[1]]
-                    
                     if padData:
                         subA = pad_each_training_array(subA, self.max_sequence_length)
                     else:
