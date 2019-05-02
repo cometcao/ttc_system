@@ -571,7 +571,7 @@ class MLDataPrep(object):
                         subA = np.array(subA)
                     
                     if model_type == 'convlstm':
-                    subA = self.define_conv_lstm_dimension(subA)
+                        subA = self.define_conv_lstm_dimension(subA)
                     elif model_type == 'rnncnn':
                         pass
                     
