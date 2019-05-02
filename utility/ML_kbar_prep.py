@@ -568,11 +568,11 @@ class MLDataPrep(object):
                 for i in batch(range(0, len(A)), batch_size):
                     subA = A[i[0]:i[1]]
 #                     if padData:
-# #                         subA = pad_each_training_array(subA, self.max_sequence_length)
+#                         subA = pad_each_training_array(subA, self.max_sequence_length)
 #                         subA = sequence.pad_sequences(subA, maxlen=None if self.max_sequence_length == 0 else self.max_sequence_length, padding='pre', truncating='pre')
 #                     else:
 #                         subA = np.array(subA)
-                    
+
 #                     if model_type == 'convlstm':
 #                         subA = self.define_conv_lstm_dimension(subA)
 #                     elif model_type == 'rnncnn':
