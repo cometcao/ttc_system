@@ -521,6 +521,7 @@ class MLDataPrep(object):
         x_train = np.expand_dims(x_train, axis=2)         #3
         x_train = np.expand_dims(x_train, axis=2)
         return x_train
+    
 
     def generate_from_data(self, data, label, batch_size):
         for i in batch(range(0, len(data)), batch_size):
@@ -570,7 +571,7 @@ class MLDataPrep(object):
                         subA = np.array(subA)
                     
                     if model_type == 'convlstm':
-                        subA = self.define_conv_lstm_dimension(subA)
+                    subA = self.define_conv_lstm_dimension(subA)
                     elif model_type == 'rnncnn':
                         pass
                     
@@ -611,6 +612,5 @@ class MLDataPrep(object):
 # 2017-11-16 14:30:00  -7.446391 -0.813237         57  TopBotType.top  
 # 2017-11-16 15:00:00  -7.247972 -0.491854        NaN             NaN  
 # 2017-11-17 10:00:00  -7.885018 -0.903120        NaN             NaN  
-
 
 
