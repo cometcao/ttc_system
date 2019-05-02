@@ -243,42 +243,28 @@ class MLDataProcess(object):
                          padding='valid',
                          activation='relu'))
         model.add(MaxPooling1D(pool_size=2))
-        print(model.input_shape)
-        print(model.output_shape)
-#         model.add(Conv1D(64,
-#                          kernel_size=3,
-#                          padding='valid',
-#                          activation='relu'))
-#         model.add(MaxPooling1D(pool_size=2))
-#         model.add(Conv1D(64,
-#                          kernel_size=3,
-#                          padding='valid',
-#                          activation='relu'))
-#         model.add(MaxPooling1D(pool_size=2))        
-                 
-#         model.add(LSTM(256, return_sequences=False))
-#         print(model.input_shape)
-#         print(model.output_shape)
-        model.add(Dropout(0.5))
-        print(model.input_shape)
-        print(model.output_shape)
+        model.add(Conv1D(256,
+                         kernel_size=3,
+                         padding='valid',
+                         activation='relu'))
+        model.add(MaxPooling1D(pool_size=2))
+        model.add(Conv1D(256,
+                         kernel_size=3,
+                         padding='valid',
+                         activation='relu'))
+        model.add(MaxPooling1D(pool_size=2))        
+
+        model.add(LSTM(64, return_sequences=False))
+
+        model.add(Dropout(0.3))
         model.add(Dense (256, activation='relu'))
-#         model.add(Dense (256, activation='relu'))
  
         model.add(Dense(num_classes, activation='softmax'))
          
         model.compile(loss=keras.losses.categorical_crossentropy,
                       optimizer=keras.optimizers.Adadelta(), #Adadelta, Nadam, SGD, Adam
                       metrics=['accuracy'])
-        
-#######################
-#         model.add(Conv1D(filters=32,input_shape=input_shape, kernel_size=3, padding='same', activation='relu'))
-#         model.add(MaxPooling1D(pool_size=2))
-#         model.add(LSTM(100))
-#         model.add(Dense(num_classes, activation='softmax'))
-#         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])     
-########################   
-        
+                
         print (model.summary())
         return model     
 
@@ -296,7 +282,7 @@ class MLDataProcess(object):
         
         data_gen.send((x_train, x_test))
         aa, bb = input_shape
-        return None, bb
+        return aa, bb
 
 
     def define_rnn_cnn_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000, patience=10):
