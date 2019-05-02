@@ -115,7 +115,7 @@ class MLDataProcess(object):
     def create_conv_lstm_model_arch(self, input_shape, num_classes):
         model = Sequential()
         model.add(ConvLSTM2D(32, 
-                             kernel_size=(3, 1), 
+                             kernel_size=(1, 1), 
                              data_format='channels_last',
                              input_shape=input_shape,
                              padding='same',
@@ -124,7 +124,7 @@ class MLDataProcess(object):
                              recurrent_dropout = 0.2
                              ))
         model.add(ConvLSTM2D(48, 
-                             kernel_size=(3, 1), 
+                             kernel_size=(1, 1), 
                              padding='same',
                              return_sequences=True,
                              dropout = 0.2, 
@@ -132,50 +132,50 @@ class MLDataProcess(object):
                              ))        
         model.add(BatchNormalization())
         model.add(ConvLSTM2D(64, 
-                             kernel_size=(3, 1), 
+                             kernel_size=(1, 1), 
                              padding='same',
                              return_sequences=True,
                              dropout = 0.2, 
                              recurrent_dropout = 0.2
                              ))
         model.add(ConvLSTM2D(80, 
-                             kernel_size=(3, 1), 
-                             padding='same',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))  
-        model.add(BatchNormalization())
-        model.add(ConvLSTM2D(96, 
-                             kernel_size=(3, 1), 
-                             padding='same',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))        
-        model.add(ConvLSTM2D(112, 
-                             kernel_size=(3, 1), 
-                             padding='same',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))
-        model.add(BatchNormalization())   
-        model.add(ConvLSTM2D(128, 
-                             kernel_size=(3, 1), 
-                             padding='same',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))
-        model.add(ConvLSTM2D(144, 
-                             kernel_size=(3, 1), 
+                             kernel_size=(1, 1), 
                              padding='same',
                              return_sequences=False,
                              dropout = 0.2, 
                              recurrent_dropout = 0.2
-                             ))
-        model.add(BatchNormalization())         
+                             ))  
+        model.add(BatchNormalization())
+#         model.add(ConvLSTM2D(96, 
+#                              kernel_size=(1, 1), 
+#                              padding='same',
+#                              return_sequences=True,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))        
+#         model.add(ConvLSTM2D(112, 
+#                              kernel_size=(1, 1), 
+#                              padding='same',
+#                              return_sequences=True,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))
+#         model.add(BatchNormalization())   
+#         model.add(ConvLSTM2D(128, 
+#                              kernel_size=(1, 1), 
+#                              padding='same',
+#                              return_sequences=True,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))
+#         model.add(ConvLSTM2D(144, 
+#                              kernel_size=(1, 1), 
+#                              padding='same',
+#                              return_sequences=False,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))
+#         model.add(BatchNormalization())         
 #         model.add(MaxPooling2D(pool_size=(2, 1)))
 #         model.add(Dropout(0.25))
          
@@ -224,7 +224,7 @@ class MLDataProcess(object):
         
         data_gen.send((x_train, x_test))
         aa, bb, cc, dd = input_shape
-        return None, bb, cc, dd        
+        return aa, bb, cc, dd        
     
     def define_conv_lstm_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000, patience=10):
         input_shape = self.define_conv_lstm_shape(data_gen)

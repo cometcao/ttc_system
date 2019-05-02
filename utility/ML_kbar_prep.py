@@ -20,6 +20,7 @@ import datetime
 from sklearn.model_selection import train_test_split
 from utility.securityDataManager import *
 from utility.utility_ts import *
+from keras.preprocessing import sequence
 
 # pd.options.mode.chained_assignment = None 
 
@@ -557,23 +558,25 @@ class MLDataPrep(object):
                 if background_data_generation:
                     A, B = self.prepare_background_data(A, B)
     
-#                 if padData:
-#                     A = pad_each_training_array(A, self.max_sequence_length)
+                if padData:
+                    A = sequence.pad_sequences(A, maxlen=None if self.max_sequence_length == 0 else self.max_sequence_length, padding='pre', truncating='pre')
                 
                 B = self.encode_category(B)
-#                 A = self.define_conv_lstm_dimension(A)
+                if model_type == 'convlstm':
+                    A = self.define_conv_lstm_dimension(A)
                 
                 for i in batch(range(0, len(A)), batch_size):
                     subA = A[i[0]:i[1]]
-                    if padData:
-                        subA = pad_each_training_array(subA, self.max_sequence_length)
-                    else:
-                        subA = np.array(subA)
+#                     if padData:
+# #                         subA = pad_each_training_array(subA, self.max_sequence_length)
+#                         subA = sequence.pad_sequences(subA, maxlen=None if self.max_sequence_length == 0 else self.max_sequence_length, padding='pre', truncating='pre')
+#                     else:
+#                         subA = np.array(subA)
                     
-                    if model_type == 'convlstm':
-                        subA = self.define_conv_lstm_dimension(subA)
-                    elif model_type == 'rnncnn':
-                        pass
+#                     if model_type == 'convlstm':
+#                         subA = self.define_conv_lstm_dimension(subA)
+#                     elif model_type == 'rnncnn':
+#                         pass
                     
                     yield subA, B[i[0]:i[1]] 
     
