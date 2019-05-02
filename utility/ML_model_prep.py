@@ -7,7 +7,7 @@ from keras.models import load_model
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten, TimeDistributed,LSTM
 from keras.layers.normalization import BatchNormalization
-from keras.layers import Conv2D, MaxPooling2D, ConvLSTM2D, Conv1D, MaxPooling1D
+from keras.layers import Conv2D, MaxPooling2D, ConvLSTM2D, Conv1D, MaxPooling1D, Reshape
 from keras import optimizers
 from keras.callbacks import EarlyStopping
 from keras.callbacks import ModelCheckpoint
@@ -115,7 +115,7 @@ class MLDataProcess(object):
     def create_conv_lstm_model_arch(self, input_shape, num_classes):
         model = Sequential()
         model.add(ConvLSTM2D(32, 
-                             kernel_size=(3, 1), 
+                             kernel_size=(1, 1), 
                              data_format='channels_last',
                              input_shape=input_shape,
                              padding='same',
@@ -124,7 +124,7 @@ class MLDataProcess(object):
                              recurrent_dropout = 0.2
                              ))
         model.add(ConvLSTM2D(48, 
-                             kernel_size=(3, 1), 
+                             kernel_size=(1, 1), 
                              padding='same',
                              return_sequences=True,
                              dropout = 0.2, 
@@ -132,50 +132,50 @@ class MLDataProcess(object):
                              ))        
         model.add(BatchNormalization())
         model.add(ConvLSTM2D(64, 
-                             kernel_size=(3, 1), 
+                             kernel_size=(1, 1), 
                              padding='same',
                              return_sequences=True,
                              dropout = 0.2, 
                              recurrent_dropout = 0.2
                              ))
         model.add(ConvLSTM2D(80, 
-                             kernel_size=(3, 1), 
-                             padding='same',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))  
-        model.add(BatchNormalization())
-        model.add(ConvLSTM2D(96, 
-                             kernel_size=(3, 1), 
-                             padding='same',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))        
-        model.add(ConvLSTM2D(112, 
-                             kernel_size=(3, 1), 
-                             padding='same',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))
-        model.add(BatchNormalization())   
-        model.add(ConvLSTM2D(128, 
-                             kernel_size=(3, 1), 
-                             padding='same',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))
-        model.add(ConvLSTM2D(144, 
-                             kernel_size=(3, 1), 
+                             kernel_size=(1, 1), 
                              padding='same',
                              return_sequences=False,
                              dropout = 0.2, 
                              recurrent_dropout = 0.2
-                             ))
-        model.add(BatchNormalization())         
+                             ))  
+        model.add(BatchNormalization())
+#         model.add(ConvLSTM2D(96, 
+#                              kernel_size=(1, 1), 
+#                              padding='same',
+#                              return_sequences=True,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))        
+#         model.add(ConvLSTM2D(112, 
+#                              kernel_size=(1, 1), 
+#                              padding='same',
+#                              return_sequences=True,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))
+#         model.add(BatchNormalization())   
+#         model.add(ConvLSTM2D(128, 
+#                              kernel_size=(1, 1), 
+#                              padding='same',
+#                              return_sequences=True,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))
+#         model.add(ConvLSTM2D(144, 
+#                              kernel_size=(1, 1), 
+#                              padding='same',
+#                              return_sequences=False,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))
+#         model.add(BatchNormalization())         
 #         model.add(MaxPooling2D(pool_size=(2, 1)))
 #         model.add(Dropout(0.25))
          
@@ -224,7 +224,7 @@ class MLDataProcess(object):
         
         data_gen.send((x_train, x_test))
         aa, bb, cc, dd = input_shape
-        return None, bb, cc, dd        
+        return aa, bb, cc, dd        
     
     def define_conv_lstm_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000, patience=10):
         input_shape = self.define_conv_lstm_shape(data_gen)
@@ -235,38 +235,49 @@ class MLDataProcess(object):
 
 
     def create_rnn_cnn_model_arch(self, input_shape, num_classes):
-        model = Sequential()
-        model.add(Conv1D(32,
+        model = Sequential()     
+        
+        model.add(Conv1D(256,
                          kernel_size=3,
                          input_shape=input_shape,
                          padding='valid',
                          activation='relu'))
         model.add(MaxPooling1D(pool_size=2))
-        model.add(Conv1D(64,
-                         kernel_size=3,
-                         padding='valid',
-                         activation='relu'))
-        model.add(MaxPooling1D(pool_size=2))
-        model.add(Conv1D(128,
-                         kernel_size=3,
-                         padding='valid',
-                         activation='relu'))
-        model.add(MaxPooling1D(pool_size=2))        
-
-        model.add(Dense (256, activation='relu'))
-        model.add(Dense (256, activation='relu'))
-        
-#         model.add(Reshape((1,model.output_shape[1])))
-        
-        model.add(LSTM(256, return_sequences=False))
+        print(model.input_shape)
+        print(model.output_shape)
+#         model.add(Conv1D(64,
+#                          kernel_size=3,
+#                          padding='valid',
+#                          activation='relu'))
+#         model.add(MaxPooling1D(pool_size=2))
+#         model.add(Conv1D(64,
+#                          kernel_size=3,
+#                          padding='valid',
+#                          activation='relu'))
+#         model.add(MaxPooling1D(pool_size=2))        
+                 
+#         model.add(LSTM(256, return_sequences=False))
+#         print(model.input_shape)
+#         print(model.output_shape)
         model.add(Dropout(0.5))
-
-        model.add(Dense(128, activation='relu'))
+        print(model.input_shape)
+        print(model.output_shape)
+        model.add(Dense (256, activation='relu'))
+#         model.add(Dense (256, activation='relu'))
+ 
         model.add(Dense(num_classes, activation='softmax'))
-        
+         
         model.compile(loss=keras.losses.categorical_crossentropy,
                       optimizer=keras.optimizers.Adadelta(), #Adadelta, Nadam, SGD, Adam
                       metrics=['accuracy'])
+        
+#######################
+#         model.add(Conv1D(filters=32,input_shape=input_shape, kernel_size=3, padding='same', activation='relu'))
+#         model.add(MaxPooling1D(pool_size=2))
+#         model.add(LSTM(100))
+#         model.add(Dense(num_classes, activation='softmax'))
+#         model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])     
+########################   
         
         print (model.summary())
         return model     
