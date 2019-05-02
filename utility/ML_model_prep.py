@@ -7,7 +7,7 @@ from keras.models import load_model
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten, TimeDistributed,LSTM
 from keras.layers.normalization import BatchNormalization
-from keras.layers import Conv2D, MaxPooling2D, ConvLSTM2D
+from keras.layers import Conv2D, MaxPooling2D, ConvLSTM2D, Conv1D, MaxPooling1D
 from keras import optimizers
 from keras.callbacks import EarlyStopping
 from keras.callbacks import ModelCheckpoint
@@ -224,8 +224,7 @@ class MLDataProcess(object):
         
         data_gen.send((x_train, x_test))
         aa, bb, cc, dd = input_shape
-        return None, bb, cc, dd
-                      
+        return None, bb, cc, dd        
     
     def define_conv_lstm_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000, patience=10):
         input_shape = self.define_conv_lstm_shape(data_gen)
@@ -234,6 +233,67 @@ class MLDataProcess(object):
         
         self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen, validation_steps, patience)
 
+
+    def create_rnn_cnn_model_arch(self, input_shape, num_classes):
+        model = Sequential()
+        model.add(Conv1D(32,
+                         kernel_size=3,
+                         input_shape=input_shape,
+                         padding='valid',
+                         activation='relu'))
+        model.add(MaxPooling1D(pool_size=2))
+        model.add(Conv1D(64,
+                         kernel_size=3,
+                         padding='valid',
+                         activation='relu'))
+        model.add(MaxPooling1D(pool_size=2))
+        model.add(Conv1D(128,
+                         kernel_size=3,
+                         padding='valid',
+                         activation='relu'))
+        model.add(MaxPooling1D(pool_size=2))        
+
+        model.add(Dense (256, activation='relu'))
+        model.add(Dense (256, activation='relu'))
+        
+#         model.add(Reshape((1,model.output_shape[1])))
+        
+        model.add(LSTM(256, return_sequences=False))
+        model.add(Dropout(0.5))
+
+        model.add(Dense(128, activation='relu'))
+        model.add(Dense(num_classes, activation='softmax'))
+        
+        model.compile(loss=keras.losses.categorical_crossentropy,
+                      optimizer=keras.optimizers.Adadelta(), #Adadelta, Nadam, SGD, Adam
+                      metrics=['accuracy'])
+        
+        print (model.summary())
+        return model     
+
+    def define_rnn_cnn_shape(self, data_gen):
+        x_train, x_test = next(data_gen)
+        
+        input_shape = None
+        a, b, c = x_train.shape
+        if K.image_data_format() == 'channels_first':
+            # convert class vectors to binary class matrices
+            input_shape = (c, b)
+        else:
+            # channel last
+            input_shape = (b, c)
+        
+        data_gen.send((x_train, x_test))
+        aa, bb = input_shape
+        return None, bb
+
+
+    def define_rnn_cnn_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000, patience=10):
+        input_shape = self.define_rnn_cnn_shape(data_gen)
+        
+        model = self.create_rnn_cnn_model_arch(input_shape, num_classes)
+        
+        self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen, validation_steps, patience)
         
     def process_model_generator(self, model, generator, steps = 10000, epochs = 5, verbose = 2, validation_data=None, evaluate_generator=None, validation_steps=1000, patience=10):
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=verbose, patience=patience)

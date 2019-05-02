@@ -293,8 +293,9 @@ class MLKbarPrep(object):
         if for_predict: # differentiate training and predicting
             self.data_set.append(trunk_df.values)
         else:
-            self.data_set.append(trunk_df.values)
-            self.label_set.append(label)
+            if not trunk_df.empty:
+                self.data_set.append(trunk_df.values)
+                self.label_set.append(label)
             
             for time_index in tb_trunk_df.index[-3:]: #  counting from cutting start
                 sub_trunk_df = trunk_df.loc[:time_index, :]
@@ -520,7 +521,6 @@ class MLDataPrep(object):
         x_train = np.expand_dims(x_train, axis=2)         #3
         x_train = np.expand_dims(x_train, axis=2)
         return x_train
-    
 
     def generate_from_data(self, data, label, batch_size):
         for i in batch(range(0, len(data)), batch_size):
@@ -531,14 +531,15 @@ class MLDataPrep(object):
         tempArray = tempArray[:,:,indexList]
         return tempArray.tolist()
     
-    def generate_from_file(self, filenames, padData=True, background_data_generation=False, batch_size=50):
+    def generate_from_file(self, filenames, padData=True, background_data_generation=False, batch_size=50, model_type='convlstm'):
         while True:
             for file in filenames:
                 A, B = load_dataset(file)
-                
                 A_check = True
                 for item in A:     
-                    if (self.useMinMax and not ((item>=-1).all() and (item<=1).all())) or np.isnan(item).any(): # min max value range or zscore
+                    if (self.useMinMax and not ((item>=-1).all() and (item<=1).all())) or \
+                    np.isnan(item).any() or \
+                    item.size == 0: # min max value range or zscore
                         print(item)
                         A_check=False
                         break
@@ -563,18 +564,20 @@ class MLDataPrep(object):
                 
                 for i in batch(range(0, len(A)), batch_size):
                     subA = A[i[0]:i[1]]
-                    
                     if padData:
                         subA = pad_each_training_array(subA, self.max_sequence_length)
                     else:
                         subA = np.array(subA)
                     
-                    subA = self.define_conv_lstm_dimension(subA)
+                    if model_type == 'convlstm':
+                        subA = self.define_conv_lstm_dimension(subA)
+                    elif model_type == 'rnncnn':
+                        pass
                     
                     yield subA, B[i[0]:i[1]] 
     
-    def prepare_stock_data_cnn_gen(self, filenames, padData=True, background_data_generation=False, batch_size=50):
-        return self.generate_from_file(filenames, padData=padData, background_data_generation=background_data_generation, batch_size=batch_size)
+    def prepare_stock_data_gen(self, filenames, padData=True, background_data_generation=False, batch_size=50, model_type='convlstm'):
+        return self.generate_from_file(filenames, padData=padData, background_data_generation=background_data_generation, batch_size=batch_size, model_type=model_type)
     
 #                           open      close       high        low        money  \
 # 2017-11-14 10:00:00  3446.5500  3436.1400  3450.3400  3436.1400  60749246464   

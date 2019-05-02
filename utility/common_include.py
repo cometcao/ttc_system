@@ -208,9 +208,10 @@ def sort_training_dataset_by_sublength(dataset, label):
     Input: training/testing dataset label
     output: training/testing dataset label sorted by sub sequence length in dataset
     """
-    narrayData = np.array(sorted(dataset, key=len, reverse=False))
+    narrayData = sorted(dataset, key=len, reverse=False)
     length_index = np.argsort([len(seq) for seq in dataset])
-    narrayLabel = np.array(label)
-    
-    return narrayData.tolist(), narrayLabel[length_index].tolist()
+
+    narrayLabel = np.array(label)[length_index]
+        
+    return narrayData, narrayLabel
     
