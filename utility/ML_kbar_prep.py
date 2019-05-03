@@ -560,19 +560,20 @@ class MLDataPrep(object):
     
                 if padData:
                     A = sequence.pad_sequences(A, maxlen=None if self.max_sequence_length == 0 else self.max_sequence_length, padding='pre', truncating='pre')
-                
-                B = self.encode_category(B)
+ 
                 if model_type == 'convlstm':
                     A = self.define_conv_lstm_dimension(A)
+                
+                B = self.encode_category(B)
                 
                 for i in batch(range(0, len(A)), batch_size):
                     subA = A[i[0]:i[1]]
 #                     if padData:
-#                         subA = pad_each_training_array(subA, self.max_sequence_length)
+# ###                         subA = pad_each_training_array(subA, self.max_sequence_length)## not used
 #                         subA = sequence.pad_sequences(subA, maxlen=None if self.max_sequence_length == 0 else self.max_sequence_length, padding='pre', truncating='pre')
 #                     else:
 #                         subA = np.array(subA)
-
+#   
 #                     if model_type == 'convlstm':
 #                         subA = self.define_conv_lstm_dimension(subA)
 #                     elif model_type == 'rnncnn':

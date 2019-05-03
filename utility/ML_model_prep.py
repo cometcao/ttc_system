@@ -5,9 +5,9 @@ from keras import backend as K
 from keras.utils.np_utils import to_categorical
 from keras.models import load_model
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Flatten, TimeDistributed,LSTM
+from keras.layers import Dense, Dropout, Flatten, TimeDistributed,LSTM, GRU
 from keras.layers.normalization import BatchNormalization
-from keras.layers import Conv2D, MaxPooling2D, ConvLSTM2D, Conv1D, MaxPooling1D, Reshape
+from keras.layers import Conv2D, MaxPooling2D, ConvLSTM2D, Conv1D, MaxPooling1D, Reshape, GlobalAveragePooling1D
 from keras import optimizers
 from keras.callbacks import EarlyStopping
 from keras.callbacks import ModelCheckpoint
@@ -236,29 +236,38 @@ class MLDataProcess(object):
 
     def create_rnn_cnn_model_arch(self, input_shape, num_classes):
         model = Sequential()     
-        
-        model.add(Conv1D(256,
+        model.add(Conv1D(3,
                          kernel_size=3,
                          input_shape=input_shape,
                          padding='valid',
                          activation='relu'))
-        model.add(MaxPooling1D(pool_size=2))
-        model.add(Conv1D(256,
-                         kernel_size=3,
+#         print("layer input/output shape:{0}, {1}".format(model.input_shape, model.output_shape))
+        model.add(MaxPooling1D(pool_size=3))
+        model.add(GRU(model.output_shape[1], return_sequences=True))
+        
+        model.add(Conv1D(4,
+                         kernel_size=2,
                          padding='valid',
                          activation='relu'))
         model.add(MaxPooling1D(pool_size=2))
-        model.add(Conv1D(256,
+        model.add(GRU(model.output_shape[1], return_sequences=True))   
+        
+        model.add(Conv1D(4,
                          kernel_size=3,
                          padding='valid',
                          activation='relu'))
-        model.add(MaxPooling1D(pool_size=2))        
-
-        model.add(LSTM(64, return_sequences=False))
+        model.add(MaxPooling1D(pool_size=3))      
+        model.add(GRU(model.output_shape[1], return_sequences=True))
+        
+        model.add(Conv1D(3,
+                         kernel_size=3,
+                         padding='valid',
+                         activation='relu'))
+        model.add(MaxPooling1D(pool_size=3))
+        model.add(GRU(model.output_shape[1], return_sequences=False))
 
         model.add(Dropout(0.3))
-        model.add(Dense (256, activation='relu'))
- 
+        model.add(Dense (model.output_shape[1], activation='relu'))
         model.add(Dense(num_classes, activation='softmax'))
          
         model.compile(loss=keras.losses.categorical_crossentropy,
