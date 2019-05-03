@@ -240,29 +240,28 @@ class MLDataProcess(object):
                          kernel_size=3,
                          input_shape=input_shape,
                          padding='valid',
-                         activation='relu'))
+                         activation='relu',
+                         strides=3))
 #         print("layer input/output shape:{0}, {1}".format(model.input_shape, model.output_shape))
-        model.add(MaxPooling1D(pool_size=3))
         
         model.add(Conv1D(4,
                          kernel_size=2,
                          padding='valid',
                          activation='relu'))
-        model.add(MaxPooling1D(pool_size=2))
         model.add(GRU(model.output_shape[1], return_sequences=True))   
         
         model.add(Conv1D(4,
                          kernel_size=3,
                          padding='valid',
-                         activation='relu'))
-        model.add(MaxPooling1D(pool_size=3))      
+                         activation='relu',
+                         strides=3))
         model.add(GRU(model.output_shape[1], return_sequences=True))
         
         model.add(Conv1D(3,
                          kernel_size=3,
                          padding='valid',
-                         activation='relu'))
-        model.add(MaxPooling1D(pool_size=3))
+                         activation='relu',
+                         strides=5))
         model.add(GRU(model.output_shape[1], return_sequences=False))
 
         model.add(Dropout(0.3))
