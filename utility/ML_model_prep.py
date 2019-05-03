@@ -243,7 +243,6 @@ class MLDataProcess(object):
                          activation='relu'))
 #         print("layer input/output shape:{0}, {1}".format(model.input_shape, model.output_shape))
         model.add(MaxPooling1D(pool_size=3))
-        model.add(GRU(model.output_shape[1], return_sequences=True))
         
         model.add(Conv1D(4,
                          kernel_size=2,
