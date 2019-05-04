@@ -546,9 +546,7 @@ class MLDataPrep(object):
                     print("Data invalid in file {0}".format(file))
                     continue
     
-#                 print("loaded data set: {0}".format(file))
-    
-                if not A or not B:
+                if A is None or B is None:
                     print("Invalid file content")
                     return
     
