@@ -39,11 +39,12 @@ def copy(path):
 
 
 class MLDataProcess(object):
-    def __init__(self, model_name=None, isAnal=False, saveByte=False):
+    def __init__(self, model_name=None, isAnal=False, saveByte=False, isDebug=False):
         self.model_name = model_name
         self.model = None
         self.isAnal = isAnal
         self.saveByte = saveByte
+        self.isDebug = isDebug 
         
     
     def define_conv2d_dimension(self, x_train, x_test):
@@ -242,7 +243,9 @@ class MLDataProcess(object):
                          padding='valid',
                          activation='relu',
                          strides=3))
-#         print("layer input/output shape:{0}, {1}".format(model.input_shape, model.output_shape))
+        if self.isDebug:
+            print("layer input/output shape:{0}, {1}".format(model.input_shape, model.output_shape))
+            
         
         model.add(Conv1D(4,
                          kernel_size=2,
@@ -266,6 +269,10 @@ class MLDataProcess(object):
 
         model.add(Dropout(0.3))
         model.add(Dense (model.output_shape[1], activation='relu'))
+
+        if self.isDebug:
+            print("layer input/output shape:{0}".format(model.output_shape))
+
         model.add(Dense(num_classes, activation='softmax'))
          
         model.compile(loss=keras.losses.categorical_crossentropy,

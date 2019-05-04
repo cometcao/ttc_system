@@ -15,6 +15,7 @@ from pickle import dump
 from pickle import load
 import numpy as np
 import io
+from keras.utils.np_utils import to_categorical
 from utility.securityDataManager import *
 
 evs_query_string = '(valuation.market_cap*100000000+balance.total_liability+balance.minority_interests+balance.capital_reserve_fund-balance.cash_equivalents)/(income.total_operating_revenue)'
@@ -215,3 +216,7 @@ def sort_training_dataset_by_sublength(dataset, label):
         
     return narrayData, narrayLabel
     
+def encode_category(label_set): # this is assuming we have full label in the sample
+    uniques, ids = np.unique(label_set, return_inverse=True)
+    y_code = to_categorical(ids, len(uniques))
+    return y_code

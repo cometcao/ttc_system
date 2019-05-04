@@ -10,7 +10,7 @@ except:
 from utility.common_include import *
 from utility.kBarProcessor import *
 from utility.biaoLiStatus import TopBotType
-from keras.utils.np_utils import to_categorical
+
 from pickle import dump
 from pickle import load
 import pandas as pd
@@ -261,7 +261,7 @@ class MLKbarPrep(object):
         
 #         if len(tb_trunk_df.index) >= 2: # precise sub level chunk at least 2 subs
         pivot_sub_counting_range = self.workout_count_num(self.monitor_level[1], 1)        
-        if len(trunk_df) > pivot_sub_counting_range:
+        if len(trunk_df) > pivot_sub_counting_range * 2:
             if for_predict:
                 trunk_df = trunk_df.loc[trunk_df.ix[:pivot_sub_counting_range,'high'].idxmax():,:] if label == 1 else trunk_df.loc[trunk_df.ix[:pivot_sub_counting_range,'low'].idxmin():,:] #-1
             else: # pivot point must be within one high period 
@@ -300,9 +300,13 @@ class MLKbarPrep(object):
             
             for time_index in tb_trunk_df.index[-3:]: #  counting from cutting start
                 sub_trunk_df = trunk_df.loc[:time_index, :]
-                if not sub_trunk_df.empty and tb_trunk_df.loc[time_index, 'tb'].value == label:
+                if not sub_trunk_df.empty: 
                     self.data_set.append(sub_trunk_df.values)
-                    self.label_set.append(label)                    
+                    if tb_trunk_df.loc[time_index, 'tb'].value == label:
+                        self.label_set.append(label)  
+                    else:
+                        self.label_set.append(TopBotType.noTopBot.value)
+                                      
             
             for time_index in tb_trunk_df.index[:-3]: #  counting from cutting start
                 sub_trunk_df = trunk_df.loc[:time_index, :]
@@ -351,7 +355,6 @@ class MLDataPrep(object):
         self.max_sequence_length = max_length_for_pad
         self.isRQ = rq
         self.isTS = ts
-        self.unique_index = []
         self.use_standardized_sub_df = use_standardized_sub_df
         self.check_level = monitor_level
         self.useMinMax = useMinMax
@@ -434,12 +437,6 @@ class MLDataPrep(object):
 #             print("original size:{0}".format(origin_pred_size))
             pass
         return predict_dataset, origin_pred_size, mlk.get_high_df().ix[-1, 'tb'].value
-        
-    def encode_category(self, label_set):
-        uniques, ids = np.unique(label_set, return_inverse=True)
-        y_code = to_categorical(ids, len(uniques))
-        self.unique_index = uniques
-        return y_code
     
     def prepare_stock_data_cnn(self, filenames, padData=True, test_portion=0.1, random_seed=42, background_data_generation=False):
         data_list = []
@@ -482,7 +479,7 @@ class MLDataPrep(object):
         if padData:
             data_list = self.pad_each_training_array(data_list, self.max_sequence_length)
         
-        label_list = self.encode_category(label_list)  
+        label_list = encode_category(label_list)  
         
         x_train, x_test, y_train, y_test = train_test_split(data_list, label_list, test_size=test_portion, random_state=random_seed)
         
@@ -560,24 +557,25 @@ class MLDataPrep(object):
     
                 if padData:
                     A = sequence.pad_sequences(A, maxlen=None if self.max_sequence_length == 0 else self.max_sequence_length, padding='pre', truncating='pre')
- 
+  
                 if model_type == 'convlstm':
                     A = self.define_conv_lstm_dimension(A)
-                
-                B = self.encode_category(B)
+            
+#                 B = encode_category(B)
                 
                 for i in batch(range(0, len(A)), batch_size):
-                    subA = A[i[0]:i[1]]
+                    subA = A[i[0]:i[1]]               
+
 #                     if padData:
 # ###                         subA = pad_each_training_array(subA, self.max_sequence_length)## not used
 #                         subA = sequence.pad_sequences(subA, maxlen=None if self.max_sequence_length == 0 else self.max_sequence_length, padding='pre', truncating='pre')
 #                     else:
 #                         subA = np.array(subA)
-#   
+#    
 #                     if model_type == 'convlstm':
 #                         subA = self.define_conv_lstm_dimension(subA)
 #                     elif model_type == 'rnncnn':
-#                         pass
+#                         pass                       
                     
                     yield subA, B[i[0]:i[1]] 
     
