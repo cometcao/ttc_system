@@ -310,7 +310,7 @@ class ML_biaoli_check(object):
                          use_standardized_sub_df=self.use_standardized_sub_df, 
                          monitor_level=self.check_level,
                          max_length_for_pad=self.sub_level_max_length)
-        data_set, origin_data_length, past_pivot_status = mld.prepare_stock_data_predict(stock, today_date=today_date, period_count=500) # 500 sample period
+        data_set, origin_data_length, past_pivot_status = mld.prepare_stock_data_predict(stock, today_date=today_date, period_count=500, predict_extra=self.use_cnn_lstm) # 500 sample period
         if data_set is None: # can't predict
             print("None dataset, return [0],[[0]], 0")
             return (([0],[[0]]), 0)
@@ -321,14 +321,14 @@ class ML_biaoli_check(object):
                 x_train, x_test, _ = self.mdp.define_conv_lstm_dimension(x_train, x_test)
                 self.mdp.process_model(self.mdp.model, x_train, x_test, y_train, y_test, batch_size = 30,epochs =3)
             
-            unique_index = np.array([-1, 0, 1])
+            unique_index = np.array([-1, 0, 1]) if self.use_cnn_lstm or self.use_cnn_lstm else np.array([-1, 1])
             
             if self.use_cnn_lstm:
                 return self.mdp.model_predict_cnn_lstm(data_set, unique_index), origin_data_length, past_pivot_status
             elif self.use_cnn:
                 return self.mdp.model_predict_cnn(data_set, unique_index), origin_data_length, past_pivot_status
             else:
-                return self.mdp.model_predict_cnn_lstm(data_set, unique_index), origin_data_length, past_pivot_status
+                return self.mdp.model_predict_rcnn(data_set, unique_index), origin_data_length, past_pivot_status
         except Exception as e: 
             print(e)
             return (([0],[[0]]), 0, 0)

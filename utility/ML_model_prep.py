@@ -116,7 +116,7 @@ class MLDataProcess(object):
     def create_conv_lstm_model_arch(self, input_shape, num_classes):
         model = Sequential()
         model.add(ConvLSTM2D(32, 
-                             kernel_size=(1, 1), 
+                             kernel_size=(3, 1), 
                              data_format='channels_last',
                              input_shape=input_shape,
                              padding='same',
@@ -125,7 +125,7 @@ class MLDataProcess(object):
                              recurrent_dropout = 0.2
                              ))
         model.add(ConvLSTM2D(48, 
-                             kernel_size=(1, 1), 
+                             kernel_size=(3, 1), 
                              padding='same',
                              return_sequences=True,
                              dropout = 0.2, 
@@ -133,59 +133,59 @@ class MLDataProcess(object):
                              ))        
         model.add(BatchNormalization())
         model.add(ConvLSTM2D(64, 
-                             kernel_size=(1, 1), 
+                             kernel_size=(3, 1), 
                              padding='same',
                              return_sequences=True,
                              dropout = 0.2, 
                              recurrent_dropout = 0.2
                              ))
         model.add(ConvLSTM2D(80, 
-                             kernel_size=(1, 1), 
+                             kernel_size=(3, 1), 
                              padding='same',
                              return_sequences=False,
                              dropout = 0.2, 
                              recurrent_dropout = 0.2
                              ))  
         model.add(BatchNormalization())
-#         model.add(ConvLSTM2D(96, 
-#                              kernel_size=(1, 1), 
-#                              padding='same',
-#                              return_sequences=True,
-#                              dropout = 0.2, 
-#                              recurrent_dropout = 0.2
-#                              ))        
-#         model.add(ConvLSTM2D(112, 
-#                              kernel_size=(1, 1), 
-#                              padding='same',
-#                              return_sequences=True,
-#                              dropout = 0.2, 
-#                              recurrent_dropout = 0.2
-#                              ))
-#         model.add(BatchNormalization())   
-#         model.add(ConvLSTM2D(128, 
-#                              kernel_size=(1, 1), 
-#                              padding='same',
-#                              return_sequences=True,
-#                              dropout = 0.2, 
-#                              recurrent_dropout = 0.2
-#                              ))
-#         model.add(ConvLSTM2D(144, 
-#                              kernel_size=(1, 1), 
-#                              padding='same',
-#                              return_sequences=False,
-#                              dropout = 0.2, 
-#                              recurrent_dropout = 0.2
-#                              ))
-#         model.add(BatchNormalization())         
-#         model.add(MaxPooling2D(pool_size=(2, 1)))
-#         model.add(Dropout(0.25))
+        model.add(ConvLSTM2D(96, 
+                             kernel_size=(3, 1), 
+                             padding='same',
+                             return_sequences=True,
+                             dropout = 0.2, 
+                             recurrent_dropout = 0.2
+                             ))        
+        model.add(ConvLSTM2D(112, 
+                             kernel_size=(3, 1), 
+                             padding='same',
+                             return_sequences=True,
+                             dropout = 0.2, 
+                             recurrent_dropout = 0.2
+                             ))
+        model.add(BatchNormalization())   
+        model.add(ConvLSTM2D(128, 
+                             kernel_size=(3, 1), 
+                             padding='same',
+                             return_sequences=True,
+                             dropout = 0.2, 
+                             recurrent_dropout = 0.2
+                             ))
+        model.add(ConvLSTM2D(144, 
+                             kernel_size=(3, 1), 
+                             padding='same',
+                             return_sequences=False,
+                             dropout = 0.2, 
+                             recurrent_dropout = 0.2
+                             ))
+        model.add(BatchNormalization())         
+        model.add(MaxPooling2D(pool_size=(3, 1)))
+        model.add(Dropout(0.25))
          
         model.add(Flatten())
 #         model.add(Dense(128, activation='relu'))
 #         model.add(BatchNormalization())
-        model.add(Dense(num_classes, activation='softmax'))
+        model.add(Dense(num_classes, activation='softmax')) # softmax sigmoid
         
-        model.compile(loss=keras.losses.categorical_crossentropy,
+        model.compile(loss=keras.losses.categorical_crossentropy, #categorical_crossentropy
                       optimizer=keras.optimizers.Adadelta(), #Adadelta, Nadam, SGD, Adam
                       metrics=['accuracy'])
         
@@ -251,21 +251,21 @@ class MLDataProcess(object):
                          kernel_size=2,
                          padding='valid',
                          activation='relu'))
-        model.add(GRU(model.output_shape[1], return_sequences=True))   
+        model.add(LSTM(model.output_shape[1], return_sequences=True))   
         
         model.add(Conv1D(4,
                          kernel_size=3,
                          padding='valid',
                          activation='relu',
                          strides=3))
-        model.add(GRU(model.output_shape[1], return_sequences=True))
+        model.add(LSTM(model.output_shape[1], return_sequences=True))
         
         model.add(Conv1D(3,
                          kernel_size=3,
                          padding='valid',
                          activation='relu',
                          strides=5))
-        model.add(GRU(model.output_shape[1], return_sequences=False))
+        model.add(LSTM(model.output_shape[1], return_sequences=False))
 
         model.add(Dropout(0.3))
         model.add(Dense (model.output_shape[1], activation='relu'))
@@ -273,10 +273,10 @@ class MLDataProcess(object):
         if self.isDebug:
             print("layer input/output shape:{0}".format(model.output_shape))
 
-        model.add(Dense(num_classes, activation='softmax'))
+        model.add(Dense(num_classes, activation='sigmoid')) #softmax
          
-        model.compile(loss=keras.losses.categorical_crossentropy,
-                      optimizer=keras.optimizers.Adadelta(), #Adadelta, Nadam, SGD, Adam
+        model.compile(loss=keras.losses.binary_crossentropy, #categorical_crossentropy
+                      optimizer=keras.optimizers.RMSprop(), #Adadelta, Nadam, SGD, Adam
                       metrics=['accuracy'])
                 
         print (model.summary())
@@ -370,4 +370,13 @@ class MLDataProcess(object):
         else:
             print("Invalid model")
             return None
+        
+    def model_predict_rcnn(self, data_set, unique_id):
+        if self.model:
+            prediction = np.array(self.model.predict(data_set))
+            y_class = unique_id[prediction.argmax(axis=-1)]
+            return (y_class, prediction)
+        else:
+            print("Invalid model")
+            return None            
 
