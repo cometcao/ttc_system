@@ -591,27 +591,27 @@ class MLDataPrep(object):
                 if background_data_generation:
                     A, B = self.prepare_background_data(A, B)
     
-                if padData:
-                    A = sequence.pad_sequences(A, maxlen=None if self.max_sequence_length == 0 else self.max_sequence_length, padding='pre', truncating='pre')
-  
-                if model_type == 'convlstm':
-                    A = self.define_conv_lstm_dimension(A)
+#                 if padData:
+#                     A = sequence.pad_sequences(A, maxlen=None if self.max_sequence_length == 0 else self.max_sequence_length, padding='pre', truncating='pre')
+#   
+#                 if model_type == 'convlstm':
+#                     A = self.define_conv_lstm_dimension(A)
             
 #                 B = encode_category(B)
                 
                 for i in batch(range(0, len(A)), batch_size):
                     subA = A[i[0]:i[1]]               
 
-#                     if padData:
-# ###                         subA = pad_each_training_array(subA, self.max_sequence_length)## not used
-#                         subA = sequence.pad_sequences(subA, maxlen=None if self.max_sequence_length == 0 else self.max_sequence_length, padding='pre', truncating='pre')
-#                     else:
-#                         subA = np.array(subA)
-#    
-#                     if model_type == 'convlstm':
-#                         subA = self.define_conv_lstm_dimension(subA)
-#                     elif model_type == 'rnncnn':
-#                         pass                       
+                    if padData:
+###                         subA = pad_each_training_array(subA, self.max_sequence_length)## not used
+                        subA = sequence.pad_sequences(subA, maxlen=None if self.max_sequence_length == 0 else self.max_sequence_length, padding='pre', truncating='pre')
+                    else:
+                        subA = np.array(subA)
+    
+                    if model_type == 'convlstm':
+                        subA = self.define_conv_lstm_dimension(subA)
+                    elif model_type == 'rnncnn':
+                        pass                       
                     yield subA, B[i[0]:i[1]] 
     
     def prepare_stock_data_gen(self, filenames, padData=True, background_data_generation=False, batch_size=50, model_type='convlstm'):
