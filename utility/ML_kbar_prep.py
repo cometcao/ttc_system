@@ -200,9 +200,10 @@ class MLKbarPrep(object):
         high_dates = high_df_tb.index
         for i in range(0, len(high_dates)-1):
             first_date = str(high_dates[i].date())
-            if self.monitor_level[0] == '5d': # find the full range of date for the week
-                first_date = JqDataRetriever.get_trading_date(count=5, end_date=first_date)[0]
             second_date = str(high_dates[i+1].date())
+            if self.monitor_level[0] == '5d': # find the full range of date for the week
+                first_date = JqDataRetriever.get_trading_date(count=4, end_date=first_date)[0]
+                second_date = JqDataRetriever.get_trading_date(start_date=second_date)[4] # 5 days after the peak Week bar
             trunk_lower_df = lower_df.loc[first_date:second_date,:]
             self.create_ml_data_set(trunk_lower_df, high_df_tb.ix[i+1, 'tb'].value, for_predict=False)
         return self.data_set, self.label_set
@@ -222,7 +223,7 @@ class MLKbarPrep(object):
             try:
                 previous_date = str(high_dates[i].date())
                 if self.monitor_level[0] == '5d': # find the full range of date for the week
-                    previous_date = JqDataRetriever.get_trading_date(count=5, end_date=previous_date)[0]
+                    previous_date = JqDataRetriever.get_trading_date(count=4, end_date=previous_date)[0]
             except IndexError:
                 continue
             trunk_df = None
@@ -246,7 +247,7 @@ class MLKbarPrep(object):
             try:
                 previous_date = str(high_dates[i].date())
                 if self.monitor_level[0] == '5d': # find the full range of date for the week
-                    previous_date = JqDataRetriever.get_trading_date(count=5, end_date=previous_date)[0]
+                    previous_date = JqDataRetriever.get_trading_date(count=4, end_date=previous_date)[0]
             except IndexError:
                 continue
             trunk_df = lower_df.loc[previous_date:,:]
@@ -268,11 +269,13 @@ class MLKbarPrep(object):
                 
         pivot_sub_counting_range = self.workout_count_num(self.monitor_level[1], 1)        
 
-        
         if len(trunk_df) > pivot_sub_counting_range * 2:
 
             start_high_idx = trunk_df.ix[:pivot_sub_counting_range,'high'].idxmax()
-            start_low_idx = trunk_df.ix[:pivot_sub_counting_range,'low'].idxmin()        
+            start_low_idx = trunk_df.ix[:pivot_sub_counting_range,'low'].idxmin()
+            
+            sub_start_index_high = trunk_df.index[trunk_df.index.get_loc(start_high_idx) + pivot_sub_counting_range]
+            sub_start_index_low = trunk_df.index[trunk_df.index.get_loc(start_low_idx) + pivot_sub_counting_range]
             
             if for_predict:
                 trunk_df = trunk_df.loc[start_high_idx:tb_trunk_df.index[-1],:] if label == 1 else trunk_df.loc[start_low_idx:tb_trunk_df.index[-1],:]
@@ -305,13 +308,24 @@ class MLKbarPrep(object):
             self.data_set.append(trunk_df.values)
         else:
             if not trunk_df.empty:            
-                end_low_idx = trunk_df.ix[-pivot_sub_counting_range:,'low'].idxmin()
-                end_high_idx = trunk_df.ix[-pivot_sub_counting_range:,'high'].idxmax()    
-                for time_index in tb_trunk_df.index: #  counting from cutting start
+                end_low_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'low'].idxmin()
+                end_high_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'high'].idxmax()   
+                
+                sub_end_pos_low = trunk_df.index.get_loc(end_low_idx) + pivot_sub_counting_range
+                sub_end_pos_high = trunk_df.index.get_loc(end_high_idx) + pivot_sub_counting_range
+                sub_end_index_low = trunk_df.index[sub_end_pos_low if sub_end_pos_low < len(trunk_df.index) else -1]
+                sub_end_index_high = trunk_df.index[sub_end_pos_high if sub_end_pos_high < len(trunk_df.index) else -1]                 
+                
+                for time_index in trunk_df.index: #  tb_trunk_df.index
+                    if label == TopBotType.bot.value and (time_index < sub_start_index_high or time_index > sub_end_index_low):
+                        continue
+                    elif label == TopBotType.top.value and (time_index < sub_start_index_low or time_index > sub_end_index_high):
+                        continue
+                    
                     sub_trunk_df = trunk_df.loc[:time_index, :]
                     if self.isNormalize:
                         sub_trunk_df = self.normalize(sub_trunk_df)
-                                    
+
                     if sub_trunk_df.isnull().values.any():
                         print("NaN value found, ignore this data")
 #                         print(trunk_df)
@@ -321,17 +335,17 @@ class MLKbarPrep(object):
                     if not sub_trunk_df.empty:
                         self.data_set.append(sub_trunk_df.values)
                         if label == TopBotType.bot.value:
-                            if time_index <= start_high_idx and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.top.value:
+                            if time_index < start_high_idx: #  and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.top.value
                                 self.label_set.append(TopBotType.top.value)
-                            elif time_index >= end_low_idx and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.bot.value: 
+                            elif time_index >= end_low_idx:  #  and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.bot.value
                                 self.label_set.append(TopBotType.bot.value)
                             else:
                                 self.label_set.append(TopBotType.top.value) # change to binary classification
 #                                 self.label_set.append(TopBotType.noTopBot.value)
                         elif label == TopBotType.top.value:
-                            if time_index >= end_high_idx and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.top.value:
+                            if time_index >= end_high_idx: #  and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.top.value
                                 self.label_set.append(TopBotType.top.value)
-                            elif time_index <= start_low_idx and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.bot.value: 
+                            elif time_index < start_low_idx: #  and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.bot.value
                                 self.label_set.append(TopBotType.bot.value)
                             else:
                                 self.label_set.append(TopBotType.bot.value) # change to binary classification

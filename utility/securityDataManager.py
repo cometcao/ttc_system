@@ -54,9 +54,9 @@ class JqDataRetriever(DataRetriever):
         return jqdatasdk.get_index_stocks(index)
 
     @staticmethod
-    def get_trading_date(count=1, end_date=None):
+    def get_trading_date(count=1, end_date=None, start_date=None):
         JqDataRetriever.authenticate()
-        return jqdatasdk.get_trade_days(count=count, end_date=end_date)
+        return jqdatasdk.get_trade_days(count=count, end_date=end_date) if start_date is None else jqdatasdk.get_trade_days(start_date=start_date)
 
 
 class TSDataRetriever(DataRetriever):

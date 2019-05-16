@@ -7,7 +7,7 @@ from keras.models import load_model
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten, TimeDistributed,LSTM, GRU
 from keras.layers.normalization import BatchNormalization
-from keras.layers import Conv2D, MaxPooling2D, ConvLSTM2D, Conv1D, MaxPooling1D, Reshape, GlobalAveragePooling1D
+from keras.layers import Conv2D, MaxPooling2D, ConvLSTM2D, Conv1D, MaxPooling1D, Reshape, GlobalAveragePooling2D
 from keras import optimizers
 from keras.callbacks import EarlyStopping
 from keras.callbacks import ModelCheckpoint
@@ -116,7 +116,7 @@ class MLDataProcess(object):
     def create_conv_lstm_model_arch(self, input_shape, num_classes):
         model = Sequential()
         model.add(ConvLSTM2D(64, 
-                             kernel_size=(2, 3), 
+                             kernel_size=(1, 1), 
                              data_format='channels_last',
                              input_shape=input_shape,
                              padding='valid',
@@ -125,73 +125,73 @@ class MLDataProcess(object):
                              recurrent_dropout = 0.2
                              ))
         model.add(ConvLSTM2D(64, 
-                             kernel_size=(2, 3), 
+                             kernel_size=(1, 1), 
                              padding='valid',
                              return_sequences=True,
                              dropout = 0.2, 
                              recurrent_dropout = 0.2
                              ))        
         model.add(ConvLSTM2D(64, 
-                             kernel_size=(2, 3), 
+                             kernel_size=(1, 1), 
+                             padding='valid',
+                             return_sequences=True,
+                             dropout = 0.2, 
+                             recurrent_dropout = 0.2
+                             ))
+#         model.add(ConvLSTM2D(64, 
+#                              kernel_size=(1, 1), 
+#                              padding='valid',
+#                              return_sequences=True,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))  
+#         model.add(ConvLSTM2D(64, 
+#                              kernel_size=(1, 1), 
+#                              padding='valid',
+#                              return_sequences=True,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))        
+#         model.add(ConvLSTM2D(64, 
+#                              kernel_size=(1, 1), 
+#                              padding='valid',
+#                              return_sequences=True,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))
+#         model.add(ConvLSTM2D(64, 
+#                              kernel_size=(1, 1), 
+#                              padding='valid',
+#                              return_sequences=True,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))
+#         model.add(ConvLSTM2D(64, 
+#                              kernel_size=(1, 1), 
+#                              padding='valid',
+#                              return_sequences=True,
+#                              dropout = 0.2, 
+#                              recurrent_dropout = 0.2
+#                              ))
+        model.add(ConvLSTM2D(64, 
+                             kernel_size=(1, 1), 
                              padding='valid',
                              return_sequences=True,
                              dropout = 0.2, 
                              recurrent_dropout = 0.2
                              ))
         model.add(ConvLSTM2D(64, 
-                             kernel_size=(2, 3), 
-                             padding='valid',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))  
-        model.add(ConvLSTM2D(64, 
-                             kernel_size=(2, 3), 
-                             padding='valid',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))        
-        model.add(ConvLSTM2D(64, 
-                             kernel_size=(2, 3), 
-                             padding='valid',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))
-        model.add(ConvLSTM2D(64, 
-                             kernel_size=(2, 3), 
-                             padding='valid',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))
-        model.add(ConvLSTM2D(64, 
-                             kernel_size=(2, 3), 
-                             padding='valid',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))
-        model.add(ConvLSTM2D(64, 
-                             kernel_size=(2, 3), 
-                             padding='valid',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))
-        model.add(ConvLSTM2D(64, 
-                             kernel_size=(2, 3), 
+                             kernel_size=(1, 1), 
                              padding='valid',
                              return_sequences=False,
                              dropout = 0.2, 
                              recurrent_dropout = 0.2
                              ))
-        model.add(BatchNormalization())         
-        model.add(MaxPooling2D(pool_size=(2, 3)))
+        model.add(GlobalAveragePooling2D())
         model.add(Dropout(0.25))
          
-        model.add(Flatten())
+#         model.add(Flatten())
+
 #         model.add(Dense(128, activation='relu'))
 #         model.add(BatchNormalization())
         model.add(Dense(num_classes, activation='softmax')) # softmax sigmoid
@@ -245,6 +245,39 @@ class MLDataProcess(object):
         
         self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen, validation_steps, patience)
 
+
+    def create_lstm_model_arch(self, input_shape, num_classes):
+        model = Sequential()    
+        
+        model.add(LSTM(64, return_sequences=True, 
+                       input_shape=input_shape, dropout=0.191, recurrent_dropout = 0.191)) 
+
+        if self.isDebug:
+            print("layer input/output shape:{0}".format(model.output_shape))
+        
+        model.add(LSTM(64, return_sequences=True, 
+                       dropout=0.191, recurrent_dropout = 0.191)) 
+        
+        model.add(Dense (model.output_shape[2], activation='relu'))
+        
+        model.add(LSTM(64, return_sequences=True,
+                       dropout=0.191, recurrent_dropout = 0.191)) 
+        
+        model.add(Dense (model.output_shape[2], activation='relu'))
+        
+        model.add(LSTM(64, return_sequences=False,
+                       dropout=0.191, recurrent_dropout = 0.191))   
+        
+        model.add(Dense (model.output_shape[1], activation='relu'))
+
+        model.add(Dense(num_classes, activation='softmax')) #softmax
+         
+        model.compile(loss=keras.losses.categorical_crossentropy, #categorical_crossentropy
+                      optimizer=keras.optimizers.Adadelta(), #Adadelta, Nadam, SGD, Adam
+                      metrics=['accuracy'])
+                
+        print (model.summary())
+        return model         
 
     def create_rnn_cnn_model_arch(self, input_shape, num_classes):
         model = Sequential()     
@@ -353,7 +386,8 @@ class MLDataProcess(object):
     def define_rnn_cnn_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000, patience=10):
         input_shape = self.define_rnn_cnn_shape(data_gen)
         
-        model = self.create_rnn_cnn_model_arch(input_shape, num_classes)
+#         model = self.create_rnn_cnn_model_arch(input_shape, num_classes)
+        model = self.create_lstm_model_arch(input_shape, num_classes)
         
         self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen, validation_steps, patience)
         
