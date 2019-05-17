@@ -198,16 +198,15 @@ class MLKbarPrep(object):
         lower_df = self.stock_df_dict[self.monitor_level[1]]
         high_df_tb = higher_df.dropna(subset=['new_index'])
         high_dates = high_df_tb.index
+                
         for i in range(0, len(high_dates)-1):
             first_date = str(high_dates[i].date())
             second_date = str(high_dates[i+1].date())
-            print(first_date)
-            print(second_date)
+            print("high date: {0}:{1}".format(first_date, second_date))
             if self.monitor_level[0] == '5d': # find the full range of date for the week
                 first_date = JqDataRetriever.get_trading_date(count=4, end_date=first_date)[0]
                 second_date = JqDataRetriever.get_trading_date(start_date=second_date)[4] # 5 days after the peak Week bar
-#                 print(first_date)
-#                 print(second_date)
+#                 print("high cutting date: {0}:{1}".format(first_date, second_date))
             trunk_lower_df = lower_df.loc[first_date:second_date,:]
             self.create_ml_data_set(trunk_lower_df, high_df_tb.ix[i+1, 'tb'].value, for_predict=False)
         
@@ -319,15 +318,10 @@ class MLKbarPrep(object):
 #                 print("full sequence: {0},{1}".format(trunk_df.iloc[0,:], trunk_df.iloc[-1,:]))                
                 
                 sub_end_pos_low = trunk_df.index.get_loc(end_low_idx) + pivot_sub_counting_range
-                sub_end_pos_high = trunk_df.index.get_loc(end_high_idx) + pivot_sub_counting_range
-                sub_end_index_low = trunk_df.index[sub_end_pos_low]
-                sub_end_index_high = trunk_df.index[sub_end_pos_high]                 
+                sub_end_pos_high = trunk_df.index.get_loc(end_high_idx) + pivot_sub_counting_range                
+                sub_end_index_low = trunk_df.index[sub_end_pos_low if sub_end_pos_low < len(trunk_df.index) else -1]
+                sub_end_index_high = trunk_df.index[sub_end_pos_high if sub_end_pos_high < len(trunk_df.index) else -1]             
                 
-                
-#                 sub_end_index_low = trunk_df.index[sub_end_pos_low if sub_end_pos_low < len(trunk_df.index) else -1]
-#                 sub_end_index_high = trunk_df.index[sub_end_pos_high if sub_end_pos_high < len(trunk_df.index) else -1]                 
-                
-
                 
                 for time_index in trunk_df.index: #  tb_trunk_df.index
                     if label == TopBotType.bot.value and (time_index < sub_start_index_high or time_index > sub_end_index_low):
