@@ -7,7 +7,7 @@ from keras.models import load_model
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten, TimeDistributed,LSTM, GRU
 from keras.layers.normalization import BatchNormalization
-from keras.layers import Conv2D, MaxPooling2D, ConvLSTM2D, Conv1D, MaxPooling1D, Reshape, GlobalAveragePooling2D
+from keras.layers import Conv2D, MaxPooling2D, ConvLSTM2D, Conv1D, MaxPooling1D, Reshape, GlobalAveragePooling1D
 from keras import optimizers
 from keras.callbacks import EarlyStopping
 from keras.callbacks import ModelCheckpoint
@@ -47,35 +47,36 @@ class MLDataProcess(object):
         self.isDebug = isDebug 
         
     
-    def define_conv2d_dimension(self, x_train, x_test):
-        x_train = np.expand_dims(x_train, axis=2) 
-        x_test = np.expand_dims(x_test, axis=2)
+    def define_conv1d_shape(self, data_gen):
+        x_train, x_test = next(data_gen)
         
         input_shape = None
+        a, b, c = x_train.shape
         if K.image_data_format() == 'channels_first':
-            # convert class vectors to binary class matrices
-            a, b, c, d = x_train.shape
-            input_shape = (d, b, c)
+            input_shape = (a, c, b)
         else:
-            # convert class vectors to binary class matrices
-            a, b, c, d = x_train.shape
-            input_shape = (b, c, d)
+            input_shape = (a, b, c)
 
-        return (x_train, x_test, input_shape)
+        return (input_shape[1], input_shape[2])
     
-    def define_conv2d_model(self, x_train, x_test, y_train, y_test, num_classes, batch_size = 50,epochs = 5, verbose=0):
-        x_train, x_test, input_shape = self.define_conv2d_dimension(x_train, x_test)
+    def define_cnn_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000, patience=10):
+        input_shape = self.define_conv1d_shape(data_gen)
+
+        model = self.create_conv1d_model_arch(input_shape, num_classes)
         
+        self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen, validation_steps, patience)    
+    
+    
+    def create_conv1d_model_arch(self, input_shape, num_classes):
         model = Sequential()
-        model.add(Conv2D(32, kernel_size=(3, 1),
+        model.add(Conv1D(32, kernel_size=3, strides=2,
                          activation='relu',
                          input_shape=input_shape))
-        model.add(BatchNormalization())
-        model.add(Conv2D(64, (3, 1), activation='relu'))
-        model.add(MaxPooling2D(pool_size=(2, 1)))
-        model.add(BatchNormalization())
-        model.add(Dropout(0.25))
-        model.add(Flatten())
+        model.add(Conv1D(64, 3, strides=2, activation='relu'))
+        model.add(Conv1D(64, 3, strides=2, activation='relu'))
+        model.add(Conv1D(64, 3, strides=2, activation='relu'))
+        model.add(Conv1D(64, 3, strides=2, activation='relu'))
+        model.add(GlobalAveragePooling1D())
         model.add(Dense(128, activation='relu'))
         model.add(Dropout(0.5))
         model.add(Dense(num_classes, activation='softmax'))
@@ -85,8 +86,9 @@ class MLDataProcess(object):
                       metrics=['accuracy'])
                 
         print (model.summary())
+        return model
         
-        self.process_model(model, x_train, x_test, y_train, y_test, batch_size, epochs, verbose)
+
     
     def define_conv_lstm_dimension(self, x_train, x_test):
         x_train = np.expand_dims(x_train, axis=2) 
@@ -249,26 +251,24 @@ class MLDataProcess(object):
     def create_lstm_model_arch(self, input_shape, num_classes):
         model = Sequential()    
         
-        model.add(LSTM(64, return_sequences=True, 
+        model.add(LSTM(144, return_sequences=False, 
                        input_shape=input_shape, dropout=0.191, recurrent_dropout = 0.191)) 
 
         if self.isDebug:
-            print("layer input/output shape:{0}".format(model.output_shape))
+            print("layer input/output shape:{0},{1}".format(model.input_shape, model.output_shape))
         
-        model.add(LSTM(64, return_sequences=True, 
-                       dropout=0.191, recurrent_dropout = 0.191)) 
-        
-        model.add(Dense (model.output_shape[2], activation='relu'))
-        
-        model.add(LSTM(64, return_sequences=True,
-                       dropout=0.191, recurrent_dropout = 0.191)) 
-        
-        model.add(Dense (model.output_shape[2], activation='relu'))
-        
-        model.add(LSTM(64, return_sequences=False,
-                       dropout=0.191, recurrent_dropout = 0.191))   
-        
-        model.add(Dense (model.output_shape[1], activation='relu'))
+#         model.add(LSTM(64, return_sequences=True, 
+#                        dropout=0.191, recurrent_dropout = 0.191)) 
+#         
+#         model.add(Dense (model.output_shape[2], activation='relu'))
+#         
+#         model.add(LSTM(64, return_sequences=True,
+#                        dropout=0.191, recurrent_dropout = 0.191)) 
+#          
+#         model.add(Dense (model.output_shape[2], activation='relu'))
+#          
+#         model.add(LSTM(64, return_sequences=False,
+#                        dropout=0.191, recurrent_dropout = 0.191))   
 
         model.add(Dense(num_classes, activation='softmax')) #softmax
          

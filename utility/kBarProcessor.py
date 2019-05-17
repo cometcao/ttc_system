@@ -83,26 +83,33 @@ class KBarProcessor(object):
             currentElem = self.kDataFrame_standardized.iloc[idx]
             firstElem = self.kDataFrame_standardized.iloc[idx+1]
             secondElem = self.kDataFrame_standardized.iloc[idx+2]
-            if self.checkInclusive(firstElem, secondElem) != InclusionType.noInclusion:
+            inclusion_type = self.checkInclusive(firstElem, secondElem)
+            if inclusion_type != InclusionType.noInclusion:
                 trend = self.kDataFrame_standardized.ix[idx+1,'trend_type'] if not np.isnan(self.kDataFrame_standardized.ix[idx+1,'trend_type']) else self.isBullType(currentElem, firstElem)
-                if trend:
-                    self.kDataFrame_standardized.ix[idx+2,'new_high']=max(firstElem.high if np.isnan(firstElem.new_high) else firstElem.new_high, secondElem.high if np.isnan(secondElem.new_high) else secondElem.new_high)
-                    self.kDataFrame_standardized.ix[idx+2,'new_low']=max(firstElem.low if np.isnan(firstElem.new_low) else firstElem.new_low, secondElem.low if np.isnan(secondElem.new_low) else secondElem.new_low)
-                    pass
-                else: 
-                    self.kDataFrame_standardized.ix[idx+2,'new_high']=min(firstElem.high if np.isnan(firstElem.new_high) else firstElem.new_high, secondElem.high if np.isnan(secondElem.new_high) else secondElem.new_high)
-                    self.kDataFrame_standardized.ix[idx+2,'new_low']=min(firstElem.low if np.isnan(firstElem.new_low) else firstElem.new_low, secondElem.low if np.isnan(secondElem.new_low) else secondElem.new_low)
-                    pass
-                self.kDataFrame_standardized.ix[idx+2,'trend_type']=trend
-                self.kDataFrame_standardized.ix[idx+1,'new_high']=np.nan
-                self.kDataFrame_standardized.ix[idx+1,'new_low']=np.nan
+                compare_func = max if trend else min
+                first_index = idx+1
+                second_index = idx+2
+                if inclusion_type == InclusionType.firstCsecond:
+                    self.kDataFrame_standardized.ix[second_index,'new_high']=compare_func(firstElem.high if np.isnan(firstElem.new_high) else firstElem.new_high, secondElem.high if np.isnan(secondElem.new_high) else secondElem.new_high)
+                    self.kDataFrame_standardized.ix[second_index,'new_low']=compare_func(firstElem.low if np.isnan(firstElem.new_low) else firstElem.new_low, secondElem.low if np.isnan(secondElem.new_low) else secondElem.new_low)
+                    self.kDataFrame_standardized.ix[second_index,'trend_type']=trend
+                    self.kDataFrame_standardized.ix[first_index,'new_high']=np.nan
+                    self.kDataFrame_standardized.ix[first_index,'new_low']=np.nan   
+                else:                 
+                    self.kDataFrame_standardized.ix[first_index,'new_high']=compare_func(firstElem.high if np.isnan(firstElem.new_high) else firstElem.new_high, secondElem.high if np.isnan(secondElem.new_high) else secondElem.new_high)
+                    self.kDataFrame_standardized.ix[first_index,'new_low']=compare_func(firstElem.low if np.isnan(firstElem.new_low) else firstElem.new_low, secondElem.low if np.isnan(secondElem.new_low) else secondElem.new_low)                        
+                    self.kDataFrame_standardized.ix[first_index,'trend_type']=trend
+                    self.kDataFrame_standardized.ix[second_index,'new_high']=np.nan
+                    self.kDataFrame_standardized.ix[second_index,'new_low']=np.nan                
             else:
                 if np.isnan(self.kDataFrame_standardized.ix[idx+1,'new_high']): 
                     self.kDataFrame_standardized.ix[idx+1,'new_high'] = firstElem.high 
                 if np.isnan(self.kDataFrame_standardized.ix[idx+1,'new_low']): 
                     self.kDataFrame_standardized.ix[idx+1,'new_low'] = firstElem.low
-                self.kDataFrame_standardized.ix[idx+2,'new_high'] = secondElem.high
-                self.kDataFrame_standardized.ix[idx+2,'new_low'] = secondElem.low
+                if np.isnan(self.kDataFrame_standardized.ix[idx+2,'new_high']): 
+                    self.kDataFrame_standardized.ix[idx+2,'new_high'] = secondElem.high
+                if np.isnan(self.kDataFrame_standardized.ix[idx+2,'new_low']): 
+                    self.kDataFrame_standardized.ix[idx+2,'new_low'] = secondElem.low
 
         self.kDataFrame_standardized['high'] = self.kDataFrame_standardized['new_high']
         self.kDataFrame_standardized['low'] = self.kDataFrame_standardized['new_low']
@@ -138,93 +145,144 @@ class KBarProcessor(object):
         self.kDataFrame_standardized = self.kDataFrame_standardized.assign(new_index=[i for i in range(len(self.kDataFrame_standardized))])
         working_df = self.kDataFrame_standardized[self.kDataFrame_standardized['tb']!=TopBotType.noTopBot]
         
-        ########### clean up zigzag topbot #############
-        working_df['new_index_offset'] = working_df['new_index'].shift(-1) - working_df['new_index']
-        loop_index = 0
-        while loop_index < working_df.shape[0]-3:
-            if working_df.ix[loop_index,'new_index_offset'] == 1 and \
-                working_df.ix[loop_index+1,'new_index_offset'] == 1:
-                working_df.ix[loop_index+1, 'tb'] = TopBotType.noTopBot
-                if working_df.ix[loop_index, 'tb'] == TopBotType.top:
-                    if working_df.ix[loop_index, 'high'] > working_df.ix[loop_index+2, 'high']:
-                        working_df.ix[loop_index+2, 'tb'] = TopBotType.noTopBot
-                    else:
-                        working_df.ix[loop_index, 'tb'] = TopBotType.noTopBot
-                else:
-                    if working_df.ix[loop_index, 'low'] < working_df.ix[loop_index+2, 'low']:
-                        working_df.ix[loop_index+2, 'tb'] = TopBotType.noTopBot
-                    else:
-                        working_df.ix[loop_index, 'tb'] = TopBotType.noTopBot
-                loop_index += 2
-            else:
-                loop_index += 1
-        working_df.drop('new_index_offset', axis = 1, inplace=True)
-        working_df = working_df[working_df['tb']!=TopBotType.noTopBot]
+#         ########### clean up zigzag topbot #############
+#         working_df['new_index_offset'] = working_df['new_index'].shift(-1) - working_df['new_index']
+#         loop_index = 0
+#         while loop_index < working_df.shape[0]-3:
+#             previous_idx = loop_index
+#             current_idx = loop_index+1
+#             next_idx = loop_index+2
+#             
+#             if working_df.ix[previous_idx,'new_index_offset'] < 4: # strict Bi definition
+#                 if working_df.ix[current_idx, 'tb'] == TopBotType.top:
+#                     if working_df.ix[previous_idx, 'low'] < working_df.ix[next_idx, 'low']:
+#                         working_df.ix[current_idx, 'tb'] = TopBotType.noTopBot
+#                     else:
+#                         working_df.ix[previous_idx, 'tb'] = TopBotType.noTopBot
+#                 else: # current bot
+#                     if working_df.ix[previous_idx, 'high'] > working_df.ix[next_idx, 'high']:
+#                         working_df.ix[current_idx, 'tb'] = TopBotType.noTopBot
+#                     else:
+#                         working_df.ix[previous_idx, 'tb'] = TopBotType.noTopBot
+#             loop_index += 1
+#     
+#         
+# #         ########### clean up zigzag topbot #############
+# #         loop_index = 0
+# #         while loop_index < working_df.shape[0]-3:
+# #             if working_df.ix[loop_index,'new_index_offset'] == 1 and \
+# #                 working_df.ix[loop_index+1,'new_index_offset'] == 1:
+# #                 working_df.ix[loop_index+1, 'tb'] = TopBotType.noTopBot
+# #                 if working_df.ix[loop_index, 'tb'] == TopBotType.top:
+# #                     if working_df.ix[loop_index, 'high'] > working_df.ix[loop_index+2, 'high']:
+# #                         working_df.ix[loop_index+2, 'tb'] = TopBotType.noTopBot
+# #                     else:
+# #                         working_df.ix[loop_index, 'tb'] = TopBotType.noTopBot
+# #                 else:
+# #                     if working_df.ix[loop_index, 'low'] < working_df.ix[loop_index+2, 'low']:
+# #                         working_df.ix[loop_index+2, 'tb'] = TopBotType.noTopBot
+# #                     else:
+# #                         working_df.ix[loop_index, 'tb'] = TopBotType.noTopBot
+# #                 loop_index += 2
+# #             else:
+# #                 loop_index += 1
+# 
+#         working_df.drop('new_index_offset', axis = 1, inplace=True)
+#         working_df = working_df[working_df['tb']!=TopBotType.noTopBot]
         ################################################
         
-#         print (working_df)
-        currentStatus = nextStatus = TopBotType.noTopBot
-        current_index = 0
+        print (working_df)
+        previousStatus = currentStatus = nextStatus = TopBotType.noTopBot
+        previous_index = 0
+        current_index = previous_index + 1
         next_index = current_index + 1
         #################################
-        while current_index < working_df.shape[0]-1 and next_index < working_df.shape[0]:
+        while previous_index < working_df.shape[0]-2 and current_index < working_df.shape[0]-1 and next_index < working_df.shape[0]:
+            previousFenXing = working_df.iloc[previous_index]
             currentFenXing = working_df.iloc[current_index]
             nextFenXing = working_df.iloc[next_index]
             
-            currentStatus = TopBotType.bot if currentFenXing.tb == TopBotType.bot else TopBotType.top
-            nextStatus = TopBotType.bot if nextFenXing.tb == TopBotType.bot else TopBotType.top    
+            previousStatus = previousFenXing.tb
+            currentStatus = currentFenXing.tb
+            nextStatus = nextFenXing.tb
 
-            if currentStatus == nextStatus:
+            if currentStatus == previousStatus:
                 if currentStatus == TopBotType.top:
-                    if currentFenXing['high'] < nextFenXing['high']:
+                    if currentFenXing['high'] < previousFenXing['high']:
                         working_df.ix[current_index,'tb'] = TopBotType.noTopBot
                         current_index = next_index
                         next_index = current_index+1
                         continue
                     else:
-                        working_df.ix[next_index,'tb'] = TopBotType.noTopBot
+                        working_df.ix[previous_index,'tb'] = TopBotType.noTopBot
+                        previous_index = current_index
+                        current_index = next_index
                         next_index += 1
                         continue
                 elif currentStatus == TopBotType.bot:
-                    if currentFenXing['low'] > nextFenXing['low']:
+                    if currentFenXing['low'] > previousFenXing['low']:
                         working_df.ix[current_index,'tb'] = TopBotType.noTopBot
                         current_index = next_index
                         next_index = current_index+1
                         continue
                     else:
-                        working_df.ix[next_index,'tb'] = TopBotType.noTopBot
+                        working_df.ix[previous_index,'tb'] = TopBotType.noTopBot
+                        previous_index = current_index
+                        current_index = next_index
                         next_index += 1
                         continue
 
             # possible BI status 1 check top high > bot low 2 check more than 3 bars (strict BI) in between
-            enoughKbarGap = (working_df.ix[next_index,'new_index'] - working_df.ix[current_index,'new_index']) >= 4
+            enoughKbarGap = (working_df.ix[current_index,'new_index'] - working_df.ix[previous_index,'new_index']) >= 4
             if enoughKbarGap:
-                if currentStatus == TopBotType.top and currentFenXing['high'] > nextFenXing['high']:
+                if currentStatus == TopBotType.top and currentFenXing['high'] > previousFenXing['high']:
                     pass
-                elif currentStatus == TopBotType.top and currentFenXing['high'] <= nextFenXing['high']:
+                elif currentStatus == TopBotType.top and currentFenXing['high'] <= previousFenXing['high']:
                     working_df.ix[current_index,'tb'] = TopBotType.noTopBot
-                    working_df.ix[next_index,'tb'] = TopBotType.noTopBot
-                    current_index = next_index + 1
-                    next_index = current_index + 1
-                elif currentStatus == TopBotType.bot and currentFenXing['low'] < nextFenXing['low']:
+                    current_index = next_index
+                    next_index = next_index + 1
+                    continue
+                elif currentStatus == TopBotType.bot and currentFenXing['low'] < previousFenXing['low']:
                     pass
-                elif currentStatus == TopBotType.bot and currentFenXing['low'] >= nextFenXing['low']:
+                elif currentStatus == TopBotType.bot and currentFenXing['low'] >= previousFenXing['low']:
                     working_df.ix[current_index,'tb'] = TopBotType.noTopBot   
-                    working_df.ix[next_index,'tb'] = TopBotType.noTopBot     
-                    current_index = next_index + 1
-                    next_index = current_index + 1
-            else: # not enough gaps
-                working_df.ix[next_index,'tb'] = TopBotType.noTopBot
-                next_index += 1
-                # if nextIndex is the last one
-                if next_index > working_df.shape[0]-1 \
-                and ((working_df.ix[current_index,'tb']==TopBotType.top and self.kDataFrame_origin.ix[-1,'high'] > working_df.ix[current_index, 'high']) \
-                or (working_df.ix[current_index,'tb']==TopBotType.bot and self.kDataFrame_origin.ix[-1, 'low'] < working_df.ix[current_index, 'low']) ):
-                    working_df.ix[current_index, 'tb'] = TopBotType.noTopBot
-                continue # don't increment current_index
+                    current_index = next_index 
+                    next_index = next_index + 1
+                    continue
+            else: # not enough gaps this shouldn't happen, but we have precautions
+                if currentStatus == TopBotType.top and previousFenXing['low'] < nextFenXing['low']:
+                    working_df.ix[current_index,'tb'] = TopBotType.noTopBot
+                    current_index = next_index
+                    next_index += 1
+                    continue
+                if currentStatus == TopBotType.top and previousFenXing['low'] >= nextFenXing['low']:
+                    working_df.ix[previous_index,'tb'] = TopBotType.noTopBot
+                    previous_index = current_index
+                    current_index = next_index
+                    next_index += 1
+                    continue
+                if currentStatus == TopBotType.bot and previousFenXing['high'] > nextFenXing['high']:
+                    working_df.ix[current_index,'tb'] = TopBotType.noTopBot
+                    current_index = next_index
+                    next_index += 1
+                    continue              
+                if currentStatus == TopBotType.bot and previousFenXing['high'] <= nextFenXing['high']:
+                    working_df.ix[previous_index,'tb'] = TopBotType.noTopBot
+                    previous_index = current_index
+                    current_index = next_index
+                    next_index += 1
+                    continue                          
 
+            previous_index = current_index
             current_index=next_index
             next_index = current_index+1
+            
+            # if nextIndex is the last one
+            if next_index == working_df.shape[0]-1 \
+            and ((working_df.ix[current_index,'tb']==TopBotType.top and self.kDataFrame_origin.ix[-1,'high'] > working_df.ix[current_index, 'high']) \
+            or (working_df.ix[current_index,'tb']==TopBotType.bot and self.kDataFrame_origin.ix[-1, 'low'] < working_df.ix[current_index, 'low']) ):
+                working_df.ix[current_index, 'tb'] = TopBotType.noTopBot
+                
         ###################################    
         self.kDataFrame_marked = working_df[working_df['tb']!=TopBotType.noTopBot]
         if self.isdebug:

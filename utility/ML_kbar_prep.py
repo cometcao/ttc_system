@@ -201,11 +201,16 @@ class MLKbarPrep(object):
         for i in range(0, len(high_dates)-1):
             first_date = str(high_dates[i].date())
             second_date = str(high_dates[i+1].date())
+            print(first_date)
+            print(second_date)
             if self.monitor_level[0] == '5d': # find the full range of date for the week
                 first_date = JqDataRetriever.get_trading_date(count=4, end_date=first_date)[0]
                 second_date = JqDataRetriever.get_trading_date(start_date=second_date)[4] # 5 days after the peak Week bar
+#                 print(first_date)
+#                 print(second_date)
             trunk_lower_df = lower_df.loc[first_date:second_date,:]
             self.create_ml_data_set(trunk_lower_df, high_df_tb.ix[i+1, 'tb'].value, for_predict=False)
+        
         return self.data_set, self.label_set
     
     def prepare_predict_data(self):    
@@ -311,10 +316,18 @@ class MLKbarPrep(object):
                 end_low_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'low'].idxmin()
                 end_high_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'high'].idxmax()   
                 
+#                 print("full sequence: {0},{1}".format(trunk_df.iloc[0,:], trunk_df.iloc[-1,:]))                
+                
                 sub_end_pos_low = trunk_df.index.get_loc(end_low_idx) + pivot_sub_counting_range
                 sub_end_pos_high = trunk_df.index.get_loc(end_high_idx) + pivot_sub_counting_range
-                sub_end_index_low = trunk_df.index[sub_end_pos_low if sub_end_pos_low < len(trunk_df.index) else -1]
-                sub_end_index_high = trunk_df.index[sub_end_pos_high if sub_end_pos_high < len(trunk_df.index) else -1]                 
+                sub_end_index_low = trunk_df.index[sub_end_pos_low]
+                sub_end_index_high = trunk_df.index[sub_end_pos_high]                 
+                
+                
+#                 sub_end_index_low = trunk_df.index[sub_end_pos_low if sub_end_pos_low < len(trunk_df.index) else -1]
+#                 sub_end_index_high = trunk_df.index[sub_end_pos_high if sub_end_pos_high < len(trunk_df.index) else -1]                 
+                
+
                 
                 for time_index in trunk_df.index: #  tb_trunk_df.index
                     if label == TopBotType.bot.value and (time_index < sub_start_index_high or time_index > sub_end_index_low):
@@ -323,6 +336,9 @@ class MLKbarPrep(object):
                         continue
                     
                     sub_trunk_df = trunk_df.loc[:time_index, :]
+                    
+#                     print("sub sequence: {0},{1}".format(sub_trunk_df.iloc[0,:], sub_trunk_df.iloc[-1,:]))
+                    
                     if self.isNormalize:
                         sub_trunk_df = self.normalize(sub_trunk_df)
 
@@ -625,7 +641,9 @@ class MLDataPrep(object):
                     if model_type == 'convlstm':
                         subA = self.define_conv_lstm_dimension(subA)
                     elif model_type == 'rnncnn':
-                        pass                       
+                        pass                     
+                    elif model_type == 'cnn':  
+                        pass
                     yield subA, B[i[0]:i[1]] 
     
     def prepare_stock_data_gen(self, filenames, padData=True, background_data_generation=False, batch_size=50, model_type='convlstm'):
