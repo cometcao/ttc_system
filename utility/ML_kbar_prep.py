@@ -202,7 +202,7 @@ class MLKbarPrep(object):
         for i in range(0, len(high_dates)-1):
             first_date = str(high_dates[i].date())
             second_date = str(high_dates[i+1].date())
-            print("high date: {0}:{1}".format(first_date, second_date))
+#             print("high date: {0}:{1}".format(first_date, second_date))
             if self.monitor_level[0] == '5d': # find the full range of date for the week
                 first_date = JqDataRetriever.get_trading_date(count=4, end_date=first_date)[0]
                 second_date = JqDataRetriever.get_trading_date(start_date=second_date)[4] # 5 days after the peak Week bar
@@ -316,12 +316,10 @@ class MLKbarPrep(object):
                 end_high_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'high'].idxmax()   
                 
 #                 print("full sequence: {0},{1}".format(trunk_df.iloc[0,:], trunk_df.iloc[-1,:]))                
-                
                 sub_end_pos_low = trunk_df.index.get_loc(end_low_idx) + pivot_sub_counting_range
                 sub_end_pos_high = trunk_df.index.get_loc(end_high_idx) + pivot_sub_counting_range                
                 sub_end_index_low = trunk_df.index[sub_end_pos_low if sub_end_pos_low < len(trunk_df.index) else -1]
                 sub_end_index_high = trunk_df.index[sub_end_pos_high if sub_end_pos_high < len(trunk_df.index) else -1]             
-                
                 
                 for time_index in trunk_df.index: #  tb_trunk_df.index
                     if label == TopBotType.bot.value and (time_index < sub_start_index_high or time_index > sub_end_index_low):
@@ -330,9 +328,7 @@ class MLKbarPrep(object):
                         continue
                     
                     sub_trunk_df = trunk_df.loc[:time_index, :]
-                    
-#                     print("sub sequence: {0},{1}".format(sub_trunk_df.iloc[0,:], sub_trunk_df.iloc[-1,:]))
-                    
+                                
                     if self.isNormalize:
                         sub_trunk_df = self.normalize(sub_trunk_df)
 
