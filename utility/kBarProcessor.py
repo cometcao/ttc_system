@@ -68,48 +68,59 @@ class KBarProcessor(object):
         # 1. We need to make sure we start with first two K-bars without inclusive relationship
         # drop the first if there is inclusion, and check again
         while self.kDataFrame_standardized.shape[0] > 2:
-            firstElem = self.kDataFrame_standardized.iloc[0]
-            secondElem = self.kDataFrame_standardized.iloc[1]
-            if self.checkInclusive(firstElem, secondElem) != InclusionType.noInclusion:
+            first_Elem = self.kDataFrame_standardized.iloc[0]
+            second_Elem = self.kDataFrame_standardized.iloc[1]
+            if self.checkInclusive(first_Elem, second_Elem) != InclusionType.noInclusion:
                 self.kDataFrame_standardized.drop(self.kDataFrame_standardized.index[0], inplace=True)
                 pass
             else:
-                self.kDataFrame_standardized.ix[0,'new_high'] = firstElem.high
-                self.kDataFrame_standardized.ix[0,'new_low'] = firstElem.low
+                self.kDataFrame_standardized.ix[0,'new_high'] = first_Elem.high
+                self.kDataFrame_standardized.ix[0,'new_low'] = first_Elem.low
                 break
 
         # 2. loop through the whole data set and process inclusive relationship
-        for idx in range(self.kDataFrame_standardized.shape[0]-2): # xrange
-            currentElem = self.kDataFrame_standardized.iloc[idx]
-            firstElem = self.kDataFrame_standardized.iloc[idx+1]
-            secondElem = self.kDataFrame_standardized.iloc[idx+2]
+        pastElemIdx = 0
+        firstElemIdx = pastElemIdx+1
+        secondElemIdx = firstElemIdx+1
+        while secondElemIdx < self.kDataFrame_standardized.shape[0]: # xrange
+            pastElem = self.kDataFrame_standardized.iloc[pastElemIdx]
+            firstElem = self.kDataFrame_standardized.iloc[firstElemIdx]
+            secondElem = self.kDataFrame_standardized.iloc[secondElemIdx]
             inclusion_type = self.checkInclusive(firstElem, secondElem)
             if inclusion_type != InclusionType.noInclusion:
-                trend = self.kDataFrame_standardized.ix[idx+1,'trend_type'] if not np.isnan(self.kDataFrame_standardized.ix[idx+1,'trend_type']) else self.isBullType(currentElem, firstElem)
+                trend = firstElem.trend_type if not np.isnan(firstElem.trend_type) else self.isBullType(pastElem, firstElem)
                 compare_func = max if trend else min
-                first_index = idx+1
-                second_index = idx+2
                 if inclusion_type == InclusionType.firstCsecond:
-                    self.kDataFrame_standardized.ix[second_index,'new_high']=compare_func(firstElem.high if np.isnan(firstElem.new_high) else firstElem.new_high, secondElem.high if np.isnan(secondElem.new_high) else secondElem.new_high)
-                    self.kDataFrame_standardized.ix[second_index,'new_low']=compare_func(firstElem.low if np.isnan(firstElem.new_low) else firstElem.new_low, secondElem.low if np.isnan(secondElem.new_low) else secondElem.new_low)
-                    self.kDataFrame_standardized.ix[second_index,'trend_type']=trend
-                    self.kDataFrame_standardized.ix[first_index,'new_high']=np.nan
-                    self.kDataFrame_standardized.ix[first_index,'new_low']=np.nan   
+                    secondElem.new_high=compare_func(firstElem.high if np.isnan(firstElem.new_high) else firstElem.new_high, secondElem.high if np.isnan(secondElem.new_high) else secondElem.new_high)
+                    secondElem.new_low=compare_func(firstElem.low if np.isnan(firstElem.new_low) else firstElem.new_low, secondElem.low if np.isnan(secondElem.new_low) else secondElem.new_low)
+                    secondElem.trend_type=trend
+                    firstElem.new_high=np.nan
+                    firstElem.new_low=np.nan
+                    ############ manage index for next round ###########
+                    firstElemIdx = secondElemIdx
+                    secondElemIdx += 1
                 else:                 
-                    self.kDataFrame_standardized.ix[first_index,'new_high']=compare_func(firstElem.high if np.isnan(firstElem.new_high) else firstElem.new_high, secondElem.high if np.isnan(secondElem.new_high) else secondElem.new_high)
-                    self.kDataFrame_standardized.ix[first_index,'new_low']=compare_func(firstElem.low if np.isnan(firstElem.new_low) else firstElem.new_low, secondElem.low if np.isnan(secondElem.new_low) else secondElem.new_low)                        
-                    self.kDataFrame_standardized.ix[first_index,'trend_type']=trend
-                    self.kDataFrame_standardized.ix[second_index,'new_high']=np.nan
-                    self.kDataFrame_standardized.ix[second_index,'new_low']=np.nan                
+                    firstElem.new_high=compare_func(firstElem.high if np.isnan(firstElem.new_high) else firstElem.new_high, secondElem.high if np.isnan(secondElem.new_high) else secondElem.new_high)
+                    firstElem.new_low=compare_func(firstElem.low if np.isnan(firstElem.new_low) else firstElem.new_low, secondElem.low if np.isnan(secondElem.new_low) else secondElem.new_low)                        
+                    firstElem.trend_type=trend
+                    secondElem.new_high=np.nan
+                    secondElem.new_low=np.nan
+                    ############ manage index for next round ###########
+                    secondElemIdx += 1
             else:
-                if np.isnan(self.kDataFrame_standardized.ix[idx+1,'new_high']): 
-                    self.kDataFrame_standardized.ix[idx+1,'new_high'] = firstElem.high 
-                if np.isnan(self.kDataFrame_standardized.ix[idx+1,'new_low']): 
-                    self.kDataFrame_standardized.ix[idx+1,'new_low'] = firstElem.low
-                if np.isnan(self.kDataFrame_standardized.ix[idx+2,'new_high']): 
-                    self.kDataFrame_standardized.ix[idx+2,'new_high'] = secondElem.high
-                if np.isnan(self.kDataFrame_standardized.ix[idx+2,'new_low']): 
-                    self.kDataFrame_standardized.ix[idx+2,'new_low'] = secondElem.low
+                if np.isnan(firstElem.new_high): 
+                    firstElem.new_high = firstElem.high 
+                if np.isnan(firstElem.new_low): 
+                    firstElem.new_low = firstElem.low
+                if np.isnan(secondElem.new_high): 
+                    secondElem.new_high = secondElem.high
+                if np.isnan(secondElem.new_low): 
+                    secondElem.new_low = secondElem.low
+                ############ manage index for next round ###########
+                pastElemIdx = firstElemIdx
+                firstElemIdx = secondElemIdx
+                secondElemIdx += 1
+                
 
         self.kDataFrame_standardized['high'] = self.kDataFrame_standardized['new_high']
         self.kDataFrame_standardized['low'] = self.kDataFrame_standardized['new_low']
@@ -173,7 +184,7 @@ class KBarProcessor(object):
 
         ############################# clean up the base case for Bi definition ###########################
         firstIdx = 0
-        while firstIdx < working_df.shape[0]:
+        while firstIdx < working_df.shape[0]-2:
             firstFenXing = working_df.iloc[firstIdx]
             secondFenXing = working_df.iloc[firstIdx+1]
             if firstFenXing.tb == secondFenXing.tb:
