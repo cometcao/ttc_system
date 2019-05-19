@@ -250,6 +250,9 @@ class MLDataProcess(object):
 
     def create_lstm_model_arch(self, input_shape, num_classes):
         model = Sequential()    
+#         print(input_shape)
+#         model.add(Flatten(input_shape=input_shape))
+#         model.add(Dense (144, activation='relu'))
         
         model.add(LSTM(144, return_sequences=False, 
                        input_shape=input_shape, dropout=0.191, recurrent_dropout = 0.191)) 
@@ -269,11 +272,10 @@ class MLDataProcess(object):
 #          
 #         model.add(LSTM(64, return_sequences=False,
 #                        dropout=0.191, recurrent_dropout = 0.191))   
-
-        model.add(Dense(num_classes, activation='softmax')) #softmax
+        model.add(Dense(num_classes, activation='softmax')) #softmax sigmoid
          
         model.compile(loss=keras.losses.categorical_crossentropy, #categorical_crossentropy
-                      optimizer=keras.optimizers.Adadelta(), #Adadelta, Nadam, SGD, Adam
+                      optimizer=keras.optimizers.SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True), #Adadelta, Nadam, SGD, Adam
                       metrics=['accuracy'])
                 
         print (model.summary())

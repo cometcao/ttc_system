@@ -51,7 +51,7 @@ class MLKbarPrep(object):
                  isAnal=False, 
                  isNormalize=True, 
                  manual_select=False, 
-                 useMinMax=True, 
+                 norm_range=[-1, 1], 
                  sub_max_count=fixed_length, 
                  isDebug=False, 
                  include_now=False, 
@@ -62,7 +62,7 @@ class MLKbarPrep(object):
         self.isAnal = isAnal
         self.count = count
         self.isNormalize = isNormalize
-        self.useMinMax = useMinMax
+        self.norm_range = norm_range
         self.manual_select = manual_select
         self.stock_df_dict = {}
         self.sub_level_min_count = sub_level_min_count
@@ -115,7 +115,7 @@ class MLKbarPrep(object):
     def load_stock_raw_data(self, stock_df):
         self.stock_df_dict = stock_df
         for level in self.monitor_level:
-            self.stock_df_dict[level] = self.prepare_df_data(self.stock_df_dict[level], level, fields=['high', 'low'])
+            self.stock_df_dict[level] = self.prepare_df_data(self.stock_df_dict[level], level) # , fields=['high', 'low']
         
     
     def retrieve_stock_data(self, stock, end_date=None):
@@ -300,7 +300,7 @@ class MLKbarPrep(object):
             trunk_df = self.manual_wash(trunk_df)  
             
 #         if self.isNormalize:
-#             trunk_df = self.normalize(trunk_df)
+#             trunk_df = normalize(trunk_df, norm_range=[-1,1])
         
         if trunk_df.isnull().values.any():
             print("NaN value found, ignore this data")
@@ -330,7 +330,7 @@ class MLKbarPrep(object):
                     sub_trunk_df = trunk_df.loc[:time_index, :]
                                 
                     if self.isNormalize:
-                        sub_trunk_df = self.normalize(sub_trunk_df)
+                        sub_trunk_df = normalize(sub_trunk_df, norm_range=[-1,1])
 
                     if sub_trunk_df.isnull().values.any():
                         print("NaN value found, ignore this data")
@@ -384,12 +384,12 @@ class MLKbarPrep(object):
 #         df = df.dropna() 
         return df
         
-    def normalize(self, df):
+    def normalize_old(self, df):
         working_df = df.copy(deep=True)
         for column in working_df: 
             if column == 'new_index' or column == 'tb':
                 continue
-            if self.useMinMax:
+            if self.norm_range:
                 # min-max -1 1 / 0 1
                 col_min = working_df[column].min()
                 col_max = working_df[column].max()
@@ -401,10 +401,9 @@ class MLKbarPrep(object):
                 col_std = working_df[column].std()
                 working_df[column] = (working_df[column] - col_mean) / col_std
         return working_df
-
-
+        
 class MLDataPrep(object):
-    def __init__(self, isAnal=False, max_length_for_pad=fixed_length, rq=False, ts=True, useMinMax=False, isDebug=False,detailed_bg=False, use_standardized_sub_df=True, monitor_level=['1d','30m']):
+    def __init__(self, isAnal=False, max_length_for_pad=fixed_length, rq=False, ts=True, norm_range=[-1,1], isDebug=False,detailed_bg=False, use_standardized_sub_df=True, monitor_level=['1d','30m']):
         self.isDebug = isDebug
         self.isAnal = isAnal
         self.detailed_bg = detailed_bg
@@ -413,7 +412,7 @@ class MLDataPrep(object):
         self.isTS = ts
         self.use_standardized_sub_df = use_standardized_sub_df
         self.check_level = monitor_level
-        self.useMinMax = useMinMax
+        self.norm_range = norm_range
     
     def retrieve_stocks_data_from_raw(self, raw_file_path=None, filename=None):
         data_list = []
@@ -421,7 +420,7 @@ class MLDataPrep(object):
         mlk = MLKbarPrep(isAnal=self.isAnal, 
                          isNormalize=True, 
                          sub_max_count=self.max_sequence_length, 
-                         useMinMax=self.useMinMax,
+                         norm_range=self.norm_range,
                          isDebug=self.isDebug, 
                          sub_level_min_count=0, 
                          use_standardized_sub_df=self.use_standardized_sub_df, 
@@ -448,7 +447,7 @@ class MLDataPrep(object):
                              count=period_count, 
                              isNormalize=True, 
                              sub_max_count=self.max_sequence_length, 
-                             useMinMax=self.useMinMax,
+                             norm_range=self.norm_range,
                              isDebug=self.isDebug, 
                              sub_level_min_count=0, 
                              use_standardized_sub_df=self.use_standardized_sub_df, 
@@ -471,7 +470,7 @@ class MLDataPrep(object):
                          count=period_count, 
                          isNormalize=True, 
                          sub_max_count=self.max_sequence_length, 
-                         useMinMax=self.useMinMax,
+                         norm_range=self.norm_range,
                          isDebug=self.isDebug, 
                          sub_level_min_count=0, 
                          use_standardized_sub_df=self.use_standardized_sub_df,
@@ -505,7 +504,7 @@ class MLDataPrep(object):
             A_check = True
             i = 0
             for item in A:     
-                if (self.useMinMax and not ((item>=-1).all() and (item<=1).all())) or np.isnan(item).any(): # min max value range
+                if (not ((item>=self.norm_range[0]).all() and (item<=self.norm_range[1]).all())) or np.isnan(item).any(): # min max value range
                     print(item)
                     print(A[i])
                     print(B[i])
@@ -594,7 +593,7 @@ class MLDataPrep(object):
                 A, B = load_dataset(file)
                 A_check = True
                 for item in A:     
-                    if (self.useMinMax and not ((item>=-1).all() and (item<=1).all())) or \
+                    if (not ((item>=self.norm_range[0]).all() and (item<=self.norm_range[1]).all())) or \
                     np.isnan(item).any() or \
                     item.size == 0: # min max value range or zscore
                         print(item)
