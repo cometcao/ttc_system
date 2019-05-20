@@ -321,7 +321,7 @@ class ML_biaoli_check(object):
                 x_train, x_test, _ = self.mdp.define_conv_lstm_dimension(x_train, x_test)
                 self.mdp.process_model(self.mdp.model, x_train, x_test, y_train, y_test, batch_size = 30,epochs =3)
             
-            unique_index = np.array([-1, 0, 1]) if self.use_cnn_lstm or self.use_cnn_lstm else np.array([-1, 1])
+            unique_index = np.array([-1, 0, 1]) if self.use_cnn_lstm or self.use_cnn_lstm else np.array([-1,0, 1])
             
             if self.use_cnn_lstm:
                 return self.mdp.model_predict_cnn_lstm(data_set, unique_index), origin_data_length, past_pivot_status

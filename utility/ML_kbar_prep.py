@@ -57,7 +57,8 @@ class MLKbarPrep(object):
                  include_now=False, 
                  sub_level_min_count = 0, 
                  use_standardized_sub_df=False,
-                 monitor_level = ['1d', '30m']):
+                 monitor_level = ['1d', '30m'],
+                 monitor_fields = ['open','close','high','low','money']):
         self.isDebug = isDebug
         self.isAnal = isAnal
         self.count = count
@@ -73,6 +74,7 @@ class MLKbarPrep(object):
         self.use_standardized_sub_df = use_standardized_sub_df
         self.num_of_debug_display = 4
         self.monitor_level = monitor_level
+        self.monitor_fields = monitor_fields
 
     def workout_count_num(self, level, count):
         return count if self.monitor_level[0] == level \
@@ -89,33 +91,33 @@ class MLKbarPrep(object):
     def get_low_df(self):
         return self.stock_df_dict[self.monitor_level[1]]
 
-    def grab_stock_raw_data(self, stock, end_date, fields=['open','close','high','low', 'money'], file_dir="."):
+    def grab_stock_raw_data(self, stock, end_date, file_dir="."):
         temp_stock_df_dict = {}
         for level in self.monitor_level:
             local_count = self.workout_count_num(level, self.count)
             stock_df = None
             if not self.isAnal:
-                stock_df = attribute_history(stock, local_count, level, fields = fields, skip_paused=True, df=True)  
+                stock_df = attribute_history(stock, local_count, level, fields = self.monitor_fields, skip_paused=True, df=True)  
             else:
                 latest_trading_day = str(end_date if end_date is not None else datetime.datetime.today().date())
                 latest_trading_day = latest_trading_day+" 15:00:00" if level == '30m' else latest_trading_day # hack for get_price to get latest 30m data change back to 14:30:00
-                stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = fields, skip_suspended=True)          
+                stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = self.monitor_fields, skip_suspended=True)          
             if stock_df.empty:
                 continue
             temp_stock_df_dict[level] = stock_df
         return temp_stock_df_dict
         
-    def grab_stocks_raw_data(self, stocks, end_date=None, fields=['open','close','high','low', 'money'], file_dir="."):
+    def grab_stocks_raw_data(self, stocks, end_date=None, file_dir="."):
         # grab the raw data and save on files
         all_stock_df = []
         for stock in stocks:
-            all_stock_df.append(self.grab_stock_raw_data(stock, end_date, fields, file_dir))
+            all_stock_df.append(self.grab_stock_raw_data(stock, end_date, self.monitor_fields, file_dir))
         save_dataset(all_stock_df, "{0}/last_stock_{1}.pkl".format(file_dir, stocks[-1]))
 
     def load_stock_raw_data(self, stock_df):
         self.stock_df_dict = stock_df
         for level in self.monitor_level:
-            self.stock_df_dict[level] = self.prepare_df_data(self.stock_df_dict[level], level) # , fields=['high', 'low']
+            self.stock_df_dict[level] = self.prepare_df_data(self.stock_df_dict[level], level, self.monitor_fields) # , fields=['high', 'low']
         
     
     def retrieve_stock_data(self, stock, end_date=None):
@@ -123,11 +125,11 @@ class MLKbarPrep(object):
             local_count = self.workout_count_num(level, self.count)
             stock_df = None
             if not self.isAnal:
-                stock_df = attribute_history(stock, local_count, level, fields = ['open','close','high','low', 'money'], skip_paused=True, df=True)  
+                stock_df = attribute_history(stock, local_count, level, fields = self.monitor_fields, skip_paused=True, df=True)  
             else:
                 latest_trading_day = str(end_date if end_date is not None else datetime.datetime.today().date())
                 latest_trading_day = latest_trading_day+" 14:30:00" if level == '30m' else latest_trading_day # hack for get_price to get latest 30m data
-                stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = ['high','low', 'money'], skip_suspended=True)          
+                stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = self.monitor_fields, skip_suspended=True)          
             if stock_df.empty:
                 continue
 #             if self.isDebug:
@@ -298,6 +300,7 @@ class MLKbarPrep(object):
             trunk_df = self.manual_select(trunk_df)
         else: # manual_wash
             trunk_df = self.manual_wash(trunk_df)  
+            tb_trunk_df = self.manual_wash(tb_trunk_df)
             
 #         if self.isNormalize:
 #             trunk_df = normalize(trunk_df, norm_range=[-1,1])
@@ -321,20 +324,19 @@ class MLKbarPrep(object):
                 sub_end_index_low = trunk_df.index[sub_end_pos_low if sub_end_pos_low < len(trunk_df.index) else -1]
                 sub_end_index_high = trunk_df.index[sub_end_pos_high if sub_end_pos_high < len(trunk_df.index) else -1]             
                 
-                for time_index in trunk_df.index: #  tb_trunk_df.index
+                for time_index in tb_trunk_df.index: #  tb_trunk_df.index
                     if label == TopBotType.bot.value and (time_index < sub_start_index_high or time_index > sub_end_index_low):
                         continue
                     elif label == TopBotType.top.value and (time_index < sub_start_index_low or time_index > sub_end_index_high):
                         continue
                     
-                    sub_trunk_df = trunk_df.loc[:time_index, :]
+                    sub_trunk_df = tb_trunk_df.loc[:time_index, :]
                                 
                     if self.isNormalize:
-                        sub_trunk_df = normalize(sub_trunk_df, norm_range=[-1,1])
+                        sub_trunk_df = normalize(sub_trunk_df, norm_range=[-1,1], fields=self.monitor_fields)
 
                     if sub_trunk_df.isnull().values.any():
                         print("NaN value found, ignore this data")
-#                         print(trunk_df)
                         print(sub_trunk_df)
                         continue
                         
@@ -346,16 +348,16 @@ class MLKbarPrep(object):
                             elif time_index >= end_low_idx:  #  and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.bot.value
                                 self.label_set.append(TopBotType.bot.value)
                             else:
-                                self.label_set.append(TopBotType.top.value) # change to binary classification
-#                                 self.label_set.append(TopBotType.noTopBot.value)
+#                                 self.label_set.append(TopBotType.top.value) # change to binary classification
+                                self.label_set.append(TopBotType.noTopBot.value)
                         elif label == TopBotType.top.value:
                             if time_index >= end_high_idx: #  and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.top.value
                                 self.label_set.append(TopBotType.top.value)
                             elif time_index < start_low_idx: #  and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.bot.value
                                 self.label_set.append(TopBotType.bot.value)
                             else:
-                                self.label_set.append(TopBotType.bot.value) # change to binary classification
-#                                 self.label_set.append(TopBotType.noTopBot.value)
+#                                 self.label_set.append(TopBotType.bot.value) # change to binary classification
+                                self.label_set.append(TopBotType.noTopBot.value)
                         else:
                             pass
 
@@ -379,9 +381,7 @@ class MLKbarPrep(object):
         return df
         
     def manual_wash(self, df):
-#         if self.sub_level_min_count != 0:
         df = df.drop(['new_index','tb'], 1, errors='ignore')
-#         df = df.dropna() 
         return df
         
     def normalize_old(self, df):
@@ -403,7 +403,11 @@ class MLKbarPrep(object):
         return working_df
         
 class MLDataPrep(object):
-    def __init__(self, isAnal=False, max_length_for_pad=fixed_length, rq=False, ts=True, norm_range=[-1,1], isDebug=False,detailed_bg=False, use_standardized_sub_df=True, monitor_level=['1d','30m']):
+    def __init__(self, isAnal=False, max_length_for_pad=fixed_length, 
+                 rq=False, ts=True, norm_range=[-1,1], isDebug=False,
+                 detailed_bg=False, use_standardized_sub_df=True, 
+                 monitor_level=['1d','30m'],
+                 monitor_fields=['open','close','high','low','money']):
         self.isDebug = isDebug
         self.isAnal = isAnal
         self.detailed_bg = detailed_bg
@@ -413,6 +417,7 @@ class MLDataPrep(object):
         self.use_standardized_sub_df = use_standardized_sub_df
         self.check_level = monitor_level
         self.norm_range = norm_range
+        self.monitor_fields=monitor_fields
     
     def retrieve_stocks_data_from_raw(self, raw_file_path=None, filename=None):
         data_list = []
@@ -424,7 +429,8 @@ class MLDataPrep(object):
                          isDebug=self.isDebug, 
                          sub_level_min_count=0, 
                          use_standardized_sub_df=self.use_standardized_sub_df, 
-                         monitor_level=self.check_level)
+                         monitor_level=self.check_level,
+                         monitor_fields=self.monitor_fields)
 
         df_array = load_dataset(raw_file_path)
         for stock_df in df_array:
@@ -451,7 +457,8 @@ class MLDataPrep(object):
                              isDebug=self.isDebug, 
                              sub_level_min_count=0, 
                              use_standardized_sub_df=self.use_standardized_sub_df, 
-                             monitor_level=self.check_level)
+                             monitor_level=self.check_level,
+                             monitor_fields=self.monitor_fields)
             if self.isTS:
                 mlk.retrieve_stock_data_ts(stock, today_date)
             elif self.isRQ:
@@ -474,7 +481,8 @@ class MLDataPrep(object):
                          isDebug=self.isDebug, 
                          sub_level_min_count=0, 
                          use_standardized_sub_df=self.use_standardized_sub_df,
-                         monitor_level=self.check_level)
+                         monitor_level=self.check_level,
+                         monitor_fields=self.monitor_fields)
         if self.isTS:
             mlk.retrieve_stock_data_ts(stock, today_date)
         elif self.isRQ:
@@ -504,7 +512,9 @@ class MLDataPrep(object):
             A_check = True
             i = 0
             for item in A:     
-                if (not ((item>=self.norm_range[0]).all() and (item<=self.norm_range[1]).all())) or np.isnan(item).any(): # min max value range
+                if (not ((np.logical_or(item>self.norm_range[0],np.isclose(item, self.norm_range[0]))).all() and 
+                         (np.logical_or(item<self.norm_range[1],np.isclose(item, self.norm_range[1]))).all())) or \
+                np.isnan(item).any() or item.size == 0:
                     print(item)
                     print(A[i])
                     print(B[i])
@@ -593,7 +603,8 @@ class MLDataPrep(object):
                 A, B = load_dataset(file)
                 A_check = True
                 for item in A:     
-                    if (not ((item>=self.norm_range[0]).all() and (item<=self.norm_range[1]).all())) or \
+                    if (not ((np.logical_or(item>self.norm_range[0],np.isclose(item, self.norm_range[0]))).all() and 
+                             (np.logical_or(item<self.norm_range[1],np.isclose(item, self.norm_range[1]))).all())) or \
                     np.isnan(item).any() or \
                     item.size == 0: # min max value range or zscore
                         print(item)

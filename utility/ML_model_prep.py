@@ -5,7 +5,7 @@ from keras import backend as K
 from keras.utils.np_utils import to_categorical
 from keras.models import load_model
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Flatten, TimeDistributed,LSTM, GRU
+from keras.layers import Dense, Dropout, Flatten, TimeDistributed,LSTM, GRU, Bidirectional
 from keras.layers.normalization import BatchNormalization
 from keras.layers import Conv2D, MaxPooling2D, ConvLSTM2D, Conv1D, MaxPooling1D, Reshape, GlobalAveragePooling1D
 from keras import optimizers
@@ -254,28 +254,21 @@ class MLDataProcess(object):
 #         model.add(Flatten(input_shape=input_shape))
 #         model.add(Dense (144, activation='relu'))
         
-        model.add(LSTM(144, return_sequences=False, 
+        model.add(LSTM(64, return_sequences=True, 
                        input_shape=input_shape, dropout=0.191, recurrent_dropout = 0.191)) 
+        
+        model.add(Dense (model.output_shape[2], activation='relu'))
 
         if self.isDebug:
             print("layer input/output shape:{0},{1}".format(model.input_shape, model.output_shape))
-        
-#         model.add(LSTM(64, return_sequences=True, 
-#                        dropout=0.191, recurrent_dropout = 0.191)) 
-#         
-#         model.add(Dense (model.output_shape[2], activation='relu'))
-#         
-#         model.add(LSTM(64, return_sequences=True,
-#                        dropout=0.191, recurrent_dropout = 0.191)) 
-#          
-#         model.add(Dense (model.output_shape[2], activation='relu'))
-#          
-#         model.add(LSTM(64, return_sequences=False,
-#                        dropout=0.191, recurrent_dropout = 0.191))   
+
+        model.add(LSTM(64, return_sequences=False,
+                       dropout=0.191, recurrent_dropout = 0.191))   
+        model.add(Dense (model.output_shape[2], activation='relu'))
         model.add(Dense(num_classes, activation='softmax')) #softmax sigmoid
          
         model.compile(loss=keras.losses.categorical_crossentropy, #categorical_crossentropy
-                      optimizer=keras.optimizers.SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True), #Adadelta, Nadam, SGD, Adam
+                      optimizer=keras.optimizers.Adadelta(), #Adadelta, Nadam, SGD, Adam,SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
                       metrics=['accuracy'])
                 
         print (model.summary())
@@ -283,7 +276,7 @@ class MLDataProcess(object):
 
     def create_rnn_cnn_model_arch(self, input_shape, num_classes):
         model = Sequential()     
-        model.add(Conv1D(3,
+        model.add(Conv1D(64,
                          kernel_size=3,
                          input_shape=input_shape,
                          padding='valid',
@@ -292,74 +285,11 @@ class MLDataProcess(object):
         if self.isDebug:
             print("layer input/output shape:{0}, {1}".format(model.input_shape, model.output_shape))
             
+        model.add(Bidirectional(LSTM(model.output_shape[1], return_sequences=True))) 
         
-        model.add(Conv1D(4,
-                         kernel_size=2,
-                         padding='valid',
-                         activation='relu'))
-        model.add(LSTM(model.output_shape[1], return_sequences=True))   
-        
-        model.add(Dense (model.output_shape[1], activation='relu'))
-        
-        model.add(Conv1D(4,
-                         kernel_size=3,
-                         padding='valid',
-                         activation='relu',
-                         strides=3))
-        model.add(LSTM(model.output_shape[1], return_sequences=True))
-        
-        model.add(Dense (model.output_shape[1], activation='relu'))
-        
+#         model.add(TimeDistributed(Dense (num_classes, activation='relu')))
 
-        model.add(Conv1D(4,
-                         kernel_size=2,
-                         padding='valid',
-                         activation='relu'))
-        model.add(LSTM(model.output_shape[1], return_sequences=True))   
-        
-        model.add(Dense (model.output_shape[1], activation='relu'))
-        
-        model.add(Conv1D(4,
-                         kernel_size=3,
-                         padding='valid',
-                         activation='relu',
-                         strides=3))
-        model.add(LSTM(model.output_shape[1], return_sequences=True))
-        
-        model.add(Dense (model.output_shape[1], activation='relu'))
-        
-        
-        model.add(Conv1D(4,
-                         kernel_size=2,
-                         padding='valid',
-                         activation='relu'))
-        model.add(LSTM(model.output_shape[1], return_sequences=True))   
-        
-        model.add(Dense (model.output_shape[1], activation='relu'))
-        
-        model.add(Conv1D(4,
-                         kernel_size=3,
-                         padding='valid',
-                         activation='relu',
-                         strides=3))
-        model.add(LSTM(model.output_shape[1], return_sequences=True))
-        
-        model.add(Dense (model.output_shape[1], activation='relu'))        
-        
-        
-        model.add(Conv1D(3,
-                         kernel_size=3,
-                         padding='valid',
-                         activation='relu',
-                         strides=5))
-        model.add(LSTM(model.output_shape[1], return_sequences=False))
-
-        model.add(Dense (model.output_shape[1], activation='relu'))
-
-        if self.isDebug:
-            print("layer input/output shape:{0}".format(model.output_shape))
-
-        model.add(Dense(num_classes, activation='softmax')) #softmax
+        model.add(TimeDistributed(Dense(num_classes, activation='softmax'))) #softmax
          
         model.compile(loss=keras.losses.categorical_crossentropy, #categorical_crossentropy
                       optimizer=keras.optimizers.Adadelta(), #Adadelta, Nadam, SGD, Adam
