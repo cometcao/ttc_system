@@ -72,7 +72,7 @@ class MLKbarPrep(object):
         self.label_set = []
         self.include_now = include_now
         self.use_standardized_sub_df = use_standardized_sub_df
-        self.num_of_debug_display = 4
+        self.num_of_debug_display = 0
         self.monitor_level = monitor_level
         self.monitor_fields = monitor_fields
 
@@ -219,7 +219,7 @@ class MLKbarPrep(object):
         lower_df = self.stock_df_dict[self.monitor_level[1]]
         high_df_tb = higher_df.dropna(subset=['new_index'])
         high_dates = high_df_tb.index
-        if self.isDebug:
+        if self.isDebug and self.num_of_debug_display != 0:
             print(high_df_tb.tail(self.num_of_debug_display)[['tb', 'new_index']])
         
         for i in range(-self.num_of_debug_display-1, 0, 1): #-5
@@ -268,9 +268,6 @@ class MLKbarPrep(object):
             sub_level_count = len(trunk_df['tb']) - trunk_df['tb'].isnull().sum()
             if sub_level_count < self.sub_level_min_count:
                 return
-        
-        # sub level trunks
-        tb_trunk_df = trunk_df.dropna(subset=['tb'])
                 
         pivot_sub_counting_range = self.workout_count_num(self.monitor_level[1], 1)        
 
@@ -280,23 +277,19 @@ class MLKbarPrep(object):
             start_low_idx = trunk_df.ix[:pivot_sub_counting_range,'low'].idxmin()
             
             sub_start_index_high = trunk_df.index[trunk_df.index.get_loc(start_high_idx) + pivot_sub_counting_range]
-            sub_start_index_low = trunk_df.index[trunk_df.index.get_loc(start_low_idx) + pivot_sub_counting_range]
-            
-            end_low_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'low'].idxmin()
-            end_high_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'high'].idxmax()   
+            sub_start_index_low = trunk_df.index[trunk_df.index.get_loc(start_low_idx) + pivot_sub_counting_range] 
             
             if for_predict:
-                trunk_df = trunk_df.loc[start_high_idx:end_low_idx,:] if label == 1 else trunk_df.loc[start_low_idx:end_high_idx,:]
+                trunk_df = trunk_df.loc[start_high_idx:,:] if label == 1 else trunk_df.loc[start_low_idx:,:]
             else: # pivot point must be within one high period 
                 trunk_df = trunk_df.loc[start_high_idx:,:] if label == -1 else \
-                        trunk_df.loc[start_low_idx:,:] if label == 1 else \
-                        trunk_df.loc[tb_trunk_df.index[0]:tb_trunk_df.index[-1],:]
+                        trunk_df.loc[start_low_idx:,:] if label == 1 else None
         else:
             print("Sub level data length too short!")
+            return
 
-#         if self.sub_max_count > 0 and trunk_df.shape[0] > self.sub_max_count: # truncate
-#             print("data truncated due to max length sequence exceeded")
-#             trunk_df = trunk_df.iloc[-self.sub_max_count:,:]
+        # sub level trunks pivots are used to training / prediction
+        tb_trunk_df = trunk_df.dropna(subset=['tb'])
        
         if self.manual_select:
             trunk_df = self.manual_select(trunk_df)
@@ -319,6 +312,10 @@ class MLKbarPrep(object):
             if not trunk_df.empty:                            
 #                 print("full sequence: {0},{1}".format(trunk_df.iloc[0,:], trunk_df.iloc[-1,:]))                
                 # increase the 1, -1 label sample
+
+                end_low_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'low'].idxmin()
+                end_high_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'high'].idxmax()                  
+
                 sub_end_pos_low = trunk_df.index.get_loc(end_low_idx) + pivot_sub_counting_range
                 sub_end_pos_high = trunk_df.index.get_loc(end_high_idx) + pivot_sub_counting_range                
                 sub_end_index_low = trunk_df.index[sub_end_pos_low if sub_end_pos_low < len(trunk_df.index) else -1]
