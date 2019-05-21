@@ -218,29 +218,28 @@ class MLKbarPrep(object):
         higher_df = self.stock_df_dict[self.monitor_level[0]]
         lower_df = self.stock_df_dict[self.monitor_level[1]]
         high_df_tb = higher_df.dropna(subset=['new_index'])
-        if self.isDebug:
-            if high_df_tb.shape[0] > self.num_of_debug_display:
-                print(high_df_tb.tail(self.num_of_debug_display)[['tb', 'new_index']])
-            else:
-                print(high_df_tb[['tb', 'new_index']])
         high_dates = high_df_tb.index
+        if self.isDebug:
+            print(high_df_tb.tail(self.num_of_debug_display)[['tb', 'new_index']])
         
         for i in range(-self.num_of_debug_display-1, 0, 1): #-5
             try:
-                previous_date = str(high_dates[i].date())
+                first_date = str(high_dates[i].date())
                 if self.monitor_level[0] == '5d': # find the full range of date for the week
-                    previous_date = JqDataRetriever.get_trading_date(count=4, end_date=previous_date)[0]
+                    first_date = JqDataRetriever.get_trading_date(count=4, end_date=first_date)[0]
             except IndexError:
                 continue
-            trunk_df = None
+            trunk_lower_df = None
             if i+1 < 0:
-                next_date = str(high_dates[i+1].date())
-                trunk_df = lower_df.loc[previous_date:next_date, :]
+                second_date = str(high_dates[i+1].date())
+                if self.monitor_level[0] == '5d': # find the full range of date for the week
+                    second_date = JqDataRetriever.get_trading_date(start_date=second_date)[4] # 5 days after the peak Week bar
+                trunk_lower_df = lower_df.loc[first_date:second_date, :]
             else:
-                trunk_df = lower_df.loc[previous_date:, :]
+                trunk_lower_df = lower_df.loc[first_date:, :]
 #             if self.isDebug:
-#                 print(trunk_df.tail(self.num_of_debug_display))
-            self.create_ml_data_set(trunk_df, high_df_tb.ix[-1,'tb'].value, for_predict=True)
+#                 print(trunk_lower_df.tail(self.num_of_debug_display))
+            self.create_ml_data_set(trunk_lower_df, high_df_tb.ix[-1,'tb'].value, for_predict=True)
         return self.data_set
                
     def prepare_predict_data_extra(self):
@@ -283,14 +282,17 @@ class MLKbarPrep(object):
             sub_start_index_high = trunk_df.index[trunk_df.index.get_loc(start_high_idx) + pivot_sub_counting_range]
             sub_start_index_low = trunk_df.index[trunk_df.index.get_loc(start_low_idx) + pivot_sub_counting_range]
             
+            end_low_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'low'].idxmin()
+            end_high_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'high'].idxmax()   
+            
             if for_predict:
-                trunk_df = trunk_df.loc[start_high_idx:tb_trunk_df.index[-1],:] if label == 1 else trunk_df.loc[start_low_idx:tb_trunk_df.index[-1],:]
+                trunk_df = trunk_df.loc[start_high_idx:end_low_idx,:] if label == 1 else trunk_df.loc[start_low_idx:end_high_idx,:]
             else: # pivot point must be within one high period 
                 trunk_df = trunk_df.loc[start_high_idx:,:] if label == -1 else \
                         trunk_df.loc[start_low_idx:,:] if label == 1 else \
                         trunk_df.loc[tb_trunk_df.index[0]:tb_trunk_df.index[-1],:]
         else:
-            return
+            print("Sub level data length too short!")
 
 #         if self.sub_max_count > 0 and trunk_df.shape[0] > self.sub_max_count: # truncate
 #             print("data truncated due to max length sequence exceeded")
@@ -302,9 +304,6 @@ class MLKbarPrep(object):
             trunk_df = self.manual_wash(trunk_df)  
             tb_trunk_df = self.manual_wash(tb_trunk_df)
             tb_trunk_df = tb_trunk_df[self.monitor_fields]
-            
-#         if self.isNormalize:
-#             trunk_df = normalize(trunk_df, norm_range=[-1,1])
         
         if trunk_df.isnull().values.any():
             print("NaN value found, ignore this data")
@@ -313,13 +312,13 @@ class MLKbarPrep(object):
             return
     
         if for_predict: # differentiate training and predicting
-            self.data_set.append(trunk_df.values)
+            if self.isNormalize:
+                tb_trunk_df = normalize(tb_trunk_df, norm_range=self.norm_range, fields=self.monitor_fields)
+            self.data_set.append(tb_trunk_df.values) #trunk_df
         else:
-            if not trunk_df.empty:            
-                end_low_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'low'].idxmin()
-                end_high_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'high'].idxmax()   
-                
+            if not trunk_df.empty:                            
 #                 print("full sequence: {0},{1}".format(trunk_df.iloc[0,:], trunk_df.iloc[-1,:]))                
+                # increase the 1, -1 label sample
                 sub_end_pos_low = trunk_df.index.get_loc(end_low_idx) + pivot_sub_counting_range
                 sub_end_pos_high = trunk_df.index.get_loc(end_high_idx) + pivot_sub_counting_range                
                 sub_end_index_low = trunk_df.index[sub_end_pos_low if sub_end_pos_low < len(trunk_df.index) else -1]
@@ -334,7 +333,7 @@ class MLKbarPrep(object):
                     sub_trunk_df = tb_trunk_df.loc[:time_index, :]
                                 
                     if self.isNormalize:
-                        sub_trunk_df = normalize(sub_trunk_df, norm_range=[-1,1], fields=self.monitor_fields)
+                        sub_trunk_df = normalize(sub_trunk_df, norm_range=self.norm_range, fields=self.monitor_fields)
 
                     if sub_trunk_df.isnull().values.any():
                         print("NaN value found, ignore this data")
