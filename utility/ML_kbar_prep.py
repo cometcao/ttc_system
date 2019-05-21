@@ -97,11 +97,11 @@ class MLKbarPrep(object):
             local_count = self.workout_count_num(level, self.count)
             stock_df = None
             if not self.isAnal:
-                stock_df = attribute_history(stock, local_count, level, fields = self.monitor_fields, skip_paused=True, df=True)  
+                stock_df = attribute_history(stock, local_count, level, fields = ['open', 'close','high','low','money'], skip_paused=True, df=True)  
             else:
                 latest_trading_day = str(end_date if end_date is not None else datetime.datetime.today().date())
                 latest_trading_day = latest_trading_day+" 15:00:00" if level == '30m' else latest_trading_day # hack for get_price to get latest 30m data change back to 14:30:00
-                stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = self.monitor_fields, skip_suspended=True)          
+                stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = ['open', 'close','high','low','money'], skip_suspended=True)          
             if stock_df.empty:
                 continue
             temp_stock_df_dict[level] = stock_df
@@ -111,13 +111,13 @@ class MLKbarPrep(object):
         # grab the raw data and save on files
         all_stock_df = []
         for stock in stocks:
-            all_stock_df.append(self.grab_stock_raw_data(stock, end_date, self.monitor_fields, file_dir))
+            all_stock_df.append(self.grab_stock_raw_data(stock, end_date, file_dir))
         save_dataset(all_stock_df, "{0}/last_stock_{1}.pkl".format(file_dir, stocks[-1]))
 
     def load_stock_raw_data(self, stock_df):
         self.stock_df_dict = stock_df
         for level in self.monitor_level:
-            self.stock_df_dict[level] = self.prepare_df_data(self.stock_df_dict[level], level, self.monitor_fields) # , fields=['high', 'low']
+            self.stock_df_dict[level] = self.prepare_df_data(self.stock_df_dict[level], level) # , fields=['high', 'low']
         
     
     def retrieve_stock_data(self, stock, end_date=None):
@@ -125,11 +125,11 @@ class MLKbarPrep(object):
             local_count = self.workout_count_num(level, self.count)
             stock_df = None
             if not self.isAnal:
-                stock_df = attribute_history(stock, local_count, level, fields = self.monitor_fields, skip_paused=True, df=True)  
+                stock_df = attribute_history(stock, local_count, level, fields = ['open', 'close','high','low','money'], skip_paused=True, df=True)  
             else:
                 latest_trading_day = str(end_date if end_date is not None else datetime.datetime.today().date())
                 latest_trading_day = latest_trading_day+" 14:30:00" if level == '30m' else latest_trading_day # hack for get_price to get latest 30m data
-                stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = self.monitor_fields, skip_suspended=True)          
+                stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = ['open', 'close','high','low','money'], skip_suspended=True)          
             if stock_df.empty:
                 continue
 #             if self.isDebug:
@@ -164,11 +164,11 @@ class MLKbarPrep(object):
             stock_df = self.prepare_df_data(stock_df, level)
             self.stock_df_dict[level] = stock_df
     
-    def prepare_df_data(self, stock_df, level, fields = None):
+    def prepare_df_data(self, stock_df, level):
         # MACD # don't use it now
 #         stock_df.loc[:,'macd_raw'], _, stock_df.loc[:,'macd']  = talib.MACD(stock_df['close'].values)
-        if fields is not None:
-            stock_df = stock_df[fields]
+#         if fields is not None: # we need high low for BiaoLi process
+#             stock_df = stock_df[fields]
         stock_df = stock_df.dropna() # make sure we don't get any nan data
         stock_df = self.prepare_biaoli(stock_df, level)
         return stock_df
@@ -301,6 +301,7 @@ class MLKbarPrep(object):
         else: # manual_wash
             trunk_df = self.manual_wash(trunk_df)  
             tb_trunk_df = self.manual_wash(tb_trunk_df)
+            tb_trunk_df = tb_trunk_df[self.monitor_fields]
             
 #         if self.isNormalize:
 #             trunk_df = normalize(trunk_df, norm_range=[-1,1])

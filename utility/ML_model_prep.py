@@ -12,6 +12,7 @@ from keras import optimizers
 from keras.callbacks import EarlyStopping
 from keras.callbacks import ModelCheckpoint
 from utility.common_include import pad_each_training_array
+from keras.layers.pooling import GlobalMaxPool1D
 
 try:
     from rqdatac import *
@@ -256,15 +257,12 @@ class MLDataProcess(object):
         
         model.add(LSTM(64, return_sequences=True, 
                        input_shape=input_shape, dropout=0.191, recurrent_dropout = 0.191)) 
-        
+         
         model.add(Dense (model.output_shape[2], activation='relu'))
 
         if self.isDebug:
             print("layer input/output shape:{0},{1}".format(model.input_shape, model.output_shape))
 
-        model.add(LSTM(64, return_sequences=False,
-                       dropout=0.191, recurrent_dropout = 0.191))   
-        model.add(Dense (model.output_shape[2], activation='relu'))
         model.add(Dense(num_classes, activation='softmax')) #softmax sigmoid
          
         model.compile(loss=keras.losses.categorical_crossentropy, #categorical_crossentropy
@@ -276,23 +274,26 @@ class MLDataProcess(object):
 
     def create_rnn_cnn_model_arch(self, input_shape, num_classes):
         model = Sequential()     
-        model.add(Conv1D(64,
+        model.add(Conv1D(144,
                          kernel_size=3,
                          input_shape=input_shape,
                          padding='valid',
-                         activation='relu',
-                         strides=3))
+                         activation='relu'))
+        model.add(MaxPooling1D(pool_size=3, strides=2))
+        model.add(Bidirectional(LSTM(model.output_shape[1], return_sequences=True, 
+                                     dropout = 0.2, 
+                                     recurrent_dropout = 0.2), merge_mode='concat'))
+        
+        model.add(TimeDistributed(Dense (num_classes, activation='relu')))
         if self.isDebug:
             print("layer input/output shape:{0}, {1}".format(model.input_shape, model.output_shape))
-            
-        model.add(Bidirectional(LSTM(model.output_shape[1], return_sequences=True))) 
-        
-#         model.add(TimeDistributed(Dense (num_classes, activation='relu')))
+#         model.add(GlobalMaxPool1D())
+        model.add(Flatten())
 
-        model.add(TimeDistributed(Dense(num_classes, activation='softmax'))) #softmax
+        model.add(Dense(num_classes, activation='softmax')) #softmax
          
         model.compile(loss=keras.losses.categorical_crossentropy, #categorical_crossentropy
-                      optimizer=keras.optimizers.Adadelta(), #Adadelta, Nadam, SGD, Adam
+                      optimizer=keras.optimizers.Adam(), #Adadelta, Nadam, SGD, Adam
                       metrics=['accuracy'])
                 
         print (model.summary())
@@ -318,8 +319,8 @@ class MLDataProcess(object):
     def define_rnn_cnn_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000, patience=10):
         input_shape = self.define_rnn_cnn_shape(data_gen)
         
-#         model = self.create_rnn_cnn_model_arch(input_shape, num_classes)
-        model = self.create_lstm_model_arch(input_shape, num_classes)
+        model = self.create_rnn_cnn_model_arch(input_shape, num_classes)
+#         model = self.create_lstm_model_arch(input_shape, num_classes)
         
         self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen, validation_steps, patience)
         
