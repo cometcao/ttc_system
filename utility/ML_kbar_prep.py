@@ -211,7 +211,6 @@ class MLKbarPrep(object):
 #                 print("high cutting date: {0}:{1}".format(first_date, second_date))
             trunk_lower_df = lower_df.loc[first_date:second_date,:]
             self.create_ml_data_set(trunk_lower_df, high_df_tb.ix[i+1, 'tb'].value)
-        
         return self.data_set, self.label_set
     
     def prepare_predict_data(self):    
@@ -239,7 +238,13 @@ class MLKbarPrep(object):
                 trunk_lower_df = lower_df.loc[first_date:, :]
 #             if self.isDebug:
 #                 print(trunk_lower_df.tail(self.num_of_debug_display))
-            self.create_ml_data_set_predict(trunk_lower_df, high_df_tb.ix[-1,'tb'].value)
+            result = self.create_ml_data_set_predict(trunk_lower_df, high_df_tb.ix[i,'tb'].value)
+            if result is not None:
+                if not result:
+                    first_date = str(high_dates[i-1].date())
+                    if self.monitor_level[0] == '5d': # find the full range of date for the week
+                        first_date = JqDataRetriever.get_trading_date(count=4, end_date=first_date)[0]
+                    self.create_ml_data_set_predict(lower_df.loc[first_date:, :], high_df_tb.ix[i-1,'tb'].value)
         return self.data_set
                
     def prepare_predict_data_extra(self):
@@ -265,15 +270,15 @@ class MLKbarPrep(object):
     def create_ml_data_set_predict(self, trunk_df, previous_high_label):  
         pivot_sub_counting_range = self.workout_count_num(self.monitor_level[1], 1)        
 
-        if len(trunk_df) > pivot_sub_counting_range: 
-            start_high_idx = trunk_df.ix[:pivot_sub_counting_range,'high'].idxmax()
-            start_low_idx = trunk_df.ix[:pivot_sub_counting_range,'low'].idxmin()            
-                  
-            trunk_df = trunk_df.loc[start_high_idx:,:] if previous_high_label == TopBotType.top.value else trunk_df.loc[start_low_idx:,:]        
-        else:
-            # TODO: we need to provide full length data in this case
-            print("Sub-level data length too short!")
-            return
+        start_high_idx = trunk_df.ix[:pivot_sub_counting_range,'high'].idxmax()
+        start_low_idx = trunk_df.ix[:pivot_sub_counting_range,'low'].idxmin()            
+              
+        trunk_df = trunk_df.loc[start_high_idx:,:] if previous_high_label == TopBotType.top.value else trunk_df.loc[start_low_idx:,:]  
+
+        if len(trunk_df) < pivot_sub_counting_range: 
+            if self.isDebug:
+                print("Sub-level data length too short for prediction!")
+            return False
         
         # sub level trunks pivots are used to training / prediction
         tb_trunk_df = trunk_df.dropna(subset=['tb'])
@@ -288,6 +293,7 @@ class MLKbarPrep(object):
         if self.isNormalize:
             tb_trunk_df = normalize(tb_trunk_df, norm_range=self.norm_range, fields=self.monitor_fields)
         self.data_set.append(tb_trunk_df.values) #trunk_df
+        return True
         
     def create_ml_data_set(self, trunk_df, label): 
         # at least 3 parts in the sub level
