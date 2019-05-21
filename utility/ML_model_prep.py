@@ -141,41 +141,6 @@ class MLDataProcess(object):
                              dropout = 0.2, 
                              recurrent_dropout = 0.2
                              ))
-#         model.add(ConvLSTM2D(64, 
-#                              kernel_size=(1, 1), 
-#                              padding='valid',
-#                              return_sequences=True,
-#                              dropout = 0.2, 
-#                              recurrent_dropout = 0.2
-#                              ))  
-#         model.add(ConvLSTM2D(64, 
-#                              kernel_size=(1, 1), 
-#                              padding='valid',
-#                              return_sequences=True,
-#                              dropout = 0.2, 
-#                              recurrent_dropout = 0.2
-#                              ))        
-#         model.add(ConvLSTM2D(64, 
-#                              kernel_size=(1, 1), 
-#                              padding='valid',
-#                              return_sequences=True,
-#                              dropout = 0.2, 
-#                              recurrent_dropout = 0.2
-#                              ))
-#         model.add(ConvLSTM2D(64, 
-#                              kernel_size=(1, 1), 
-#                              padding='valid',
-#                              return_sequences=True,
-#                              dropout = 0.2, 
-#                              recurrent_dropout = 0.2
-#                              ))
-#         model.add(ConvLSTM2D(64, 
-#                              kernel_size=(1, 1), 
-#                              padding='valid',
-#                              return_sequences=True,
-#                              dropout = 0.2, 
-#                              recurrent_dropout = 0.2
-#                              ))
         model.add(ConvLSTM2D(64, 
                              kernel_size=(1, 1), 
                              padding='valid',
@@ -359,8 +324,10 @@ class MLDataProcess(object):
                 copy(model_name)
                 self.model = load_model(hack_path)
         self.model_name = model_name
-        print("loaded model: {0}".format(self.model_name))
-        print (self.model.summary())
+        
+        if self.isDebug:
+            print("loaded model: {0}".format(self.model_name))
+            print (self.model.summary())
         
     def save_model_byte(self, model_name, model):
         put_file(model_name, model)
