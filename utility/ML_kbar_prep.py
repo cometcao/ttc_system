@@ -441,8 +441,6 @@ class MLDataPrep(object):
         self.monitor_fields=monitor_fields
     
     def retrieve_stocks_data_from_raw(self, raw_file_path=None, filename=None):
-        data_list = []
-        label_list = []
         mlk = MLKbarPrep(isAnal=self.isAnal, 
                          isNormalize=True, 
                          sub_max_count=self.max_sequence_length, 
@@ -457,16 +455,12 @@ class MLDataPrep(object):
         for stock_df in df_array:
             mlk.load_stock_raw_data(stock_df)
             dl, ll = mlk.prepare_training_data()
-            
-            data_list = data_list + dl
-            label_list = label_list + ll
+            print("retrieve_stocks_data_from_raw sub: {0}".format(len(dl)))
         if filename:
-            save_dataset((data_list, label_list), filename)
-        return (data_list, label_list)            
+            save_dataset((dl, ll), filename)
+        return (dl, ll)            
     
     def retrieve_stocks_data(self, stocks, period_count=60, filename=None, today_date=None):
-        data_list = []
-        label_list = []
         for stock in stocks:
             if self.isAnal:
                 print ("working on stock: {0}".format(stock))
@@ -487,11 +481,9 @@ class MLDataPrep(object):
             else:
                 mlk.retrieve_stock_data(stock, today_date)
             dl, ll = mlk.prepare_training_data()
-            data_list = data_list + dl
-            label_list = label_list + ll   
         if filename:
-            save_dataset((data_list, label_list), filename)
-        return (data_list, label_list)
+            save_dataset((dl, ll), filename)
+        return (dl, ll)
     
     def prepare_stock_data_predict(self, stock, period_count=100, today_date=None, predict_extra=False):
         mlk = MLKbarPrep(isAnal=self.isAnal, 
