@@ -18,7 +18,7 @@ import pandas as pd
 import io
 from keras.utils.np_utils import to_categorical
 from utility.securityDataManager import *
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 evs_query_string = '(valuation.market_cap*100000000+balance.total_liability+balance.minority_interests+balance.capital_reserve_fund-balance.cash_equivalents)/(income.total_operating_revenue)'
 eve_query_string = '(valuation.market_cap*100000000+balance.total_liability+balance.minority_interests+balance.capital_reserve_fund-balance.cash_equivalents)/(indicator.eps*valuation.capitalization*10000)'
@@ -128,13 +128,16 @@ def batch(iterable, n=1):
     for ndx in range(0, l, n): # restart
         yield [ndx,min(ndx + n, l)]
         
-def save_dataset(dataset, filename):
+def save_dataset(dataset, filename, isDebug=True):
     dump(dataset, open(filename, 'wb'))
-    print('Saved: %s' % filename)
+    if isDebug:
+        print('Saved: %s' % filename) 
     
-def load_dataset(filename):
-    print('Loaded: %s' % filename)
+def load_dataset(filename, isDebug=True):
+    if isDebug:
+        print('Loaded: %s' % filename)
     return load(open(filename, 'rb'))
+        
 
 def save_dataset_json(dataset, filename):
     with open(filename, 'w', encoding="latin-1") as outfile: #'utf-8'
@@ -224,7 +227,7 @@ def encode_category(label_set): # this is assuming we have full label in the sam
     return y_code
 
 def normalize(df, norm_range=[0, 1], fields = ['open', 'close', 'high', 'low', 'money']):
-    scaler = MinMaxScaler(feature_range=norm_range)
+    scaler = MinMaxScaler(feature_range=norm_range) if norm_range is not None else StandardScaler()
     working_df = df.copy(deep=True)
     working_df[fields] = scaler.fit_transform(working_df[fields]) 
     

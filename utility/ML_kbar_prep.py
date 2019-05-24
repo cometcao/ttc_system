@@ -112,7 +112,7 @@ class MLKbarPrep(object):
         all_stock_df = []
         for stock in stocks:
             all_stock_df.append(self.grab_stock_raw_data(stock, end_date, file_dir))
-        save_dataset(all_stock_df, "{0}/last_stock_{1}.pkl".format(file_dir, stocks[-1]))
+        save_dataset(all_stock_df, "{0}/last_stock_{1}.pkl".format(file_dir, stocks[-1]), self.isDebug)
 
     def load_stock_raw_data(self, stock_df):
         self.stock_df_dict = stock_df
@@ -283,7 +283,6 @@ class MLKbarPrep(object):
         # sub level trunks pivots are used to training / prediction
         tb_trunk_df = trunk_df.dropna(subset=['tb'])
         tb_trunk_df = self.manual_wash(tb_trunk_df)
-        tb_trunk_df = tb_trunk_df[self.monitor_fields]
 
         if tb_trunk_df.isnull().values.any():
             print("NaN value found, ignore this data")
@@ -324,9 +323,7 @@ class MLKbarPrep(object):
         if self.manual_select:
             trunk_df = self.manual_select(trunk_df)
         else: # manual_wash
-#             trunk_df = self.manual_wash(trunk_df)  
             tb_trunk_df = self.manual_wash(tb_trunk_df)
-            tb_trunk_df = tb_trunk_df[self.monitor_fields]
         
         if tb_trunk_df.isnull().values.any():
             print("NaN value found, ignore this data")
@@ -337,8 +334,11 @@ class MLKbarPrep(object):
         if not tb_trunk_df.empty:                            
             # increase the 1, -1 label sample
             end_low_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'low'].idxmin()
-            end_high_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'high'].idxmax()                  
+            end_high_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'high'].idxmax()
 
+            sub_early_end_index_low = trunk_df.index[trunk_df.index.get_loc(end_low_idx) - pivot_sub_counting_range]
+            sub_early_end_index_high = trunk_df.index[trunk_df.index.get_loc(end_high_idx) - pivot_sub_counting_range]          
+            
             sub_end_pos_low = trunk_df.index.get_loc(end_low_idx) + pivot_sub_counting_range
             sub_end_pos_high = trunk_df.index.get_loc(end_high_idx) + pivot_sub_counting_range    
                         
@@ -366,13 +366,13 @@ class MLKbarPrep(object):
                     if label == TopBotType.bot.value:
                         if time_index < start_high_idx: #  and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.top.value
                             self.label_set.append(TopBotType.top.value)
-                        elif time_index >= end_low_idx:  #  and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.bot.value
+                        elif time_index >= end_low_idx:  # sub_early_end_index_low and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.bot.value
                             self.label_set.append(TopBotType.bot.value)
                         else:
 #                                 self.label_set.append(TopBotType.top.value) # change to binary classification
                             self.label_set.append(TopBotType.noTopBot.value)
                     elif label == TopBotType.top.value:
-                        if time_index >= end_high_idx: #  and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.top.value
+                        if time_index >= end_high_idx: # sub_early_end_index_high and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.top.value
                             self.label_set.append(TopBotType.top.value)
                         elif time_index < start_low_idx: #  and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.bot.value
                             self.label_set.append(TopBotType.bot.value)
@@ -402,7 +402,10 @@ class MLKbarPrep(object):
         return df
         
     def manual_wash(self, df):
-        df = df.drop(['new_index','tb'], 1, errors='ignore')
+        # use the new_index column as distance measure starting from the beginning of the sequence
+        df['new_index'] = df['new_index'] - df.iat[0,df.columns.get_loc('new_index')]
+        df = df.drop(['tb'], 1, errors='ignore')
+        df = df[self.monitor_fields]
         return df
         
     def normalize_old(self, df):
@@ -451,13 +454,13 @@ class MLDataPrep(object):
                          monitor_level=self.check_level,
                          monitor_fields=self.monitor_fields)
 
-        df_array = load_dataset(raw_file_path)
+        df_array = load_dataset(raw_file_path, self.isDebug)
         for stock_df in df_array:
             mlk.load_stock_raw_data(stock_df)
             dl, ll = mlk.prepare_training_data()
             print("retrieve_stocks_data_from_raw sub: {0}".format(len(dl)))
         if filename:
-            save_dataset((dl, ll), filename)
+            save_dataset((dl, ll), filename, self.isDebug)
         return (dl, ll)            
     
     def retrieve_stocks_data(self, stocks, period_count=60, filename=None, today_date=None):
@@ -520,13 +523,14 @@ class MLDataPrep(object):
         data_list = []
         label_list = []
         for file in filenames:
-            A, B = load_dataset(file)
+            A, B = load_dataset(file, self.isDebug)
             
             A_check = True
             i = 0
             for item in A:     
-                if (not ((np.logical_or(item>self.norm_range[0],np.isclose(item, self.norm_range[0]))).all() and 
-                         (np.logical_or(item<self.norm_range[1],np.isclose(item, self.norm_range[1]))).all())) or \
+                if (self.norm_range is not None and 
+                    (not ((np.logical_or(item>self.norm_range[0],np.isclose(item, self.norm_range[0]))).all() and 
+                         (np.logical_or(item<self.norm_range[1],np.isclose(item, self.norm_range[1]))).all()))) or \
                 np.isnan(item).any() or item.size == 0:
                     print(item)
                     print(A[i])
@@ -613,11 +617,12 @@ class MLDataPrep(object):
     def generate_from_file(self, filenames, padData=True, background_data_generation=False, batch_size=50, model_type='convlstm'):
         while True:
             for file in filenames:
-                A, B = load_dataset(file)
+                A, B = load_dataset(file, self.isDebug)
                 A_check = True
                 for item in A:     
-                    if (not ((np.logical_or(item>self.norm_range[0],np.isclose(item, self.norm_range[0]))).all() and 
-                             (np.logical_or(item<self.norm_range[1],np.isclose(item, self.norm_range[1]))).all())) or \
+                    if (self.norm_range is not None and 
+                        (not ((np.logical_or(item>self.norm_range[0],np.isclose(item, self.norm_range[0]))).all() and 
+                             (np.logical_or(item<self.norm_range[1],np.isclose(item, self.norm_range[1]))).all()))) or \
                     np.isnan(item).any() or \
                     item.size == 0: # min max value range or zscore
                         print(item)

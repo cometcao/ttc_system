@@ -7,11 +7,14 @@ from keras.models import load_model
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Flatten, TimeDistributed,LSTM, GRU, Bidirectional
 from keras.layers.normalization import BatchNormalization
-from keras.layers import Conv2D, MaxPooling2D, ConvLSTM2D, Conv1D, MaxPooling1D, Reshape, GlobalAveragePooling1D
+from keras.layers import Conv2D, MaxPooling2D, ConvLSTM2D, Conv1D, MaxPooling1D, Reshape, GlobalAveragePooling2D, GlobalMaxPooling2D
 from keras import optimizers
 from keras.callbacks import EarlyStopping
 from keras.callbacks import ModelCheckpoint
+from keras.callbacks import CSVLogger
+from keras.callbacks import Callback
 from utility.common_include import pad_each_training_array
+from utility.attentionWithContext import AttentionWithContext
 from keras.layers.pooling import GlobalMaxPool1D
 
 try:
@@ -60,30 +63,25 @@ class MLDataProcess(object):
 
         return (input_shape[1], input_shape[2])
     
-    def define_cnn_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000, patience=10):
-        input_shape = self.define_conv1d_shape(data_gen)
-
-        model = self.create_conv1d_model_arch(input_shape, num_classes)
-        
-        self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen, validation_steps, patience)    
     
-    
-    def create_conv1d_model_arch(self, input_shape, num_classes):
+    def create_conv1d_model_arch(self, input_shape, num_classes, hp):
         model = Sequential()
-        model.add(Conv1D(32, kernel_size=3, strides=2,
-                         activation='relu',
-                         input_shape=input_shape))
-        model.add(Conv1D(64, 3, strides=2, activation='relu'))
-        model.add(Conv1D(64, 3, strides=2, activation='relu'))
-        model.add(Conv1D(64, 3, strides=2, activation='relu'))
-        model.add(Conv1D(64, 3, strides=2, activation='relu'))
+        model.add(Conv1D(hp.hidden_neurons, kernel_size=3, strides=2,
+                         activation=hp.activation_func,
+                         input_shape=input_shape,
+                         kernel_initializer=hp.weight_init))
+        model.add(Conv1D(hp.hidden_neurons, 3, strides=2, activation=hp.activation_func))
+        if hp.network_topology == "deep": #add two extra layers
+            model.add(Conv1D(hp.hidden_neurons, 3, strides=2, activation=hp.activation_func))
+            model.add(Conv1D(hp.hidden_neurons, 3, strides=2, activation=hp.activation_func))
+        model.add(Conv1D(hp.hidden_neurons, 3, strides=2, activation=hp.activation_func))
         model.add(GlobalAveragePooling1D())
-        model.add(Dense(128, activation='relu'))
-        model.add(Dropout(0.5))
+        model.add(Dense(hp.hidden_neurons, activation=hp.activation_func))
+        model.add(Dropout(hp.drop_out_rate))
         model.add(Dense(num_classes, activation='softmax'))
         
         model.compile(loss=keras.losses.categorical_crossentropy,
-                      optimizer=keras.optimizers.Adam(),
+                      optimizer=hp.get_optimizer(),
                       metrics=['accuracy'])
                 
         print (model.summary())
@@ -116,47 +114,46 @@ class MLDataProcess(object):
         
         self.process_model(model, x_train, x_test, y_train, y_test, batch_size, epochs, verbose)
     
-    def create_conv_lstm_model_arch(self, input_shape, num_classes):
+    def create_conv_lstm_model_arch(self, input_shape, num_classes, hp):
         model = Sequential()
-        model.add(ConvLSTM2D(64, 
+        model.add(ConvLSTM2D(hp.hidden_neurons, 
+                             kernel_initializer = hp.weight_init,
                              kernel_size=(1, 1), 
                              data_format='channels_last',
                              input_shape=input_shape,
                              padding='valid',
                              return_sequences=True, 
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
+                             dropout = hp.drop_out_rate, 
+                             recurrent_dropout = hp.drop_out_rate,
+                             activation = hp.activation_func
                              ))
-        model.add(ConvLSTM2D(64, 
-                             kernel_size=(1, 1), 
-                             padding='valid',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))        
-        model.add(ConvLSTM2D(64, 
-                             kernel_size=(1, 1), 
-                             padding='valid',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))
-        model.add(ConvLSTM2D(64, 
-                             kernel_size=(1, 1), 
-                             padding='valid',
-                             return_sequences=True,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
-                             ))
-        model.add(ConvLSTM2D(64, 
+        if hp.network_topology == "deep":
+            model.add(ConvLSTM2D(hp.hidden_neurons, 
+                                 kernel_size=(1, 1), 
+                                 padding='valid',
+                                 return_sequences=True,
+                                 dropout = hp.drop_out_rate, 
+                                 recurrent_dropout = hp.drop_out_rate,
+                                 activation = hp.activation_func
+                                 ))        
+            model.add(ConvLSTM2D(hp.hidden_neurons, 
+                                 kernel_size=(1, 1), 
+                                 padding='valid',
+                                 return_sequences=True,
+                                 dropout = hp.drop_out_rate, 
+                                 recurrent_dropout = hp.drop_out_rate,
+                                 activation = hp.activation_func
+                                 ))
+        model.add(ConvLSTM2D(hp.hidden_neurons, 
                              kernel_size=(1, 1), 
                              padding='valid',
                              return_sequences=False,
-                             dropout = 0.2, 
-                             recurrent_dropout = 0.2
+                             dropout = hp.drop_out_rate, 
+                             recurrent_dropout = hp.drop_out_rate,
+                             activation = hp.activation_func
                              ))
-        model.add(GlobalAveragePooling2D())
-        model.add(Dropout(0.25))
+        model.add(GlobalMaxPooling2D())
+        model.add(Dropout(hp.drop_out_rate))
          
 #         model.add(Flatten())
 
@@ -165,7 +162,7 @@ class MLDataProcess(object):
         model.add(Dense(num_classes, activation='softmax')) # softmax sigmoid
         
         model.compile(loss=keras.losses.categorical_crossentropy, #categorical_crossentropy
-                      optimizer=keras.optimizers.Adadelta(), #Adadelta, Nadam, SGD, Adam
+                      optimizer=hp.get_optimizer(), #Adadelta, Nadam, SGD, Adam
                       metrics=['accuracy'])
         
         print (model.summary())
@@ -205,16 +202,9 @@ class MLDataProcess(object):
         data_gen.send((x_train, x_test))
         aa, bb, cc, dd = input_shape
         return aa, bb, cc, dd        
-    
-    def define_conv_lstm_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000, patience=10):
-        input_shape = self.define_conv_lstm_shape(data_gen)
-        
-        model = self.create_conv_lstm_model_arch(input_shape, num_classes)
-        
-        self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen, validation_steps, patience)
 
 
-    def create_lstm_model_arch(self, input_shape, num_classes):
+    def create_lstm_model_arch(self, input_shape, num_classes, hp):
         model = Sequential()    
 #         print(input_shape)
 #         model.add(Flatten(input_shape=input_shape))
@@ -237,28 +227,37 @@ class MLDataProcess(object):
         print (model.summary())
         return model         
 
-    def create_rnn_cnn_model_arch(self, input_shape, num_classes):
+    def create_rnn_cnn_model_arch(self, input_shape, num_classes, hp):
         model = Sequential()     
-        model.add(Conv1D(144,
+        model.add(Conv1D(hp.hidden_neurons,
                          kernel_size=3,
                          input_shape=input_shape,
                          padding='valid',
-                         activation='relu'))
+                         activation=hp.activation_func,
+                         kernel_initializer=hp.weight_init))
         model.add(MaxPooling1D(pool_size=3, strides=2))
-        model.add(Bidirectional(LSTM(model.output_shape[1], return_sequences=True, 
-                                     dropout = 0.2, 
-                                     recurrent_dropout = 0.2), merge_mode='concat'))
-        
-        model.add(TimeDistributed(Dense (num_classes, activation='relu')))
+
+        model.add(Bidirectional(LSTM(model.output_shape[2], return_sequences=True, 
+                                     activation = hp.activation_func,
+                                     dropout = hp.drop_out_rate, 
+                                     recurrent_dropout = hp.drop_out_rate), merge_mode='concat'))
+    
+        if hp.network_topology == 'deep':
+            model.add(Bidirectional(LSTM(model.output_shape[2], return_sequences=True, 
+                             activation = hp.activation_func,
+                             dropout = hp.drop_out_rate, 
+                             recurrent_dropout = hp.drop_out_rate), merge_mode='concat'))
+#         model.add(TimeDistributed(Dense (num_classes, activation=hp.activation_func)))
         if self.isDebug:
             print("layer input/output shape:{0}, {1}".format(model.input_shape, model.output_shape))
 #         model.add(GlobalMaxPool1D())
+        model.add(AttentionWithContext())
         model.add(Flatten())
 
-        model.add(Dense(num_classes, activation='softmax')) #softmax
+        model.add(Dense(num_classes, activation='softmax')) #softmax, sigmoid
          
         model.compile(loss=keras.losses.categorical_crossentropy, #categorical_crossentropy
-                      optimizer=keras.optimizers.Adam(), #Adadelta, Nadam, SGD, Adam
+                      optimizer=hp.get_optimizer(), #Adadelta, Nadam, SGD, Adam,SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
                       metrics=['accuracy'])
                 
         print (model.summary())
@@ -280,38 +279,57 @@ class MLDataProcess(object):
         aa, bb = input_shape
         return aa, bb
 
+    def define_cnn_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000, patience=10, hyper_param=None):
+        input_shape = self.define_conv1d_shape(data_gen)
 
-    def define_rnn_cnn_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000, patience=10):
+        model = self.create_conv1d_model_arch(input_shape, num_classes, hyper_param)
+        
+        return self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen, validation_steps, patience)    
+
+
+    def define_conv_lstm_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000, patience=10, hyper_param=None):
+        input_shape = self.define_conv_lstm_shape(data_gen)
+        
+        model = self.create_conv_lstm_model_arch(input_shape, num_classes, hyper_param)
+        
+        return self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen, validation_steps, patience)
+
+
+    def define_rnn_cnn_model_gen(self, data_gen, validation_gen, num_classes, batch_size = 50, steps = 10000,epochs = 5, verbose=0, validation_steps=1000, patience=10, hyper_param=None):
         input_shape = self.define_rnn_cnn_shape(data_gen)
         
-        model = self.create_rnn_cnn_model_arch(input_shape, num_classes)
-#         model = self.create_lstm_model_arch(input_shape, num_classes)
+        model = self.create_rnn_cnn_model_arch(input_shape, num_classes, hyper_param)
+#         model = self.create_lstm_model_arch(input_shape, num_classes, hyper_param)
         
-        self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen, validation_steps, patience)
+        return self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen, validation_steps, patience)
         
     def process_model_generator(self, model, generator, steps = 10000, epochs = 5, verbose = 2, validation_data=None, evaluate_generator=None, validation_steps=1000, patience=10):
         es = EarlyStopping(monitor='val_loss', mode='min', verbose=verbose, patience=patience)
-        mc_loss = ModelCheckpoint('best_model_loss.h5', monitor='val_loss', mode='min', verbose=verbose, save_best_only=True)
-        mc_acc = ModelCheckpoint('best_model_acc.h5', monitor='val_acc', mode='max', verbose=verbose, save_best_only=True)
+#         mc_loss = ModelCheckpoint('best_model_loss.h5', monitor='val_loss', mode='min', verbose=verbose, save_best_only=True)
+#         mc_acc = ModelCheckpoint('best_model_acc.h5', monitor='val_acc', mode='max', verbose=verbose, save_best_only=True)
+#         cvs_logger = CSVLogger('log/training.log', append=True)
+#         acclosshistory = LossAccHistory()
         
-        model.fit_generator(generator, 
+        record = model.fit_generator(generator, 
                             steps_per_epoch = steps, 
                             epochs = epochs, 
                             verbose = verbose,
                             validation_data = validation_data,
                             validation_steps = validation_steps, 
-                            callbacks=[es, mc_loss, mc_acc])
-        score = model.evaluate_generator(evaluate_generator, steps=validation_steps)
-        print('Test loss:', score[0])
-        print('Test accuracy:', score[1])        
-        
+                            callbacks=[es]) # , mc_loss, mc_acc
+#         score = model.evaluate_generator(evaluate_generator, steps=validation_steps)
+#         print('Test loss:', score[0])
+#         print('Test accuracy:', score[1])          
         self.model = model
-        if self.model_name:
-            if self.saveByte:
-                self.save_model_byte(self.model_name, self.model)
-            else:
-                model.save(self.model_name)
-            print("saved to file {0}".format(self.model_name))        
+        
+#         if self.model_name:
+#             if self.saveByte:
+#                 self.save_model_byte(self.model_name, self.model)
+#             else:
+#                 model.save(self.model_name)
+#             print("saved to file {0}".format(self.model_name))       
+            
+        return min(record.history['val_loss']), max(record.history['val_acc'])
         
     
     def load_model(self, model_name):
@@ -365,3 +383,46 @@ class MLDataProcess(object):
             print("Invalid model")
             return None            
 
+class LossAccHistory(Callback):
+    def on_train_begin(self, logs={}):
+        self.losses = []
+        self.accs = []
+
+    def on_batch_end(self, batch, logs={}):
+        self.losses.append(logs.get('val_loss'))
+        self.accs.append(logs.get('val_acc'))
+        
+    def get_highest_acc(self):
+        return max(self.accs)
+
+    def get_lowest_loss(self):
+        return min(self.losses)
+      
+    
+class HyperParam():
+    def __init__(self, nt, hn, wi, lr, m, af, dor, om):
+        self.network_topology = nt
+        self.hidden_neurons = hn
+        self.weight_init = wi
+        self.learning_rate = lr
+        self.momentum = m
+        self.activation_func = af
+        self.optimization_method = om
+        self.drop_out_rate = dor
+    
+    def get_optimizer(self):
+        if self.optimization_method == "SGD":
+            return keras.optimizers.SGD(lr = self.learning_rate, momentum=self.momentum)
+        elif self.optimization_method == "RMSprop":
+            return keras.optimizers.RMSprop(lr = self.learning_rate)
+        elif self.optimization_method == "Adagrad":
+            return keras.optimizers.Adagrad(lr = self.learning_rate)
+        elif self.optimization_method == "Adadelta":
+            return keras.optimizers.Adadelta(lr = self.learning_rate)
+        elif self.optimization_method == "Adam":
+            return keras.optimizers.Adam(lr = self.learning_rate)      
+        elif self.optimization_method == "Adamax":
+            return keras.optimizers.Adamax(lr = self.learning_rate)  
+        elif self.optimization_method == "Nadam":
+            return keras.optimizers.Nadam(lr = self.learning_rate)           
+        
