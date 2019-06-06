@@ -369,16 +369,18 @@ class MLKbarPrep(object):
                         elif time_index >= end_low_idx:  # sub_early_end_index_low and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.bot.value
                             self.label_set.append(TopBotType.bot.value)
                         else:
-#                                 self.label_set.append(TopBotType.top.value) # change to binary classification
-                            self.label_set.append(TopBotType.noTopBot.value)
+#                             self.label_set.append(TopBotType.top.value) # change to binary classification
+#                             self.label_set.append(TopBotType.noTopBot.value)
+                            self.label_set.append(TopBotType.top2bot.value)
                     elif label == TopBotType.top.value:
                         if time_index >= end_high_idx: # sub_early_end_index_high and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.top.value
                             self.label_set.append(TopBotType.top.value)
                         elif time_index < start_low_idx: #  and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.bot.value
                             self.label_set.append(TopBotType.bot.value)
                         else:
-#                                 self.label_set.append(TopBotType.bot.value) # change to binary classification
-                            self.label_set.append(TopBotType.noTopBot.value)
+#                             self.label_set.append(TopBotType.bot.value) # change to binary classification
+#                             self.label_set.append(TopBotType.noTopBot.value)
+                            self.label_set.append(TopBotType.bot2top.value)
                     else:
                         pass
 

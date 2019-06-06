@@ -248,12 +248,14 @@ class MLDataProcess(object):
                              dropout = hp.drop_out_rate, 
                              recurrent_dropout = hp.drop_out_rate), merge_mode='concat'))
 #         model.add(TimeDistributed(Dense (num_classes, activation=hp.activation_func)))
-        if self.isDebug:
-            print("layer input/output shape:{0}, {1}".format(model.input_shape, model.output_shape))
 #         model.add(GlobalMaxPool1D())
         model.add(AttentionWithContext())
+        if self.isDebug:
+            print("layer input/output shape:{0}, {1}".format(model.input_shape, model.output_shape))
         model.add(Flatten())
-
+#         model.add(Reshape((int(model.output_shape[1]*model.output_shape[2]/4), 4)))
+#         if self.isDebug:
+#             print("layer input/output shape:{0}, {1}".format(model.input_shape, model.output_shape))
         model.add(Dense(num_classes, activation='softmax')) #softmax, sigmoid
          
         model.compile(loss=keras.losses.categorical_crossentropy, #categorical_crossentropy
