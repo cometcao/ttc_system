@@ -80,6 +80,7 @@ class MLKbarPrep(object):
         return count if self.monitor_level[0] == level \
                         else count * 8 if self.monitor_level[0] == '1d' and level == '30m' \
                         else count * 16 if self.monitor_level[0] == '1d' and level == '15m' \
+                        else count * 48 if self.monitor_level[0] == '1d' and level == '5m' \
                         else count * 8 if self.monitor_level[0] == '5d' and level == '150m' \
                         else count * 40 if self.monitor_level[0] == '5d' and level == '30m' \
                         else count * 20 if self.monitor_level[0] == '5d' and level == '60m' \
