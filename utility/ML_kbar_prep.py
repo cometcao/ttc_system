@@ -166,10 +166,8 @@ class MLKbarPrep(object):
             self.stock_df_dict[level] = stock_df
     
     def prepare_df_data(self, stock_df, level):
-        # MACD # don't use it now
-#         stock_df.loc[:,'macd_raw'], _, stock_df.loc[:,'macd']  = talib.MACD(stock_df['close'].values)
-#         if fields is not None: # we need high low for BiaoLi process
-#             stock_df = stock_df[fields]
+        # MACD 
+        _, _, stock_df.loc[:,'macd']  = talib.MACD(stock_df['close'].values)            
         stock_df = stock_df.dropna() # make sure we don't get any nan data
         stock_df = self.prepare_biaoli(stock_df, level)
         return stock_df
@@ -202,7 +200,7 @@ class MLKbarPrep(object):
         high_df_tb = higher_df.dropna(subset=['new_index'])
         high_dates = high_df_tb.index
                 
-        for i in range(0, len(high_dates)-1):
+        for i in range(1, len(high_dates)-1): # skip the first one as we have NaN in MACD
             first_date = str(high_dates[i].date())
             second_date = str(high_dates[i+1].date())
 #             print("high date: {0}:{1}".format(first_date, second_date))
@@ -281,9 +279,9 @@ class MLKbarPrep(object):
                 print("Sub-level data length too short for prediction!")
             return False
         
-        # sub level trunks pivots are used to training / prediction
-        tb_trunk_df = trunk_df.dropna(subset=['tb'])
-        tb_trunk_df = self.manual_wash(tb_trunk_df)
+#         # sub level trunks pivots are used to training / prediction
+#         tb_trunk_df = trunk_df.dropna(subset=['tb'])
+        tb_trunk_df = self.manual_wash(trunk_df)
 
         if tb_trunk_df.isnull().values.any():
             print("NaN value found, ignore this data")
@@ -318,13 +316,13 @@ class MLKbarPrep(object):
             print("Sub-level data length too short!")
             return
 
-        # sub level trunks pivots are used to training / prediction
-        tb_trunk_df = trunk_df.dropna(subset=['tb'])
+#         # sub level trunks pivots are used to training / prediction
+#         tb_trunk_df = trunk_df.dropna(subset=['tb']) # done in manual_wash
        
         if self.manual_select:
             trunk_df = self.manual_select(trunk_df)
         else: # manual_wash
-            tb_trunk_df = self.manual_wash(tb_trunk_df)
+            tb_trunk_df = self.manual_wash(trunk_df)
         
         if tb_trunk_df.isnull().values.any():
             print("NaN value found, ignore this data")
@@ -403,9 +401,20 @@ class MLKbarPrep(object):
         return df
         
     def manual_wash(self, df):
+        # add accumulative macd value to the pivot
+        df['tb_pivot'] = df.apply(lambda row: 0 if pd.isnull(row['tb']) else 1, axis=1)
+        groups = df['tb_pivot'][::-1].cumsum()[::-1]
+        df['tb_pivot_acc'] = groups
+        df_macd_acc = df.groupby(groups)['macd'].agg([('macd_acc_negative' , lambda x : x[x < 0].sum()) , ('macd_acc_positive' , lambda x : x[x > 0].sum())])
+        df = pd.merge(df, df_macd_acc, left_on='tb_pivot_acc', right_index=True)
+        df['macd_acc'] = df.apply(lambda row: 0 if pd.isnull(row['tb']) else row['macd_acc_negative'] if row['tb'] == TopBotType.bot else row['macd_acc_positive'] if row['tb'] == TopBotType.top else 0, axis=1)
+        
+        # sub level trunks pivots are used to training / prediction
+        df = df.dropna(subset=['tb'])
+        
         # use the new_index column as distance measure starting from the beginning of the sequence
         df['new_index'] = df['new_index'] - df.iat[0,df.columns.get_loc('new_index')]
-        df = df.drop(['tb'], 1, errors='ignore')
+#         df = df.drop(['tb'], 1, errors='ignore')
         df = df[self.monitor_fields]
         return df
         
@@ -432,7 +441,7 @@ class MLDataPrep(object):
                  rq=False, ts=True, norm_range=[-1,1], isDebug=False,
                  detailed_bg=False, use_standardized_sub_df=True, 
                  monitor_level=['1d','30m'],
-                 monitor_fields=['open','close','high','low','money']):
+                 monitor_fields=['open','close','high','low','money','macd_acc']):
         self.isDebug = isDebug
         self.isAnal = isAnal
         self.detailed_bg = detailed_bg
