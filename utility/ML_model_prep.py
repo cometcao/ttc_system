@@ -305,7 +305,7 @@ class MLDataProcess(object):
         
     def process_model_generator(self, model, generator, steps = 10000, epochs = 5, verbose = 2, validation_data=None, evaluate_generator=None, validation_steps=1000, patience=10):
         es_loss = EarlyStopping(monitor='val_loss', mode='min', verbose=verbose, patience=patience, baseline=0.3)
-        es_acc = EarlyStopping(monitor='val_acc', mode='max', verbose=verbose, patience=patience, baseline=0.5)
+        es_acc = EarlyStopping(monitor='val_acc', mode='max', verbose=verbose, patience=int(patience/2), baseline=0.5)
 #         mc_loss = ModelCheckpoint('best_model_loss.h5', monitor='val_loss', mode='min', verbose=verbose, save_best_only=True)
 #         mc_acc = ModelCheckpoint('best_model_acc.h5', monitor='val_acc', mode='max', verbose=verbose, save_best_only=True)
 #         cvs_logger = CSVLogger('log/training.log', append=True)
