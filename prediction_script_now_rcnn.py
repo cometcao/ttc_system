@@ -6,7 +6,7 @@ from utility.ML_kbar_prep import *
 pd.options.mode.chained_assignment = None
 
 
-stocks = ['300072.XSHE', '002072.XSHE', "600375.XSHG", "000875.XSHE"]
+stocks = ["000016.XSHG"]
 
 
 # dates = get_trading_date_ts(count=15)
@@ -20,15 +20,15 @@ for day in dates[-1:]:
                            'extra_training':False, 
                            'extra_training_period':2500, # 1250
                            'save_new_model':False,
-                           'long_threthold':0.92, 
-                           'short_threthold':0.92, 
+                           'long_threthold':0.98, 
+                           'short_threthold':0.98, 
                            'isDebug':True, 
                            'use_latest_pivot':True, 
                            'use_standardized_sub_df':True,
                            'use_cnn_lstm':False,
                            'use_cnn':False,
                            'check_level':['5d','30m'],
-                           'sub_level_max_length':1200})
+                           'sub_level_max_length':268})
     gauge_results_day = mbc_day.gauge_stocks_analysis(stocks, today_date=day, check_status=True)
     print(gauge_results_day)
 
