@@ -6,13 +6,14 @@ from utility.ML_kbar_prep import *
 pd.options.mode.chained_assignment = None
 
 
+# , "000905.XSHG", "399333.XSHE", "399006.XSHE", "399330.XSHE"
 stocks = ["000016.XSHG"]
 
 
 # dates = get_trading_date_ts(count=15)
-dates = JqDataRetriever.get_trading_date(count=1)
-for day in dates[-1:]:
-    
+dates = JqDataRetriever.get_trading_date(count=60)
+for day in dates:
+    print(day)
     mbc_day = ML_biaoli_check({'rq':False, 
                            'ts':False,
                            'model_path':'./training_model/subprocessed/rnn_cnn_model_base_5d30m_tuned2.h5', 

@@ -304,7 +304,8 @@ class MLDataProcess(object):
         return self.process_model_generator(model, data_gen, steps, epochs, verbose, validation_gen, validation_gen, validation_steps, patience)
         
     def process_model_generator(self, model, generator, steps = 10000, epochs = 5, verbose = 2, validation_data=None, evaluate_generator=None, validation_steps=1000, patience=10):
-        es = EarlyStopping(monitor='val_loss', mode='min', verbose=verbose, patience=patience)
+        es_loss = EarlyStopping(monitor='val_loss', mode='min', verbose=verbose, patience=patience, baseline=0.3)
+        es_acc = EarlyStopping(monitor='val_acc', mode='max', verbose=verbose, patience=patience, baseline=0.5)
 #         mc_loss = ModelCheckpoint('best_model_loss.h5', monitor='val_loss', mode='min', verbose=verbose, save_best_only=True)
 #         mc_acc = ModelCheckpoint('best_model_acc.h5', monitor='val_acc', mode='max', verbose=verbose, save_best_only=True)
 #         cvs_logger = CSVLogger('log/training.log', append=True)
@@ -316,7 +317,7 @@ class MLDataProcess(object):
                             verbose = verbose,
                             validation_data = validation_data,
                             validation_steps = validation_steps, 
-                            callbacks=[es]) # , mc_loss, mc_acc
+                            callbacks=[es_loss, es_acc]) # , mc_loss, mc_acc
 #         score = model.evaluate_generator(evaluate_generator, steps=validation_steps)
 #         print('Test loss:', score[0])
 #         print('Test accuracy:', score[1])          
@@ -329,7 +330,7 @@ class MLDataProcess(object):
 #                 model.save(self.model_name)
 #             print("saved to file {0}".format(self.model_name))       
             
-        return min(record.history['val_loss']), max(record.history['val_acc'])
+        return min(record.history['val_loss']), max(record.history['val_acc']), min(record.history['loss']), max(record.history['acc'])
         
     
     def load_model(self, model_name):
@@ -412,7 +413,7 @@ class HyperParam():
     
     def get_optimizer(self):
         if self.optimization_method == "SGD":
-            return keras.optimizers.SGD(lr = self.learning_rate, momentum=self.momentum)
+            return keras.optimizers.SGD(lr = self.learning_rate, momentum=self.momentum, nesterov=False)
         elif self.optimization_method == "RMSprop":
             return keras.optimizers.RMSprop(lr = self.learning_rate)
         elif self.optimization_method == "Adagrad":
