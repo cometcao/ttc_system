@@ -200,7 +200,7 @@ class MLKbarPrep(object):
         high_df_tb = higher_df.dropna(subset=['new_index'])
         high_dates = high_df_tb.index
                 
-        for i in range(1, len(high_dates)-1): # skip the first one as we have NaN in MACD
+        for i in range(0, len(high_dates)-1): 
             first_date = str(high_dates[i].date())
             second_date = str(high_dates[i+1].date())
 #             print("high date: {0}:{1}".format(first_date, second_date))
