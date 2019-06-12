@@ -405,9 +405,12 @@ class MLKbarPrep(object):
         df['tb_pivot'] = df.apply(lambda row: 0 if pd.isnull(row['tb']) else 1, axis=1)
         groups = df['tb_pivot'][::-1].cumsum()[::-1]
         df['tb_pivot_acc'] = groups
+        
         df_macd_acc = df.groupby(groups)['macd'].agg([('macd_acc_negative' , lambda x : x[x < 0].sum()) , ('macd_acc_positive' , lambda x : x[x > 0].sum())])
         df = pd.merge(df, df_macd_acc, left_on='tb_pivot_acc', right_index=True)
         df['macd_acc'] = df.apply(lambda row: 0 if pd.isnull(row['tb']) else row['macd_acc_negative'] if row['tb'] == TopBotType.bot else row['macd_acc_positive'] if row['tb'] == TopBotType.top else 0, axis=1)
+        
+        df['money_acc'] = df.groupby(groups)['money'].transform('sum')
         
         # sub level trunks pivots are used to training / prediction
         df = df.dropna(subset=['tb'])
