@@ -166,6 +166,8 @@ class MLKbarPrep(object):
             self.stock_df_dict[level] = stock_df
     
     def prepare_df_data(self, stock_df, level):
+        # SMA
+        stock_df.loc[:,'sma'] = talib.SMA(stock_df['close'].values, 233) # use 233
         # MACD 
         _, _, stock_df.loc[:,'macd']  = talib.MACD(stock_df['close'].values)            
         stock_df = stock_df.dropna() # make sure we don't get any nan data
@@ -292,7 +294,23 @@ class MLKbarPrep(object):
             tb_trunk_df = normalize(tb_trunk_df, norm_range=self.norm_range, fields=self.monitor_fields)
         self.data_set.append(tb_trunk_df.values) #trunk_df
         return True
-        
+    
+    def findFirstPivotIndexByMA(self, df, start_index, topbot):
+        start_pos = df.index.get_loc(start_index)
+        while start_pos < df.shape[0]:
+            item = df.iloc[start_pos]
+            if topbot == TopBotType.bot:
+                if item.tb == TopBotType.bot:
+                    if item.low > item.sma:
+                        return df.index[start_pos]
+            if topbot == TopBotType.top:
+                if item.tb == TopBotType.top:
+                    if item.high < item.sma:
+                        return df.index[start_pos]
+            start_pos += 1
+        print("WE REACH THE END!!!!")
+        return df.index[-1]
+    
     def create_ml_data_set(self, trunk_df, label): 
         # at least 3 parts in the sub level
         if self.sub_level_min_count != 0: # we won't process sub level df
@@ -307,11 +325,16 @@ class MLKbarPrep(object):
             start_high_idx = trunk_df.ix[:pivot_sub_counting_range,'high'].idxmax()
             start_low_idx = trunk_df.ix[:pivot_sub_counting_range,'low'].idxmin()
             
-            sub_start_index_high = trunk_df.index[trunk_df.index.get_loc(start_high_idx) + pivot_sub_counting_range]
-            sub_start_index_low = trunk_df.index[trunk_df.index.get_loc(start_low_idx) + pivot_sub_counting_range]
-            
             trunk_df = trunk_df.loc[start_high_idx:,:] if label == TopBotType.bot.value else \
                     trunk_df.loc[start_low_idx:,:] if label == TopBotType.top.value else None
+                    
+            # first top pivot index with high below sma / first bot pivot index with low above sma
+            sub_start_index = self.findFirstPivotIndexByMA(trunk_df, 
+                                                           start_high_idx if label == TopBotType.bot.value else start_low_idx, 
+                                                           TopBotType.top if label == TopBotType.bot.value else TopBotType.bot)
+            
+#             sub_start_index_high = trunk_df.index[trunk_df.index.get_loc(start_high_idx) + pivot_sub_counting_range]
+#             sub_start_index_low = trunk_df.index[trunk_df.index.get_loc(start_low_idx) + pivot_sub_counting_range]
         else:
             print("Sub-level data length too short!")
             return
@@ -334,21 +357,26 @@ class MLKbarPrep(object):
             # increase the 1, -1 label sample
             end_low_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'low'].idxmin()
             end_high_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'high'].idxmax()
-
-            sub_early_end_index_low = trunk_df.index[trunk_df.index.get_loc(end_low_idx) - pivot_sub_counting_range]
-            sub_early_end_index_high = trunk_df.index[trunk_df.index.get_loc(end_high_idx) - pivot_sub_counting_range]          
             
-            sub_end_pos_low = trunk_df.index.get_loc(end_low_idx) + pivot_sub_counting_range
-            sub_end_pos_high = trunk_df.index.get_loc(end_high_idx) + pivot_sub_counting_range    
-                        
-            sub_end_index_low = trunk_df.index[sub_end_pos_low if sub_end_pos_low < len(trunk_df.index) else -1]
-            sub_end_index_high = trunk_df.index[sub_end_pos_high if sub_end_pos_high < len(trunk_df.index) else -1]             
+            sub_end_index = self.findFirstPivotIndexByMA(trunk_df,
+                                                         end_low_idx if label == TopBotType.bot.value else end_high_idx,
+                                                         TopBotType.bot if label == TopBotType.bot.value else TopBotType.top)
+
+#             sub_early_end_index_low = trunk_df.index[trunk_df.index.get_loc(end_low_idx) - pivot_sub_counting_range]
+#             sub_early_end_index_high = trunk_df.index[trunk_df.index.get_loc(end_high_idx) - pivot_sub_counting_range]          
+#             
+#             sub_end_pos_low = trunk_df.index.get_loc(end_low_idx) + pivot_sub_counting_range
+#             sub_end_pos_high = trunk_df.index.get_loc(end_high_idx) + pivot_sub_counting_range    
+#                         
+#             sub_end_index_low = trunk_df.index[sub_end_pos_low if sub_end_pos_low < len(trunk_df.index) else -1]
+#             sub_end_index_high = trunk_df.index[sub_end_pos_high if sub_end_pos_high < len(trunk_df.index) else -1]             
             
             for time_index in tb_trunk_df.index: #  tb_trunk_df.index
-                if label == TopBotType.bot.value and (time_index < sub_start_index_high or time_index > sub_end_index_low):
+                if time_index < sub_start_index:
                     continue
-                elif label == TopBotType.top.value and (time_index < sub_start_index_low or time_index > sub_end_index_high):
-                    continue
+                
+                if time_index >= sub_end_index:
+                    break
                 
                 sub_trunk_df = tb_trunk_df.loc[:time_index, :]
                             
@@ -368,16 +396,16 @@ class MLKbarPrep(object):
                         elif time_index >= end_low_idx:  # sub_early_end_index_low and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.bot.value
                             self.label_set.append(TopBotType.bot.value)
                         else:
-#                                 self.label_set.append(TopBotType.top.value) # change to binary classification
-                            self.label_set.append(TopBotType.noTopBot.value)
+                            self.label_set.append(TopBotType.top.value) # change to binary classification
+#                             self.label_set.append(TopBotType.noTopBot.value)
                     elif label == TopBotType.top.value:
                         if time_index >= end_high_idx: # sub_early_end_index_high and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.top.value
                             self.label_set.append(TopBotType.top.value)
                         elif time_index < start_low_idx: #  and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.bot.value
                             self.label_set.append(TopBotType.bot.value)
                         else:
-#                                 self.label_set.append(TopBotType.bot.value) # change to binary classification
-                            self.label_set.append(TopBotType.noTopBot.value)
+                            self.label_set.append(TopBotType.bot.value) # change to binary classification
+#                             self.label_set.append(TopBotType.noTopBot.value)
                     else:
                         pass
 

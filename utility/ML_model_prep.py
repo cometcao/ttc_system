@@ -247,11 +247,11 @@ class MLDataProcess(object):
                              activation = hp.activation_func,
                              dropout = hp.drop_out_rate, 
                              recurrent_dropout = hp.drop_out_rate), merge_mode='concat'))
+        model.add(AttentionWithContext())
 #         model.add(TimeDistributed(Dense (num_classes, activation=hp.activation_func)))
         if self.isDebug:
             print("layer input/output shape:{0}, {1}".format(model.input_shape, model.output_shape))
 #         model.add(GlobalMaxPool1D())
-        model.add(AttentionWithContext())
         model.add(Flatten())
 
         model.add(Dense(num_classes, activation='softmax')) #softmax, sigmoid
