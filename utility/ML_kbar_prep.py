@@ -445,7 +445,10 @@ class MLKbarPrep(object):
         
         # use the new_index column as distance measure starting from the beginning of the sequence
         df['new_index'] = df['new_index'] - df.iat[0,df.columns.get_loc('new_index')]
-#         df = df.drop(['tb'], 1, errors='ignore')
+        
+        # work out the effective high / low price for the data row
+        df['chan_price'] = df.apply(lambda row: row['high'] if row['tb'] == TopBotType.top else row['low'], axis=1)
+        
         df = df[self.monitor_fields]
         return df
         
