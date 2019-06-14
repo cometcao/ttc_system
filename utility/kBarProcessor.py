@@ -162,6 +162,9 @@ class KBarProcessor(object):
                 continue
             else:
                 return idx
+        if self.isdebug:
+            print("We don't have previous valid FenXing")
+        return None
         
 
     def defineBi(self):
@@ -205,8 +208,10 @@ class KBarProcessor(object):
                     else:
                         working_df.ix[previous_index,'tb'] = TopBotType.noTopBot
                         previous_index = self.trace_back_index(working_df, previous_index) #current_index # 
-#                         current_index = next_index
-#                         next_index += 1
+                        if previous_index is None:
+                            previous_index = current_index
+                            current_index = next_index
+                            next_index += 1
                     continue
                 elif currentFenXing.tb == TopBotType.bot:
                     if currentFenXing['low'] > previousFenXing['low']:
@@ -216,8 +221,10 @@ class KBarProcessor(object):
                     else:
                         working_df.ix[previous_index,'tb'] = TopBotType.noTopBot
                         previous_index = self.trace_back_index(working_df, previous_index) #current_index # 
-#                         current_index = next_index
-#                         next_index += 1
+                        if previous_index is None:
+                            previous_index = current_index
+                            current_index = next_index
+                            next_index += 1
                     continue
             elif currentFenXing.tb == nextFenXing.tb:
                 if currentFenXing.tb == TopBotType.top:
@@ -364,8 +371,10 @@ class KBarProcessor(object):
                     else:
                         working_df.ix[previous_index,'tb'] = TopBotType.noTopBot
                         previous_index = self.trace_back_index(working_df, previous_index) #current_index # 
-#                         current_index = next_index
-#                         next_index += 1
+                        if previous_index is None:
+                            previous_index = current_index
+                            current_index = next_index
+                            next_index += 1
                     continue
                 elif currentFenXing.tb == TopBotType.bot:
                     if currentFenXing['low'] > previousFenXing['low']:
@@ -375,8 +384,10 @@ class KBarProcessor(object):
                     else:
                         working_df.ix[previous_index,'tb'] = TopBotType.noTopBot
                         previous_index = self.trace_back_index(working_df, previous_index) #current_index # 
-#                         current_index = next_index
-#                         next_index += 1
+                        if previous_index is None:
+                            previous_index = current_index
+                            current_index = next_index
+                            next_index += 1
                     continue
             elif currentFenXing.tb == nextFenXing.tb:
                 if currentFenXing.tb == TopBotType.top:

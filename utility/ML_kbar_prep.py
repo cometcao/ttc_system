@@ -308,7 +308,8 @@ class MLKbarPrep(object):
                     if item.high < item.sma:
                         return df.index[start_pos]
             start_pos += 1
-        print("WE REACH THE END!!!!")
+        if self.isDebug:
+            print("WE REACH THE END!!!!")
         return df.index[-1]
     
     def create_ml_data_set(self, trunk_df, label): 
