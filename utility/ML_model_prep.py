@@ -254,12 +254,10 @@ class MLDataProcess(object):
 #         model.add(GlobalMaxPool1D())
         model.add(Flatten())
 
-        model.add(Dense(num_classes, activation='softmax')) #softmax, sigmoid
-         
-        model.compile(loss=keras.losses.categorical_crossentropy, #categorical_crossentropy
+        model.add(Dense(num_classes, activation='softmax' if num_classes>2 else 'sigmoid')) #softmax, sigmoid
+        model.compile(loss=keras.losses.categorical_crossentropy if num_classes>2 else keras.losses.binary_crossentropy,
                       optimizer=hp.get_optimizer(), #Adadelta, Nadam, SGD, Adam,SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
                       metrics=['accuracy'])
-                
         print (model.summary())
         return model     
 
