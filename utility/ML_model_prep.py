@@ -16,6 +16,7 @@ from keras.callbacks import Callback
 from utility.common_include import pad_each_training_array
 from utility.attentionWithContext import AttentionWithContext
 from keras.layers.pooling import GlobalMaxPool1D
+from sklearn.metrics import f1_score, precision_score, recall_score
 
 try:
     from rqdatac import *
@@ -247,8 +248,8 @@ class MLDataProcess(object):
 #                              activation = hp.activation_func,
 #                              dropout = hp.drop_out_rate, 
 #                              recurrent_dropout = hp.drop_out_rate), merge_mode='concat'))
-            model.add(AttentionWithContext())
             model.add(TimeDistributed(Dense (num_classes, activation=hp.activation_func)))
+            model.add(AttentionWithContext())
         if self.isDebug:
             print("layer input/output shape:{0}, {1}".format(model.input_shape, model.output_shape))
 #         model.add(GlobalMaxPool1D())
