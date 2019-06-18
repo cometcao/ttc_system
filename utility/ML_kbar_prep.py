@@ -206,10 +206,15 @@ class MLKbarPrep(object):
             first_date = str(high_dates[i].date())
             second_date = str(high_dates[i+1].date())
 #             print("high date: {0}:{1}".format(first_date, second_date))
+            # high level date is [) while using pd.loc func
+            # low level timestamp is [] while using pd.loc func
             if self.monitor_level[0] == '5d': # find the full range of date for the week
-                first_date = JqDataRetriever.get_trading_date(count=4, end_date=first_date)[0]
-                second_date = JqDataRetriever.get_trading_date(start_date=second_date)[4] # 5 days after the peak Week bar
-#                 print("high cutting date: {0}:{1}".format(first_date, second_date))
+                first_date = JqDataRetriever.get_trading_date(count=5, end_date=first_date)[0]
+                second_date = JqDataRetriever.get_trading_date(start_date=second_date)[6] # 5 days after the peak Week bar use 6 for timestamp slicing
+            elif self.monitor_level[0] == '1d':
+                first_date = JqDataRetriever.get_trading_date(count=2, end_date=first_date)[0]
+                second_date = JqDataRetriever.get_trading_date(start_date=second_date)[2] # 1 day after the peak day, use 2 for timestamp slicing
+#             print("high cutting date: {0}:{1}".format(first_date, second_date))
             trunk_lower_df = lower_df.loc[first_date:second_date,:]
             self.create_ml_data_set(trunk_lower_df, high_df_tb.ix[i+1, 'tb'].value)
         return self.data_set, self.label_set
@@ -226,14 +231,18 @@ class MLKbarPrep(object):
             try:
                 first_date = str(high_dates[i].date())
                 if self.monitor_level[0] == '5d': # find the full range of date for the week
-                    first_date = JqDataRetriever.get_trading_date(count=4, end_date=first_date)[0]
+                    first_date = JqDataRetriever.get_trading_date(count=5, end_date=first_date)[0]
+                elif self.monitor_level[0] == '1d':
+                    first_date = JqDataRetriever.get_trading_date(count=2, end_date=first_date)[0]
             except IndexError:
                 continue
             trunk_lower_df = None
             if i+1 < 0:
                 second_date = str(high_dates[i+1].date())
                 if self.monitor_level[0] == '5d': # find the full range of date for the week
-                    second_date = JqDataRetriever.get_trading_date(start_date=second_date)[4] # 5 days after the peak Week bar
+                    second_date = JqDataRetriever.get_trading_date(start_date=second_date)[6] # 5 days after the peak Week bar
+                elif self.monitor_level[0] == '1d':
+                    second_date = JqDataRetriever.get_trading_date(start_date=second_date)[2]
                 trunk_lower_df = lower_df.loc[first_date:second_date, :]
             else:
                 trunk_lower_df = lower_df.loc[first_date:, :]
@@ -244,7 +253,9 @@ class MLKbarPrep(object):
                 if not result:
                     first_date = str(high_dates[i-1].date())
                     if self.monitor_level[0] == '5d': # find the full range of date for the week
-                        first_date = JqDataRetriever.get_trading_date(count=4, end_date=first_date)[0]
+                        first_date = JqDataRetriever.get_trading_date(count=5, end_date=first_date)[0]
+                    elif self.monitor_level[0] == '1d':
+                        first_date = JqDataRetriever.get_trading_date(count=2, end_date=first_date)[0]                    
                     self.create_ml_data_set_predict(lower_df.loc[first_date:, :], high_df_tb.ix[i-1,'tb'].value)
         return self.data_set
                
@@ -258,7 +269,9 @@ class MLKbarPrep(object):
             try:
                 previous_date = str(high_dates[i].date())
                 if self.monitor_level[0] == '5d': # find the full range of date for the week
-                    previous_date = JqDataRetriever.get_trading_date(count=4, end_date=previous_date)[0]
+                    previous_date = JqDataRetriever.get_trading_date(count=5, end_date=previous_date)[0]
+                elif self.monitor_level[0] == '1d':
+                    previous_date = JqDataRetriever.get_trading_date(count=2, end_date=previous_date)[0]
             except IndexError:
                 continue
             trunk_df = lower_df.loc[previous_date:,:]
