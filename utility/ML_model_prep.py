@@ -337,7 +337,7 @@ class MLDataProcess(object):
             self.load_model_byte(model_name)
         else:
             if self.isAnal:
-                self.model = load_model(model_name)
+                self.model = load_model(model_name, custom_objects={'AttentionWithContext': AttentionWithContext})
             else:
                 copy(model_name)
                 self.model = load_model(hack_path)
