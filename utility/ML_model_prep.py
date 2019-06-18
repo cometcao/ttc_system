@@ -326,8 +326,8 @@ class MLDataProcess(object):
 #             if self.saveByte:
 #                 self.save_model_byte(self.model_name, self.model)
 #             else:
-#                 model.save_weights(self.model_name)
-#             print("saved weight to file {0}".format(self.model_name))
+#                 model.save(self.model_name)
+#             print("saved to file {0}".format(self.model_name))       
             
         return min(record.history['val_loss']), max(record.history['val_acc']), min(record.history['loss']), max(record.history['acc'])
         
