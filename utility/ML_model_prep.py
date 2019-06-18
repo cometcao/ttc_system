@@ -322,12 +322,12 @@ class MLDataProcess(object):
 #         print('Test accuracy:', score[1])          
         self.model = model
         
-        if self.model_name:
-            if self.saveByte:
-                self.save_model_byte(self.model_name, self.model)
-            else:
-                model.save_weights(self.model_name)
-            print("saved weight to file {0}".format(self.model_name))
+#         if self.model_name:
+#             if self.saveByte:
+#                 self.save_model_byte(self.model_name, self.model)
+#             else:
+#                 model.save_weights(self.model_name)
+#             print("saved weight to file {0}".format(self.model_name))
             
         return min(record.history['val_loss']), max(record.history['val_acc']), min(record.history['loss']), max(record.history['acc'])
         
@@ -337,7 +337,7 @@ class MLDataProcess(object):
             self.load_model_byte(model_name)
         else:
             if self.isAnal:
-                self.model = load_model(model_name)
+                self.model = load_model(model_name, custom_objects={'AttentionWithContext': AttentionWithContext})
             else:
                 copy(model_name)
                 self.model = load_model(hack_path)
