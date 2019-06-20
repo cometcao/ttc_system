@@ -166,10 +166,11 @@ class MLKbarPrep(object):
             self.stock_df_dict[level] = stock_df
     
     def prepare_df_data(self, stock_df, level):
-        # SMA
-        stock_df.loc[:,'sma'] = talib.SMA(stock_df['close'].values, 233) # use 233
-        # MACD 
-        _, _, stock_df.loc[:,'macd']  = talib.MACD(stock_df['close'].values)            
+        if level == self.monitor_level[1]: # only add the fields in sub level
+            # SMA
+            stock_df.loc[:,'sma'] = talib.SMA(stock_df['close'].values, 233) # use 233
+            # MACD 
+            _, _, stock_df.loc[:,'macd']  = talib.MACD(stock_df['close'].values)            
         stock_df = stock_df.dropna() # make sure we don't get any nan data
         stock_df = self.prepare_biaoli(stock_df, level)
         return stock_df
@@ -413,8 +414,8 @@ class MLKbarPrep(object):
                             self.label_set.append(TopBotType.bot.value)
                         else:
 #                             self.label_set.append(TopBotType.top2bot.value) # change to 4 categories
-                            self.label_set.append(TopBotType.top.value) # change to binary classification
-#                             self.label_set.append(TopBotType.noTopBot.value) # 3 categories
+#                             self.label_set.append(TopBotType.top.value) # change to binary classification
+                            self.label_set.append(TopBotType.noTopBot.value) # 3 categories
                     elif label == TopBotType.top.value:
                         if time_index >= end_high_idx: # sub_early_end_index_high and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.top.value
                             self.label_set.append(TopBotType.top.value)
@@ -424,8 +425,8 @@ class MLKbarPrep(object):
                                 print("SOMETHING IS WRONG")
                         else:
 #                             self.label_set.append(TopBotType.bot2top.value) # change to 4 categories
-                            self.label_set.append(TopBotType.bot.value) # change to binary classification
-#                             self.label_set.append(TopBotType.noTopBot.value)
+#                             self.label_set.append(TopBotType.bot.value) # change to binary classification
+                            self.label_set.append(TopBotType.noTopBot.value)
                     else:
                         pass
 
