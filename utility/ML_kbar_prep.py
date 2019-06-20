@@ -166,10 +166,11 @@ class MLKbarPrep(object):
             self.stock_df_dict[level] = stock_df
     
     def prepare_df_data(self, stock_df, level):
-        # SMA
-        stock_df.loc[:,'sma'] = talib.SMA(stock_df['close'].values, 233) # use 233
-        # MACD 
-        _, _, stock_df.loc[:,'macd']  = talib.MACD(stock_df['close'].values)            
+        if level == self.monitor_level[1]: # only add the fields in sub level
+            # SMA
+            stock_df.loc[:,'sma'] = talib.SMA(stock_df['close'].values, 233) # use 233
+            # MACD 
+            _, _, stock_df.loc[:,'macd']  = talib.MACD(stock_df['close'].values)            
         stock_df = stock_df.dropna() # make sure we don't get any nan data
         stock_df = self.prepare_biaoli(stock_df, level)
         return stock_df

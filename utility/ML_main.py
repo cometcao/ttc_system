@@ -222,6 +222,8 @@ class ML_biaoli_check(object):
         self.use_cnn_lstm = params.get('use_cnn_lstm', True)
         self.use_cnn = params.get('use_cnn', False)
         self.check_level = params.get('check_level', ['1d','30m'])
+        self.norm_range = params.get('norm_range', [-1,1])
+        self.monitor_fields = params.get('monitor_fields', ['chan_price', 'new_index', 'macd_acc', 'money_acc'])
         self.sub_level_max_length = params.get('sub_level_max_length', 1200)
         if not self.model and self.model_path is not None:
             self.prepare_model()
@@ -307,9 +309,11 @@ class ML_biaoli_check(object):
         mld = MLDataPrep(isAnal=self.isAnal, 
                          rq=self.rq, ts=self.ts, 
                          isDebug=self.isDebug, 
+                         norm_range = self.norm_range,
                          use_standardized_sub_df=self.use_standardized_sub_df, 
                          monitor_level=self.check_level,
-                         max_length_for_pad=self.sub_level_max_length)
+                         max_length_for_pad=self.sub_level_max_length, 
+                         monitor_fields=self.monitor_fields)
                          
         data_set, origin_data_length, past_pivot_status = mld.prepare_stock_data_predict(stock, today_date=today_date, period_count=100, predict_extra=self.use_cnn_lstm) # 500 sample period
         if data_set is None: # can't predict
@@ -322,7 +326,7 @@ class ML_biaoli_check(object):
                 x_train, x_test, _ = self.mdp.define_conv_lstm_dimension(x_train, x_test)
                 self.mdp.process_model(self.mdp.model, x_train, x_test, y_train, y_test, batch_size = 30,epochs =3)
             
-            unique_index = np.array([-1, 0, 1]) if self.use_cnn_lstm or self.use_cnn_lstm else np.array([-1,0, 1])
+            unique_index = np.array([-1, 0, 1]) # based on the num of categories
             
             if self.use_cnn_lstm:
                 return self.mdp.model_predict_cnn_lstm(data_set, unique_index), origin_data_length, past_pivot_status
