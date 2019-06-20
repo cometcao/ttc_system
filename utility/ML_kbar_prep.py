@@ -414,8 +414,8 @@ class MLKbarPrep(object):
                             self.label_set.append(TopBotType.bot.value)
                         else:
 #                             self.label_set.append(TopBotType.top2bot.value) # change to 4 categories
-                            self.label_set.append(TopBotType.top.value) # change to binary classification
-#                             self.label_set.append(TopBotType.noTopBot.value) # 3 categories
+#                             self.label_set.append(TopBotType.top.value) # change to binary classification
+                            self.label_set.append(TopBotType.noTopBot.value) # 3 categories
                     elif label == TopBotType.top.value:
                         if time_index >= end_high_idx: # sub_early_end_index_high and tb_trunk_df.loc[time_index, 'tb'].value == TopBotType.top.value
                             self.label_set.append(TopBotType.top.value)
@@ -425,8 +425,8 @@ class MLKbarPrep(object):
                                 print("SOMETHING IS WRONG")
                         else:
 #                             self.label_set.append(TopBotType.bot2top.value) # change to 4 categories
-                            self.label_set.append(TopBotType.bot.value) # change to binary classification
-#                             self.label_set.append(TopBotType.noTopBot.value)
+#                             self.label_set.append(TopBotType.bot.value) # change to binary classification
+                            self.label_set.append(TopBotType.noTopBot.value)
                     else:
                         pass
 
