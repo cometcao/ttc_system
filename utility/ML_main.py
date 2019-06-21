@@ -15,6 +15,7 @@ except:
 
 from utility.ML_kbar_prep import *
 from utility.ML_model_prep import *
+from unility.biaoLiStatus import TopBotType
 from os import listdir
 from os.path import isfile, join
 
@@ -247,7 +248,19 @@ class ML_biaoli_check(object):
     def gauge_short(self, stock, today_date=None):
         _, sp = self.gauge_stock(stock, today_date, check_status=True)
         return sp
-        
+
+    def gauge_stocks_analysis_status(self, stocks, today_date=None):
+        if not stocks:
+            return [] 
+        return [(stock, self.gauge_stock_status(stock, today_date, check_status=check_status)) for stock in stocks]
+    
+    def gauge_stock_status(self, stock, today_date=None):
+        # only return the predicted confident status 
+        (y_class, pred), origin_size, past_pivot_status = self.model_predict(stock, today_date)
+        confidence, _ = self.interpret(pred)# only use long confidence level check
+        return y_class[-1] if confidence[-1] else TopBotType.noTopBot.value
+
+      
     def gauge_stocks_analysis(self, stocks, today_date=None, check_status=False):
         if not stocks:
             return [] 
@@ -315,7 +328,7 @@ class ML_biaoli_check(object):
                          max_length_for_pad=self.sub_level_max_length, 
                          monitor_fields=self.monitor_fields)
                          
-        data_set, origin_data_length, past_pivot_status = mld.prepare_stock_data_predict(stock, today_date=today_date, period_count=100, predict_extra=self.use_cnn_lstm) # 500 sample period
+        data_set, origin_data_length, past_pivot_status = mld.prepare_stock_data_predict(stock, today_date=today_date, period_count=50 if self.check_level[0]=='5d' else 90, predict_extra=self.use_cnn_lstm) # 500 sample period
         if data_set is None: # can't predict
             print("None dataset, return [0],[[0]], 0")
             return (([0],[[0]]), 0)
