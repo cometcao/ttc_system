@@ -15,7 +15,7 @@ except:
 
 from utility.ML_kbar_prep import *
 from utility.ML_model_prep import *
-from unility.biaoLiStatus import TopBotType
+from utility.biaoLiStatus import TopBotType
 from os import listdir
 from os.path import isfile, join
 
@@ -252,12 +252,15 @@ class ML_biaoli_check(object):
     def gauge_stocks_analysis_status(self, stocks, today_date=None):
         if not stocks:
             return [] 
-        return [(stock, self.gauge_stock_status(stock, today_date, check_status=check_status)) for stock in stocks]
+        return [(stock, self.gauge_stock_status(stock, today_date)) for stock in stocks]
     
     def gauge_stock_status(self, stock, today_date=None):
         # only return the predicted confident status 
-        (y_class, pred), origin_size, past_pivot_status = self.model_predict(stock, today_date)
+        (y_class, pred), origin_size, past_pivot_status = self.model_predict(stock, today_date, categories=4)
         confidence, _ = self.interpret(pred)# only use long confidence level check
+        if self.isDebug:
+            print(y_class)
+            print(confidence)
         return y_class[-1] if confidence[-1] else TopBotType.noTopBot.value
 
       
@@ -267,7 +270,7 @@ class ML_biaoli_check(object):
         return [(stock, self.gauge_stock(stock, today_date, check_status=check_status)) for stock in stocks]
     
     def gauge_stock(self, stock, today_date=None, check_status=False):    
-        (y_class, pred), origin_size, past_pivot_status = self.model_predict(stock, today_date)
+        (y_class, pred), origin_size, past_pivot_status = self.model_predict(stock, today_date, categories=3)
         long_conf, short_conf = self.interpret(pred)    
         
         old_pred = pred[:origin_size]
@@ -316,7 +319,7 @@ class ML_biaoli_check(object):
             long_pred = short_pred = False
         return (long_pred, short_pred)
         
-    def model_predict(self, stock, today_date=None):
+    def model_predict(self, stock, today_date=None, categories=4):
         if self.isDebug:
             print("ML working on {0} at date {1}".format(stock, str(today_date) if today_date else ""))
         mld = MLDataPrep(isAnal=self.isAnal, 
@@ -339,7 +342,7 @@ class ML_biaoli_check(object):
                 x_train, x_test, _ = self.mdp.define_conv_lstm_dimension(x_train, x_test)
                 self.mdp.process_model(self.mdp.model, x_train, x_test, y_train, y_test, batch_size = 30,epochs =3)
             
-            unique_index = np.array([-1, 0, 1]) # based on the num of categories
+            unique_index = np.array([-1, -0.5, 0.5, 1]) if categories == 4 else np.array([-1, 0, 1]) if categories == 3 else np.array([-1, 1]) 
             
             if self.use_cnn_lstm:
                 return self.mdp.model_predict_cnn_lstm(data_set, unique_index), origin_data_length, past_pivot_status
