@@ -12,11 +12,19 @@ try:
 except Exception as e:
     print("{0} loading error {1}".format(filename, str(e)))
 
-stocks = ["000016.XSHG"]
+# stocks = ["000016.XSHG", "000300.XSHG", "399437.XSHE", "000134.XSHG", "000010.XSHG"]
+stocks = ["510180.XSHG", 
+          "510300.XSHG", 
+          "510050.XSHG", 
+          "512800.XSHG", 
+          "512000.XSHG", 
+          "510230.XSHG", 
+          "510310.XSHG", 
+          "518880.XSHG"]
 
 mbc_5d = ML_biaoli_check({'rq':False, 
                        'ts':False,
-                       'model_path':'./training_model/subprocessed/rnn_cnn_model_base_5d30m_tuned2.h5', 
+                       'model_path':'./training_model/weekly_model/3_classes/rnn_cnn_model_base_5d30m.h5', 
                        'isAnal':True,
                        'extra_training':False, 
                        'extra_training_period':250, # 1250
@@ -34,7 +42,7 @@ mbc_5d = ML_biaoli_check({'rq':False,
 
 mbc_1d = ML_biaoli_check({'rq':False, 
                        'ts':False,
-                       'model_path':'./training_model/subprocessed/rnn_cnn_model_base_1d5m.h5', 
+                       'model_path':'./training_model/subprocessed/3_classes/rnn_cnn_model_base_1d5m.h5', 
                        'isAnal':True,
                        'extra_training':False, 
                        'extra_training_period':250, # 1250
@@ -50,7 +58,7 @@ mbc_1d = ML_biaoli_check({'rq':False,
                        'monitor_fields':['chan_price', 'new_index', 'macd_acc', 'money_acc'],
                        'sub_level_max_length':321}) 
 
-dates = JqDataRetriever.get_trading_date(count=100)
+dates = JqDataRetriever.get_trading_date(count=300)
 for day in dates:
     if str(day) in result:
         print("{0} already done".format(str(day)))
