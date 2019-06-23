@@ -259,8 +259,8 @@ class ML_biaoli_check(object):
         (y_class, pred), origin_size, past_pivot_status = self.model_predict(stock, today_date, categories=4)
         confidence, _ = self.interpret(pred)# only use long confidence level check
         if self.isDebug:
+            print(pred)
             print(y_class)
-            print(confidence)
         return y_class[-1] if confidence[-1] else TopBotType.noTopBot.value
 
       
