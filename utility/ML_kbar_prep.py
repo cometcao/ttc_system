@@ -129,7 +129,7 @@ class MLKbarPrep(object):
                 stock_df = attribute_history(stock, local_count, level, fields = ['open', 'close','high','low','money'], skip_paused=True, df=True)  
             else:
                 latest_trading_day = str(end_date if end_date is not None else datetime.datetime.today().date())
-                latest_trading_day = latest_trading_day+" 14:30:00" if level == '30m' else latest_trading_day # hack for get_price to get latest 30m data
+                latest_trading_day = latest_trading_day+" 14:30:00" if level == '30m' or level == '5m' else latest_trading_day # hack for get_price to get latest 30m data
                 stock_df = SecurityDataManager.get_research_data_jq(stock, count=local_count, end_date=latest_trading_day, period=level, fields = ['open', 'close','high','low','money'], skip_suspended=True)          
             if stock_df.empty:
                 continue
