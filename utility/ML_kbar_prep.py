@@ -298,6 +298,8 @@ class MLKbarPrep(object):
 #         # sub level trunks pivots are used to training / prediction
 #         tb_trunk_df = trunk_df.dropna(subset=['tb'])
         tb_trunk_df = self.manual_wash(trunk_df)
+        if tb_trunk_df is None:
+            return False
 
         if tb_trunk_df.isnull().values.any():
             print("NaN value found, ignore this data")
@@ -353,14 +355,15 @@ class MLKbarPrep(object):
         else:
             print("Sub-level data length too short!")
             return
-
-#         # sub level trunks pivots are used to training / prediction
-#         tb_trunk_df = trunk_df.dropna(subset=['tb']) # done in manual_wash
        
-        if self.manual_select:
-            trunk_df = self.manual_select(trunk_df)
-        else: # manual_wash
-            tb_trunk_df = self.manual_wash(trunk_df)
+#         if self.manual_select:
+#             trunk_df = self.manual_select(trunk_df)
+#         else: # manual_wash
+
+        tb_trunk_df = self.manual_wash(trunk_df)
+        
+        if tb_trunk_df is None:
+            return
         
         if tb_trunk_df.isnull().values.any():
             print("NaN value found, ignore this data")
@@ -463,6 +466,11 @@ class MLKbarPrep(object):
         
         # sub level trunks pivots are used to training / prediction
         df = df.dropna(subset=['tb'])
+        
+        if df.empty:
+            if self.isDebug:
+                print("We have empty dataframe return None")
+            return None
         
         # use the new_index column as distance measure starting from the beginning of the sequence
         df['new_index'] = df['new_index'] - df.iat[0,df.columns.get_loc('new_index')]
