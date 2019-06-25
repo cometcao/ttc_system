@@ -328,89 +328,6 @@ class MLKbarPrep(object):
             print("WE REACH THE END!!!!")
         return df.index[-1]
     
-    def create_ml_data_set_dynamic(self, trunk_df, label):
-        # at least 3 parts in the sub level
-        if self.sub_level_min_count != 0: # we won't process sub level df
-            sub_level_count = len(trunk_df['tb']) - trunk_df['tb'].isnull().sum()
-            if sub_level_count < self.sub_level_min_count:
-                return
-                
-        pivot_sub_counting_range = self.workout_count_num(self.monitor_level[1], 1)        
-
-        if len(trunk_df) > pivot_sub_counting_range * 2:
-
-            start_high_idx = trunk_df.ix[:pivot_sub_counting_range,'high'].idxmax()
-            start_low_idx = trunk_df.ix[:pivot_sub_counting_range,'low'].idxmin()
-            
-            trunk_df = trunk_df.loc[start_high_idx:,:] if label == TopBotType.bot.value else \
-                    trunk_df.loc[start_low_idx:,:] if label == TopBotType.top.value else None
-                    
-            # first top pivot index with high below sma / first bot pivot index with low above sma
-            sub_start_index = self.findFirstPivotIndexByMA(trunk_df, 
-                                                           start_high_idx if label == TopBotType.bot.value else start_low_idx, 
-                                                           TopBotType.top if label == TopBotType.bot.value else TopBotType.bot)
-            
-            end_low_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'low'].idxmin()
-            end_high_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'high'].idxmax()
-            
-            sub_end_index = self.findFirstPivotIndexByMA(trunk_df,
-                                                         end_low_idx if label == TopBotType.bot.value else end_high_idx,
-                                                         TopBotType.bot if label == TopBotType.bot.value else TopBotType.top)
-            
-        else:
-            print("Sub-level data length too short!")
-            return
-
-
-        for time_index in trunk_df.index: #  tb_trunk_df.index
-            if time_index < sub_start_index:
-                continue
-            
-            if time_index >= sub_end_index:
-                break
-            
-            sub_trunk_df = trunk_df.loc[:time_index, :].copy(deep=True)
-            
-            kb = KBarProcessor(sub_trunk_df)
-            sub_trunk_df = kb.getIntegraded()            
-
-            sub_tb_trunk_df = self.manual_wash(sub_trunk_df)
-        
-            if sub_tb_trunk_df.isnull().values.any():
-                print("NaN value found, ignore this data")
-                print(sub_tb_trunk_df)
-                return
-
-            if self.isNormalize:
-                sub_tb_trunk_df = normalize(sub_tb_trunk_df, norm_range=self.norm_range, fields=self.monitor_fields)
-                
-            if not sub_tb_trunk_df.empty:
-                self.data_set.append(sub_tb_trunk_df.values)
-                if label == TopBotType.bot.value:
-                    if time_index < start_high_idx:
-                        self.label_set.append(TopBotType.top.value)
-                        if self.isDebug:
-                            print("SOMETHING IS WRONG")
-                    elif time_index >= end_low_idx:  
-                        self.label_set.append(TopBotType.bot.value)
-                    else:
-                        self.label_set.append(TopBotType.top2bot.value) # change to 4 categories
-#                             self.label_set.append(TopBotType.top.value) # change to binary classification
-#                             self.label_set.append(TopBotType.noTopBot.value) # 3 categories
-                elif label == TopBotType.top.value:
-                    if time_index >= end_high_idx: 
-                        self.label_set.append(TopBotType.top.value)
-                    elif time_index < start_low_idx:
-                        self.label_set.append(TopBotType.bot.value)
-                        if self.isDebug:
-                            print("SOMETHING IS WRONG")
-                    else:
-                        self.label_set.append(TopBotType.bot2top.value) # change to 4 categories
-#                             self.label_set.append(TopBotType.bot.value) # change to binary classification
-#                             self.label_set.append(TopBotType.noTopBot.value)
-                else:
-                    pass
-    
     def create_ml_data_set(self, trunk_df, label): 
         # at least 3 parts in the sub level
         if self.sub_level_min_count != 0: # we won't process sub level df
@@ -482,7 +399,6 @@ class MLKbarPrep(object):
                 sub_trunk_df = tb_trunk_df.loc[:time_index, :]
                             
                 if self.isNormalize:
-                    sub_trunk_df = sub_trunk_df.copy(deep=True)
                     sub_trunk_df = normalize(sub_trunk_df, norm_range=self.norm_range, fields=self.monitor_fields)
 
                 if sub_trunk_df.isnull().values.any():
@@ -856,5 +772,3 @@ class MLDataPrep(object):
 # 2017-11-16 14:30:00  -7.446391 -0.813237         57  TopBotType.top  
 # 2017-11-16 15:00:00  -7.247972 -0.491854        NaN             NaN  
 # 2017-11-17 10:00:00  -7.885018 -0.903120        NaN             NaN  
-
-
