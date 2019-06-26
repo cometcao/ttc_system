@@ -315,7 +315,7 @@ class MLKbarPrep(object):
         self.data_set.append(tb_trunk_df.values) #trunk_df
         return True
     
-    def findFirstPivotIndexByMA(self, df, start_index, topbot, last_index):
+    def findFirstPivotIndexByMA(self, df, start_index, topbot, last_index=None):
         if start_index > df.index[-1]:
             return last_index
         start_pos = df.index.get_loc(start_index)
@@ -361,7 +361,6 @@ class MLKbarPrep(object):
 
 
         for time_index in trunk_df.index[10:]: #  at least 10 bars to make 3 pivots
-            print(time_index)
             sub_trunk_df = trunk_df.loc[:time_index, :].copy(deep=True)
             kb = KBarProcessor(sub_trunk_df)
             sub_trunk_df = kb.getIntegraded()   
