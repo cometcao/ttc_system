@@ -216,7 +216,7 @@ class MLKbarPrep(object):
             elif self.monitor_level[0] == '1d':
                 first_date = JqDataRetriever.get_trading_date(count=2, end_date=first_date)[0]
                 second_date = JqDataRetriever.get_trading_date(start_date=second_date)[2] # 1 day after the peak day, use 2 for timestamp slicing
-            print("high cutting date: {0}:{1}".format(first_date, second_date))
+            print("high cutting date: {0}:{1}".format(first_date, second_date)) 
             trunk_lower_df = lower_df.loc[first_date:second_date,:]
             if self.use_standardized_sub_df:
                 self.create_ml_data_set(trunk_lower_df, high_df_tb.ix[i+1, 'tb'].value)
@@ -345,8 +345,8 @@ class MLKbarPrep(object):
 
         if len(trunk_df) > pivot_sub_counting_range * 2:
 
-            start_high_idx = trunk_df.ix[:pivot_sub_counting_range,'high'].idxmax()
-            start_low_idx = trunk_df.ix[:pivot_sub_counting_range,'low'].idxmin()
+            start_high_idx = trunk_df.ix[:pivot_sub_counting_range*2,'high'].idxmax()
+            start_low_idx = trunk_df.ix[:pivot_sub_counting_range*2,'low'].idxmin()
             
             trunk_df = trunk_df.loc[start_high_idx:,:] if label == TopBotType.bot.value else \
                     trunk_df.loc[start_low_idx:,:] if label == TopBotType.top.value else None
