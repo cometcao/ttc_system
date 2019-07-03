@@ -260,7 +260,7 @@ class MLDataProcess(object):
                       optimizer=hp.get_optimizer(), #Adadelta, Nadam, SGD, Adam,SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
                       metrics=['accuracy'])
         print (model.summary())
-        return model     
+        return model
 
     def define_rnn_cnn_shape(self, data_gen):
         x_train, x_test = next(data_gen)
@@ -322,12 +322,12 @@ class MLDataProcess(object):
 #         print('Test accuracy:', score[1])          
         self.model = model
         
-#         if self.model_name:
-#             if self.saveByte:
-#                 self.save_model_byte(self.model_name, self.model)
-#             else:
-#                 model.save(self.model_name)
-#             print("saved to file {0}".format(self.model_name))       
+        if self.model_name:
+            if self.saveByte:
+                self.save_model_byte(self.model_name, self.model)
+            else:
+                model.save(self.model_name)
+            print("saved to file {0}".format(self.model_name))
             
         return min(record.history['val_loss']), max(record.history['val_acc']), min(record.history['loss']), max(record.history['acc'])
         
