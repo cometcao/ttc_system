@@ -16,6 +16,7 @@ except:
 from utility.ML_kbar_prep import *
 from utility.ML_model_prep import *
 from utility.biaoLiStatus import TopBotType
+import sys
 from os import listdir
 from os.path import isfile, join
 
@@ -256,7 +257,15 @@ class ML_biaoli_check(object):
     
     def gauge_stock_status(self, stock, today_date=None):
         # only return the predicted confident status 
-        (y_class, pred), origin_size, past_pivot_status = self.model_predict(stock, today_date, categories=4)
+        try:
+            (y_class, pred), origin_size, past_pivot_status = self.model_predict(stock, today_date, categories=4)
+        except Exception as e:
+            if str(e) == "inputs are all NaN":
+                print(str(e))
+                return TopBotType.noTopBot.value
+            else:
+                tb = sys.exc_info()[2]
+                raise Exception('Unable to handle exception').with_traceback(tb)
         confidence, _ = self.interpret(pred)# only use long confidence level check
         if self.isDebug:
             print(pred)
