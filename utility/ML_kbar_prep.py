@@ -340,7 +340,7 @@ class MLKbarPrep(object):
         if self.isDebug:
             print("WE REACH THE END!!!!")
         return df.index[-1] if last_index is None else last_index
-    
+
     def create_ml_data_set_dynamic(self, trunk_df, label):
         # at least 3 parts in the sub level
         if self.sub_level_min_count != 0: # we won't process sub level df
@@ -359,8 +359,11 @@ class MLKbarPrep(object):
                     trunk_df.loc[start_low_idx:,:] if label == TopBotType.top.value else None
                     
             end_low_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'low'].idxmin()
-            end_high_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'high'].idxmax()
+            end_high_idx = trunk_df.ix[-pivot_sub_counting_range*2:,'high'].idxmax()         
             
+            # widen pivot
+            pre_end_low_idx = trunk_df.index[trunk_df.index.get_loc(end_low_idx) - pivot_sub_counting_range]
+            pre_end_high_idx = trunk_df.index[trunk_df.index.get_loc(end_high_idx) - pivot_sub_counting_range]
             
         else:
             print("Sub-level data length too short!")
@@ -413,14 +416,14 @@ class MLKbarPrep(object):
                         self.label_set.append(TopBotType.top.value)
                         if self.isDebug:
                             print("SOMETHING IS WRONG")
-                    elif time_index >= end_low_idx:  
+                    elif time_index >= pre_end_low_idx:  # pre_end_low_idx  end_low_idx
                         self.label_set.append(TopBotType.bot.value)
                     else:
                         self.label_set.append(TopBotType.top2bot.value) # change to 4 categories
 #                             self.label_set.append(TopBotType.top.value) # change to binary classification
 #                             self.label_set.append(TopBotType.noTopBot.value) # 3 categories
                 elif label == TopBotType.top.value:
-                    if time_index >= end_high_idx: 
+                    if time_index >= pre_end_high_idx:  # pre_end_high_idx  end_high_idx
                         self.label_set.append(TopBotType.top.value)
                     elif time_index < start_low_idx:
                         self.label_set.append(TopBotType.bot.value)
