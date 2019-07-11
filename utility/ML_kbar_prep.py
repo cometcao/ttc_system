@@ -337,8 +337,8 @@ class MLKbarPrep(object):
                     if item.high < item.sma:
                         return df.index[start_pos]
             start_pos += 1
-        if self.isDebug:
-            print("WE REACH THE END!!!!")
+#         if self.isDebug:
+#             print("WE REACH THE END!!!!")
         return df.index[-1] if last_index is None else last_index
 
     def create_ml_data_set_dynamic(self, trunk_df, label):
@@ -606,7 +606,8 @@ class MLKbarPrep(object):
                 col_std = working_df[column].std()
                 working_df[column] = (working_df[column] - col_mean) / col_std
         return working_df
-        
+
+
 class MLDataPrep(object):
     def __init__(self, isAnal=False, max_length_for_pad=fixed_length, 
                  rq=False, ts=True, norm_range=[-1,1], isDebug=False,
@@ -848,6 +849,214 @@ class MLDataPrep(object):
     def prepare_stock_data_gen(self, filenames, padData=True, background_data_generation=False, batch_size=50, model_type='convlstm'):
         return self.generate_from_file(filenames, padData=padData, background_data_generation=background_data_generation, batch_size=batch_size, model_type=model_type)
     
+    
+    
+class MLKbarPrepSeq(MLKbarPrep):
+    '''
+    Turn multiple level of kbar data into Chan Biaoli status,
+    return a dataframe with combined biaoli status
+    data types:
+    biaoli status, high/low prices, volume/turnover ratio/money, MACD, sequence index
+    '''
+
+    def __init__(self, count=100, 
+                 isAnal=False, 
+                 isNormalize=True, 
+                 manual_select=False, 
+                 norm_range=[-1, 1], 
+                 main_max_count=5,
+                 sub_max_count=fixed_length, 
+                 isDebug=False, 
+                 include_now=False, 
+                 sub_level_min_count = 0, 
+                 use_standardized_sub_df=False,
+                 monitor_level = ['5d', '30m'],
+                 monitor_fields = ['open','close','high','low','money']):
+        MLKbarPrep.__init__(self, count=count, 
+                 isAnal=isAnal, 
+                 isNormalize=isNormalize, 
+                 manual_select=manual_select, 
+                 norm_range=norm_range, 
+                 sub_max_count=sub_max_count, 
+                 isDebug=isDebug, 
+                 include_now=include_now, 
+                 sub_level_min_count = sub_level_min_count, 
+                 use_standardized_sub_df=use_standardized_sub_df,
+                 monitor_level = monitor_level,
+                 monitor_fields = monitor_fields)
+        self.main_max_count = main_max_count
+        
+#     def load_stock_raw_data(self, stock_df):
+#         self.stock_df_dict = stock_df
+#         for level in self.monitor_level:
+#             self.stock_df_dict[level] = self.prepare_df_data(self.stock_df_dict[level], level) 
+    
+    def prepare_df_data(self, stock_df, level):
+        if level == self.monitor_level[1]: # only add the fields in sub level
+            # SMA
+            sma_period = 233 if level == '30m' else 89 # 5m
+            stock_df.loc[:,'sma'] = talib.SMA(stock_df['close'].values, sma_period) # use 233
+        # MACD 
+        _, _, stock_df.loc[:,'macd']  = talib.MACD(stock_df['close'].values)
+        stock_df = stock_df.dropna() # make sure we don't get any nan data
+        stock_df = self.prepare_biaoli(stock_df, level)
+        return stock_df
+    
+    def prepare_biaoli(self, stock_df, level):
+        kb = KBarProcessor(stock_df)
+        stock_df = kb.getIntegraded()
+        return stock_df
+
+    def prepare_training_data(self):
+        if len(self.stock_df_dict) == 0:
+            return [], []
+        higher_df = self.stock_df_dict[self.monitor_level[0]]
+        lower_df = self.stock_df_dict[self.monitor_level[1]]
+        
+        high_df_tb = self.manual_wash(higher_df)
+        high_dates = high_df_tb.index
+        
+        low_df_tb = self.manual_wash(lower_df)
+        low_dates = low_df_tb.index
+        
+        # get the starting index for lower df to start rolling
+        first_high_pivot_date = high_dates[self.main_max_count-1]
+        first_low_pivot_date = low_dates[self.sub_max_count-1]
+        
+        trading_date_data = min(first_high_pivot_date, first_low_pivot_date)
+        first_pivot_date = max(first_high_pivot_date, first_low_pivot_date)
+        
+        trading_dates_from_first = JqDataRetriever.get_trading_date(start_date=trading_date_data)
+        sub_seq_start_index = trading_dates_from_first[trading_dates_from_first.index(first_pivot_date.date())+1]
+        start_pos = low_dates.get_loc(low_df_tb.loc[sub_seq_start_index:,:].index[0])
+        
+        for i in range(start_pos, len(low_dates)-self.sub_max_count): 
+            current_index = low_dates[i]
+            
+            ### get the higher sequence
+            high_seq = high_df_tb.loc[:current_index,:][-self.main_max_count:]
+            
+            ### get the lower sequence
+            low_seq = low_df_tb.loc[:current_index,:][-self.sub_max_count:]
+            
+            self.create_ml_data_set(high_seq, low_seq, trading_dates_from_first)
+        return self.data_set, self.label_set
+    
+    def manual_wash(self, df):
+        # add accumulative macd value to the pivot
+        df['tb_pivot'] = df.apply(lambda row: 0 if pd.isnull(row['tb']) else 1, axis=1)
+        groups = df['tb_pivot'][::-1].cumsum()[::-1]
+        df['tb_pivot_acc'] = groups
+        
+        df_macd_acc = df.groupby(groups)['macd'].agg([('macd_acc_negative' , lambda x : x[x < 0].sum()) , ('macd_acc_positive' , lambda x : x[x > 0].sum())])
+        df = pd.merge(df, df_macd_acc, left_on='tb_pivot_acc', right_index=True)
+        df['macd_acc'] = df.apply(lambda row: 0 if pd.isnull(row['tb']) else row['macd_acc_negative'] if row['tb'] == TopBotType.bot else row['macd_acc_positive'] if row['tb'] == TopBotType.top else 0, axis=1)
+        
+        df['money_acc'] = df.groupby(groups)['money'].transform('sum')
+        
+        # sub level trunks pivots are used to training / prediction
+        df = df.dropna(subset=['tb'])
+        
+        if df.empty:
+            if self.isDebug:
+                print("We have empty dataframe return None")
+            return None
+        
+#         # use the new_index column as distance measure starting from the beginning of the sequence
+#         # this isn't needed, normalize does the job
+#         df['new_index'] = df['new_index'] - df.iat[0,df.columns.get_loc('new_index')]
+        
+        # work out the effective high / low price for the data row
+        df['chan_price'] = df.apply(lambda row: row['high'] if row['tb'] == TopBotType.top else row['low'], axis=1)
+        return df
+    
+    def create_ml_data_set(self, high_seq, low_seq, trading_dates_from_first): 
+        
+        latest_high_label = high_seq.loc[high_seq.index[-1],'tb']
+        
+        label = self.findCurrentLabel(latest_high_label, high_seq, low_seq, trading_dates_from_first)        
+        
+        ### combine the sequence and make training data
+        high_seq = normalize(high_seq.copy(deep=True), norm_range=self.norm_range, fields=self.monitor_fields)
+        low_seq = normalize(low_seq.copy(deep=True), norm_range=self.norm_range, fields=self.monitor_fields)
+        
+        full_seq = pd.concat([high_seq, low_seq])[self.monitor_fields]
+        
+        self.data_set.append(full_seq.values)
+        self.label_set.append(label.value)
+    
+    def findCurrentLabel(self, latest_high_label, high_seq, low_seq, trading_dates_from_first):
+        last_low_item = low_seq.iloc[-1]
+        
+        sub_start_peak_idx = trading_dates_from_first[trading_dates_from_first.index((high_seq.index[-2]).date())+1]
+        
+        if latest_high_label == TopBotType.top:
+            sub_start_peak_idx = low_seq.loc[sub_start_peak_idx:,'high'].idxmax()
+        else:
+            sub_start_peak_idx = low_seq.loc[sub_start_peak_idx:,'low'].idxmin()
+        
+        cut_off_index = self.findFirstPivotIndexByMA(low_seq,
+                                         sub_start_peak_idx,
+                                         latest_high_label,
+                                         low_seq.index[-1])
+        
+        label = TopBotType.noTopBot
+        if latest_high_label == TopBotType.bot:
+            label = TopBotType.bot if low_seq.index[-1] <= cut_off_index else TopBotType.bot2top
+        elif latest_high_label == TopBotType.top:
+            label = TopBotType.top if low_seq.index[-1] <= cut_off_index else TopBotType.top2bot
+        else:
+            print("Fix the bug, we shouldn't be here")
+                
+        return label
+
+
+class MLDataPrepSeq(MLDataPrep):
+    '''
+    use two levels of data to generate fixed length of sequence for regression prediction:
+    high level length: 5
+    low level length: 233
+    two sets of data are concatenated
+    '''
+    
+    def __init__(self, isAnal=False, 
+                 max_length_for_pad_high = 5,
+                 max_length_for_pad=233, 
+                 norm_range=[-1,1], isDebug=False,
+                 use_standardized_sub_df=True, 
+                 monitor_level=['1d','30m'],
+                 monitor_fields=['open','close','high','low','money','macd_acc']):
+        MLDataPrep.__init__(self, isAnal=isAnal, 
+                            max_length_for_pad=max_length_for_pad, 
+                            norm_range=norm_range, 
+                            isDebug=isDebug, 
+                            use_standardized_sub_df=use_standardized_sub_df, 
+                            monitor_level=monitor_level, 
+                            monitor_fields=monitor_fields)
+        self.max_sequence_length_high = max_length_for_pad_high 
+        
+    def retrieve_stocks_data_from_raw(self, raw_file_path=None, filename=None):
+        mlk = MLKbarPrepSeq(isAnal=self.isAnal, 
+                         isNormalize=True, 
+                         main_max_count=self.max_sequence_length_high,
+                         sub_max_count=self.max_sequence_length, 
+                         norm_range=self.norm_range,
+                         isDebug=self.isDebug, 
+                         sub_level_min_count=0, 
+                         use_standardized_sub_df=self.use_standardized_sub_df, 
+                         monitor_level=self.check_level,
+                         monitor_fields=self.monitor_fields)
+        df_array = load_dataset(raw_file_path, self.isDebug)
+        for stock_df in df_array:
+            mlk.load_stock_raw_data(stock_df)
+            dl, ll = mlk.prepare_training_data()
+            print("retrieve_stocks_data_from_raw sub: {0}".format(len(dl)))
+        if filename:
+            save_dataset((dl, ll), filename, self.isDebug)
+        return (dl, ll)  
+        
+
+
 #                           open      close       high        low        money  \
 # 2017-11-14 10:00:00  3446.5500  3436.1400  3450.3400  3436.1400  60749246464   
 # 2017-11-14 10:30:00  3436.7000  3433.1700  3438.7300  3431.2600  39968927744   
