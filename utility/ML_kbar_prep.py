@@ -923,9 +923,10 @@ class MLKbarPrepSeq(MLKbarPrep):
         first_high_pivot_date = high_dates[self.main_max_count-1]
         first_low_pivot_date = low_dates[self.sub_max_count-1]
         
-        trading_date_data = min(first_high_pivot_date, first_low_pivot_date)
         first_pivot_date = max(first_high_pivot_date, first_low_pivot_date)
         
+        trading_date_data = min(high_dates[0], low_dates[0]) # cache all trading dates
+                
         trading_dates_from_first = JqDataRetriever.get_trading_date(start_date=trading_date_data)
         sub_seq_start_index = trading_dates_from_first[np.where(trading_dates_from_first==first_pivot_date.date())[0][0]+1]
         start_pos = low_dates.get_loc(low_df_tb.loc[sub_seq_start_index:,:].index[0])
@@ -980,7 +981,7 @@ class MLKbarPrepSeq(MLKbarPrep):
         high_seq = normalize(high_seq.copy(deep=True), norm_range=self.norm_range, fields=self.monitor_fields)
         low_seq = normalize(low_seq.copy(deep=True), norm_range=self.norm_range, fields=self.monitor_fields)
         
-        full_seq = pd.concat([high_seq, low_seq])[self.monitor_fields]
+        full_seq = pd.concat([high_seq, low_seq], sort=False)[self.monitor_fields]
         
         self.data_set.append(full_seq.values)
         self.label_set.append(label.value)
@@ -988,7 +989,9 @@ class MLKbarPrepSeq(MLKbarPrep):
     def findCurrentLabel(self, latest_high_label, high_seq, low_seq, trading_dates_from_first):
         last_low_item = low_seq.iloc[-1]
         
+        
         sub_start_peak_idx = trading_dates_from_first[np.where(trading_dates_from_first==((high_seq.index[-2]).date()))[0][0]+1]
+
         
         if latest_high_label == TopBotType.top:
             sub_start_peak_idx = low_seq.loc[sub_start_peak_idx:,'high'].idxmax()
