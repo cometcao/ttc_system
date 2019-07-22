@@ -203,9 +203,8 @@ class MLKbarPrep(object):
         lower_df = self.stock_df_dict[self.monitor_level[1]]
         high_df_tb = higher_df.dropna(subset=['new_index'])
         high_dates = high_df_tb.index
-        high_level_gap = 2 # starting from the index, concatenate the first two parts to form the data
                 
-        for i in range(high_level_gap, len(high_dates)-1): 
+        for i in range(0, len(high_dates)-1): 
             first_date = str(high_dates[i].date())
             second_date = str(high_dates[i+1].date())
 #             print("high date: {0}:{1}".format(first_date, second_date))
@@ -924,10 +923,9 @@ class MLKbarPrepSeq(MLKbarPrep):
         first_high_pivot_date = high_dates[self.main_max_count-1]
         first_low_pivot_date = low_dates[self.sub_max_count-1]
         
+        trading_date_data = min(first_high_pivot_date, first_low_pivot_date)
         first_pivot_date = max(first_high_pivot_date, first_low_pivot_date)
         
-        trading_date_data = min(high_dates[0], low_dates[0]) # cache all trading dates
-                
         trading_dates_from_first = JqDataRetriever.get_trading_date(start_date=trading_date_data)
         sub_seq_start_index = trading_dates_from_first[np.where(trading_dates_from_first==first_pivot_date.date())[0][0]+1]
         start_pos = low_dates.get_loc(low_df_tb.loc[sub_seq_start_index:,:].index[0])
@@ -982,26 +980,15 @@ class MLKbarPrepSeq(MLKbarPrep):
         high_seq = normalize(high_seq.copy(deep=True), norm_range=self.norm_range, fields=self.monitor_fields)
         low_seq = normalize(low_seq.copy(deep=True), norm_range=self.norm_range, fields=self.monitor_fields)
         
-        full_seq = pd.concat([high_seq, low_seq], sort=False)[self.monitor_fields]
+        full_seq = pd.concat([high_seq, low_seq])[self.monitor_fields]
         
         self.data_set.append(full_seq.values)
         self.label_set.append(label.value)
-        
-    def create_ml_data_set_predict(self, high_seq, low_seq):  
-        ### combine the sequence and make training data
-        high_seq = normalize(high_seq.copy(deep=True), norm_range=self.norm_range, fields=self.monitor_fields)
-        low_seq = normalize(low_seq.copy(deep=True), norm_range=self.norm_range, fields=self.monitor_fields)
-        
-        full_seq = pd.concat([high_seq, low_seq], sort=False)[self.monitor_fields]
-        
-        self.data_set.append(full_seq.values)
     
     def findCurrentLabel(self, latest_high_label, high_seq, low_seq, trading_dates_from_first):
         last_low_item = low_seq.iloc[-1]
         
-        
         sub_start_peak_idx = trading_dates_from_first[np.where(trading_dates_from_first==((high_seq.index[-2]).date()))[0][0]+1]
-
         
         if latest_high_label == TopBotType.top:
             sub_start_peak_idx = low_seq.loc[sub_start_peak_idx:,'high'].idxmax()
@@ -1025,21 +1012,47 @@ class MLKbarPrepSeq(MLKbarPrep):
 
     def prepare_predict_data(self):
         if len(self.stock_df_dict) == 0:
-            return [], []
+            return self.data_set   
         higher_df = self.stock_df_dict[self.monitor_level[0]]
         lower_df = self.stock_df_dict[self.monitor_level[1]]
-         
-        high_df_tb = self.manual_wash(higher_df)
+        pivot_sub_counting_range = self.workout_count_num(self.monitor_level[1], 1)
+        if higher_df.empty or lower_df.empty or len(lower_df) < pivot_sub_counting_range:
+            return self.data_set
+        high_df_tb = higher_df.dropna(subset=['new_index'])
+        high_dates = high_df_tb.index
+        if self.isDebug and self.num_of_debug_display != 0:
+            print(high_df_tb.tail(self.num_of_debug_display)[['tb', 'new_index']])
         
-        low_df_tb = self.manual_wash(lower_df)
-
-        ### get the higher sequence
-        high_seq = high_df_tb[-self.main_max_count:]
-         
-        ### get the lower sequence
-        low_seq = low_df_tb[-self.sub_max_count:]
-             
-        self.create_ml_data_set_predict(high_seq, low_seq)
+        for i in range(-self.num_of_debug_display-1, 0, 1): #-5
+            try:
+                first_date = str(high_dates[i].date())
+                if self.monitor_level[0] == '5d': # find the full range of date for the week
+                    first_date = JqDataRetriever.get_trading_date(count=5, end_date=first_date)[0]
+                elif self.monitor_level[0] == '1d':
+                    first_date = JqDataRetriever.get_trading_date(count=2, end_date=first_date)[0]
+            except IndexError:
+                continue
+            trunk_lower_df = None
+            if i+1 < 0:
+                second_date = str(high_dates[i+1].date())
+                if self.monitor_level[0] == '5d': # find the full range of date for the week
+                    second_date = JqDataRetriever.get_trading_date(start_date=second_date)[6] # 5 days after the peak Week bar
+                elif self.monitor_level[0] == '1d':
+                    second_date = JqDataRetriever.get_trading_date(start_date=second_date)[2]
+                trunk_lower_df = lower_df.loc[first_date:second_date, :]
+            else:
+                trunk_lower_df = lower_df.loc[first_date:, :]
+#             if self.isDebug:
+#                 print(trunk_lower_df.tail(self.num_of_debug_display))
+            result = self.create_ml_data_set_predict(trunk_lower_df, high_df_tb.ix[i,'tb'].value)
+            if result is not None:
+                if not result:
+                    first_date = str(high_dates[i-1].date())
+                    if self.monitor_level[0] == '5d': # find the full range of date for the week
+                        first_date = JqDataRetriever.get_trading_date(count=5, end_date=first_date)[0]
+                    elif self.monitor_level[0] == '1d':
+                        first_date = JqDataRetriever.get_trading_date(count=2, end_date=first_date)[0]                    
+                    self.create_ml_data_set_predict(lower_df.loc[first_date:, :], high_df_tb.ix[i-1,'tb'].value)
         return self.data_set
 
 class MLDataPrepSeq(MLDataPrep):
@@ -1085,23 +1098,7 @@ class MLDataPrepSeq(MLDataPrep):
         if filename:
             save_dataset((dl, ll), filename, self.isDebug)
         return (dl, ll)  
-
-    def prepare_stock_data_predict(self, stock, period_count=100, today_date=None, predict_extra=False):
-        mlk = MLKbarPrepSeq(isAnal=self.isAnal, 
-                         isNormalize=True, 
-                         main_max_count=self.max_sequence_length_high,
-                         sub_max_count=self.max_sequence_length, 
-                         norm_range=self.norm_range,
-                         isDebug=self.isDebug, 
-                         sub_level_min_count=0, 
-                         use_standardized_sub_df=self.use_standardized_sub_df, 
-                         monitor_level=self.check_level,
-                         monitor_fields=self.monitor_fields)
-        mlk.retrieve_stock_data(stock, today_date)
-        predict_dataset = mlk.prepare_predict_data()
-
-        predict_dataset = sequence.pad_sequences(predict_dataset, maxlen=None if self.max_sequence_length == 0 else self.max_sequence_length, padding='pre', truncating='pre')
-        return predict_dataset, mlk.get_high_df().ix[-1, 'tb'].value
+        
 
 
 #                           open      close       high        low        money  \
