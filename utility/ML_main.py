@@ -233,7 +233,7 @@ class ML_biaoli_check(object):
 
     
     def prepare_model(self):
-        self.mdp = MLDataProcess(model_name=self.model_path, isAnal=self.isAnal)
+        self.mdp = MLDataProcess(model_name=self.model_path, isAnal=self.isAnal, isDebug=self.isDebug)
         self.mdp.load_model(model_name=self.model_path)#
         if not self.save_new_model:
             self.mdp.model_name = None # we don't want to save the modified model
@@ -281,7 +281,7 @@ class ML_biaoli_check(object):
     def gauge_stock_seq(self, stock, today_date=None):
         # only return the predicted confident status 
         try:
-            (y_class, pred), past_pivot_status = self.model_predict_seq(stock, today_date, categories=4)
+            (y_class, pred) = self.model_predict_seq(stock, today_date, categories=4)
         except Exception as e:
             if str(e) == "inputs are all NaN":
                 print(str(e))
@@ -398,17 +398,17 @@ class ML_biaoli_check(object):
                         monitor_level=self.check_level,
                         monitor_fields=self.monitor_fields)
         
-        data_set, past_pivot_status = mld.prepare_stock_data_predict(stock, today_date=today_date, period_count=50 if self.check_level[0]=='5d' else 90) # 500 sample period
+        data_set = mld.prepare_stock_data_predict(stock, today_date=today_date, period_count=200 if self.check_level[0]=='5d' else 200) # 500 sample period
         if data_set is None or len(data_set) == 0: # can't predict
             print("None dataset, return default value")
-            return (([0],[[0]]), 0)
+            return ([0],[[0]])
         try:
             unique_index = np.array([-1, -0.5, 0.5, 1]) if categories == 4 else np.array([-1, 0, 1]) if categories == 3 else np.array([-1, 1]) 
             
-            return self.mdp.model_predict_rcnn(data_set, unique_index), past_pivot_status
+            return self.mdp.model_predict_rcnn(data_set, unique_index)
         except Exception as e: 
             print(e)
-            return (([0],[[0]]), 0)  
+            return ([0],[[0]]) 
         
     def interpret(self, pred):
         """Our confidence level must be above the threthold"""

@@ -979,20 +979,22 @@ class MLKbarPrepSeq(MLKbarPrep):
         label = self.findCurrentLabel(latest_high_label, high_seq, low_seq, trading_dates_from_first)        
         
         ### combine the sequence and make training data
-        high_seq = normalize(high_seq.copy(deep=True), norm_range=self.norm_range, fields=self.monitor_fields)
-        low_seq = normalize(low_seq.copy(deep=True), norm_range=self.norm_range, fields=self.monitor_fields)
+        high_seq = high_seq[self.monitor_fields]
+        low_seq = low_seq[self.monitor_fields]
         
-        full_seq = pd.concat([high_seq, low_seq], sort=False)[self.monitor_fields]
+        full_seq = pd.concat([high_seq, low_seq], sort=False)
+        full_seq = normalize(full_seq.copy(deep=True), norm_range=self.norm_range, fields=self.monitor_fields)
         
         self.data_set.append(full_seq.values)
         self.label_set.append(label.value)
         
     def create_ml_data_set_predict(self, high_seq, low_seq):  
         ### combine the sequence and make training data
-        high_seq = normalize(high_seq.copy(deep=True), norm_range=self.norm_range, fields=self.monitor_fields)
-        low_seq = normalize(low_seq.copy(deep=True), norm_range=self.norm_range, fields=self.monitor_fields)
+        high_seq = high_seq[self.monitor_fields]
+        low_seq = low_seq[self.monitor_fields]
         
-        full_seq = pd.concat([high_seq, low_seq], sort=False)[self.monitor_fields]
+        full_seq = pd.concat([high_seq, low_seq], sort=False)
+        full_seq = normalize(full_seq.copy(deep=True), norm_range=self.norm_range, fields=self.monitor_fields)
         
         self.data_set.append(full_seq.values)
     
@@ -1088,6 +1090,7 @@ class MLDataPrepSeq(MLDataPrep):
 
     def prepare_stock_data_predict(self, stock, period_count=100, today_date=None, predict_extra=False):
         mlk = MLKbarPrepSeq(isAnal=self.isAnal, 
+                         count=period_count,
                          isNormalize=True, 
                          main_max_count=self.max_sequence_length_high,
                          sub_max_count=self.max_sequence_length, 
@@ -1099,9 +1102,8 @@ class MLDataPrepSeq(MLDataPrep):
                          monitor_fields=self.monitor_fields)
         mlk.retrieve_stock_data(stock, today_date)
         predict_dataset = mlk.prepare_predict_data()
-
-        predict_dataset = sequence.pad_sequences(predict_dataset, maxlen=None if self.max_sequence_length == 0 else self.max_sequence_length, padding='pre', truncating='pre')
-        return predict_dataset, mlk.get_high_df().ix[-1, 'tb'].value
+        predict_dataset = np.array(predict_dataset)
+        return predict_dataset
 
 
 #                           open      close       high        low        money  \
