@@ -198,7 +198,7 @@ class MLKbarPrep(object):
     
     def prepare_training_data(self):
         if len(self.stock_df_dict) == 0:
-            return [], []
+            return self.data_set, self.label_set
         higher_df = self.stock_df_dict[self.monitor_level[0]]
         lower_df = self.stock_df_dict[self.monitor_level[1]]
         high_df_tb = higher_df.dropna(subset=['new_index'])
@@ -910,15 +910,24 @@ class MLKbarPrepSeq(MLKbarPrep):
 
     def prepare_training_data(self):
         if len(self.stock_df_dict) == 0:
-            return [], []
+            return self.data_set, self.label_set
         higher_df = self.stock_df_dict[self.monitor_level[0]]
         lower_df = self.stock_df_dict[self.monitor_level[1]]
+
+        if higher_df is None or higher_df.empty or lower_df is None or lower_df.empty:
+            return self.data_set, self.label_set
         
         high_df_tb = self.manual_wash(higher_df)
-        high_dates = high_df_tb.index
-        
         low_df_tb = self.manual_wash(lower_df)
+        
+        if high_df_tb is None or high_df_tb.empty or low_df_tb is None or low_df_tb.empty:
+            return self.data_set, self.label_set
+
+        high_dates = high_df_tb.index
         low_dates = low_df_tb.index
+        
+        if len(high_dates) < self.main_max_count or len(low_dates) < self.sub_max_count:
+            return self.data_set, self.label_set
         
         # get the starting index for lower df to start rolling
         first_high_pivot_date = high_dates[self.main_max_count-1]
