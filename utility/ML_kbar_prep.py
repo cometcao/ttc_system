@@ -203,9 +203,7 @@ class MLKbarPrep(object):
         lower_df = self.stock_df_dict[self.monitor_level[1]]
         high_df_tb = higher_df.dropna(subset=['new_index'])
         high_dates = high_df_tb.index
-        high_level_gap = 2 # starting from the index, concatenate the first two parts to form the data
-                
-        for i in range(high_level_gap, len(high_dates)-1): 
+        for i in range(0, len(high_dates)-1):
             first_date = str(high_dates[i].date())
             second_date = str(high_dates[i+1].date())
 #             print("high date: {0}:{1}".format(first_date, second_date))
@@ -1036,13 +1034,19 @@ class MLKbarPrepSeq(MLKbarPrep):
 
     def prepare_predict_data(self):
         if len(self.stock_df_dict) == 0:
-            return [], []
+            return []
         higher_df = self.stock_df_dict[self.monitor_level[0]]
         lower_df = self.stock_df_dict[self.monitor_level[1]]
+        
+        if higher_df is None or higher_df.empty or lower_df is None or lower_df.empty:
+            return []
          
         high_df_tb = self.manual_wash(higher_df)
         
         low_df_tb = self.manual_wash(lower_df)
+        
+        if high_df_tb is None or high_df_tb.empty or low_df_tb is None or low_df_tb.empty:
+            return []
 
         ### get the higher sequence
         high_seq = high_df_tb[-self.main_max_count:]
