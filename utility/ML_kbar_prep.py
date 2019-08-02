@@ -884,11 +884,6 @@ class MLKbarPrepSeq(MLKbarPrep):
                  monitor_level = monitor_level,
                  monitor_fields = monitor_fields)
         self.main_max_count = main_max_count
-        
-#     def load_stock_raw_data(self, stock_df):
-#         self.stock_df_dict = stock_df
-#         for level in self.monitor_level:
-#             self.stock_df_dict[level] = self.prepare_df_data(self.stock_df_dict[level], level) 
     
     def prepare_df_data(self, stock_df, level):
         if level == self.monitor_level[1]: # only add the fields in sub level
@@ -902,8 +897,11 @@ class MLKbarPrepSeq(MLKbarPrep):
         return stock_df
     
     def prepare_biaoli(self, stock_df, level):
-        kb = KBarProcessor(stock_df)
-        stock_df = kb.getIntegraded()
+        if self.use_standardized_sub_df:
+            kb = KBarProcessor(stock_df)
+            stock_df = kb.getIntegraded()
+        else:
+            pass
         return stock_df
 
     def prepare_training_data(self):
@@ -915,42 +913,74 @@ class MLKbarPrepSeq(MLKbarPrep):
         if higher_df is None or higher_df.empty or lower_df is None or lower_df.empty:
             return self.data_set, self.label_set
         
-        high_df_tb = self.manual_wash(higher_df)
-        low_df_tb = self.manual_wash(lower_df)
-        
-        if high_df_tb is None or high_df_tb.empty or low_df_tb is None or low_df_tb.empty:
-            return self.data_set, self.label_set
-
-        high_dates = high_df_tb.index
-        low_dates = low_df_tb.index
-        
-        if len(high_dates) < self.main_max_count or len(low_dates) < self.sub_max_count:
-            return self.data_set, self.label_set
-        
-        # get the starting index for lower df to start rolling
-        first_high_pivot_date = high_dates[self.main_max_count-1]
-        first_low_pivot_date = low_dates[self.sub_max_count-1]
-        
-        first_pivot_date = max(first_high_pivot_date, first_low_pivot_date)
-        
-        trading_date_data = min(high_dates[0], low_dates[0]) # cache all trading dates
-                
-        trading_dates_from_first = JqDataRetriever.get_trading_date(start_date=trading_date_data)
-        sub_seq_start_index = trading_dates_from_first[np.where(trading_dates_from_first==first_pivot_date.date())[0][0]+1]
-        start_pos = low_dates.get_loc(low_df_tb.loc[sub_seq_start_index:,:].index[0])
-        
-        for i in range(start_pos, len(low_dates)-self.sub_max_count): 
-            current_index = low_dates[i]
+        if self.use_standardized_sub_df:
+            high_df_tb = self.manual_wash(higher_df)
+            low_df_tb = self.manual_wash(lower_df)
             
-            ### get the higher sequence
-            high_seq = high_df_tb.loc[:current_index,:][-self.main_max_count:]
-            
-            ### get the lower sequence
-            low_seq = low_df_tb.loc[:current_index,:][-self.sub_max_count:]
-            
-            self.create_ml_data_set(high_seq, low_seq, trading_dates_from_first)
-        return self.data_set, self.label_set
+            if high_df_tb is None or high_df_tb.empty or low_df_tb is None or low_df_tb.empty:
+                return self.data_set, self.label_set
     
+            high_dates = high_df_tb.index
+            low_dates = low_df_tb.index
+            
+            if len(high_dates) < self.main_max_count or len(low_dates) < self.sub_max_count:
+                return self.data_set, self.label_set
+            
+            # get the starting index for lower df to start rolling
+            first_high_pivot_date = high_dates[self.main_max_count-1]
+            first_low_pivot_date = low_dates[self.sub_max_count-1]
+            
+            first_pivot_date = max(first_high_pivot_date, first_low_pivot_date)
+            
+            trading_date_data = min(high_dates[0], low_dates[0]) # cache all trading dates
+                    
+            trading_dates_from_first = JqDataRetriever.get_trading_date(start_date=trading_date_data)
+            sub_seq_start_index = trading_dates_from_first[np.where(trading_dates_from_first==first_pivot_date.date())[0][0]+1]
+            start_pos = low_dates.get_loc(low_df_tb.loc[sub_seq_start_index:,:].index[0])
+            
+            for i in range(start_pos, len(low_dates)): # -self.sub_max_count
+                current_index = low_dates[i]
+                
+                ### get the higher sequence
+                high_seq = high_df_tb.loc[:current_index,:][-self.main_max_count:]
+                
+                ### get the lower sequence
+                low_seq = low_df_tb.loc[:current_index,:][-self.sub_max_count:]
+                
+                self.create_ml_data_set(high_seq, low_seq, trading_dates_from_first)
+        else:
+            high_window_size = 200
+            low_window_size = self.workout_count_num(self.monitor_level[1], high_window_size)
+            
+            trading_dates_from_first = JqDataRetriever.get_trading_date(start_date=lower_df.index[low_window_size].date())
+            
+            for i in range(low_window_size, len(lower_df)):
+                current_index = lower_df.index[i]
+                sub_higher_df = higher_df.loc[:current_index,:]
+                sub_lower_df = lower_df.loc[:current_index,:]
+
+                kb = KBarProcessor(sub_higher_df)
+                sub_higher_df = kb.getMarkedBL()
+                
+                kb = KBarProcessor(sub_lower_df)
+                sub_lower_df = kb.getMarkedBL()           
+
+                high_df_tb = self.manual_wash(sub_higher_df)
+                low_df_tb = self.manual_wash(sub_lower_df)
+                
+                if high_df_tb is None or high_df_tb.empty or low_df_tb is None or low_df_tb.empty:
+                    return self.data_set, self.label_set
+                
+                ### get the higher sequence
+                high_seq = high_df_tb[-self.main_max_count:]
+                
+                ### get the lower sequence
+                low_seq = low_df_tb[-self.sub_max_count:]
+                
+                self.create_ml_data_set(high_seq, low_seq, trading_dates_from_first)
+        
+        return self.data_set, self.label_set
+            
     def manual_wash(self, df):
         # add accumulative macd value to the pivot
         df['tb_pivot'] = df.apply(lambda row: 0 if pd.isnull(row['tb']) else 1, axis=1)
@@ -995,7 +1025,7 @@ class MLKbarPrepSeq(MLKbarPrep):
         self.data_set.append(full_seq.values)
         self.label_set.append(label.value)
         
-    def create_ml_data_set_predict(self, high_seq, low_seq):  
+    def create_ml_data_set_predict(self, high_seq, low_seq):
         ### combine the sequence and make training data
         high_seq = high_seq[self.monitor_fields]
         low_seq = low_seq[self.monitor_fields]
