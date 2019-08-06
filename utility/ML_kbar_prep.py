@@ -1023,6 +1023,10 @@ class MLKbarPrepSeq(MLKbarPrep):
         full_seq = pd.concat([high_seq, low_seq], sort=False)
         full_seq = normalize(full_seq.copy(deep=True), norm_range=self.norm_range, fields=self.monitor_fields)
         
+        if len(self.data_set) > 0 and np.isclose(full_seq.values, self.data_set[-1]).all():
+#             print("duplicated")
+            return
+        
         self.data_set.append(full_seq.values)
         self.label_set.append(label.value)
         
@@ -1128,8 +1132,8 @@ class MLDataPrepSeq(MLDataPrep):
             mlk.load_stock_raw_data(stock_df)
             dl, ll = mlk.prepare_training_data()
             print("retrieve_stocks_data_from_raw sub: {0}".format(len(dl)))
-        if filename:
-            save_dataset((dl, ll), filename, self.isDebug)
+            if filename:
+                save_dataset((dl, ll), filename, self.isDebug)
         return (dl, ll)  
 
     def prepare_stock_data_predict(self, stock, period_count=100, today_date=None, predict_extra=False):
