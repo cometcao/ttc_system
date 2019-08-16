@@ -203,9 +203,7 @@ class MLKbarPrep(object):
         lower_df = self.stock_df_dict[self.monitor_level[1]]
         high_df_tb = higher_df.dropna(subset=['new_index'])
         high_dates = high_df_tb.index
-        high_level_gap = 2 # starting from the index, concatenate the first two parts to form the data
-                
-        for i in range(high_level_gap, len(high_dates)-1): 
+        for i in range(0, len(high_dates)-1):
             first_date = str(high_dates[i].date())
             second_date = str(high_dates[i+1].date())
 #             print("high date: {0}:{1}".format(first_date, second_date))
@@ -886,11 +884,6 @@ class MLKbarPrepSeq(MLKbarPrep):
                  monitor_level = monitor_level,
                  monitor_fields = monitor_fields)
         self.main_max_count = main_max_count
-        
-#     def load_stock_raw_data(self, stock_df):
-#         self.stock_df_dict = stock_df
-#         for level in self.monitor_level:
-#             self.stock_df_dict[level] = self.prepare_df_data(self.stock_df_dict[level], level) 
     
     def prepare_df_data(self, stock_df, level):
         if level == self.monitor_level[1]: # only add the fields in sub level
@@ -904,8 +897,11 @@ class MLKbarPrepSeq(MLKbarPrep):
         return stock_df
     
     def prepare_biaoli(self, stock_df, level):
-        kb = KBarProcessor(stock_df)
-        stock_df = kb.getIntegraded()
+        if self.use_standardized_sub_df:
+            kb = KBarProcessor(stock_df)
+            stock_df = kb.getIntegraded()
+        else:
+            pass
         return stock_df
 
     def prepare_training_data(self):
@@ -917,48 +913,87 @@ class MLKbarPrepSeq(MLKbarPrep):
         if higher_df is None or higher_df.empty or lower_df is None or lower_df.empty:
             return self.data_set, self.label_set
         
-        high_df_tb = self.manual_wash(higher_df)
-        low_df_tb = self.manual_wash(lower_df)
-        
-        if high_df_tb is None or high_df_tb.empty or low_df_tb is None or low_df_tb.empty:
-            return self.data_set, self.label_set
-
-        high_dates = high_df_tb.index
-        low_dates = low_df_tb.index
-        
-        if len(high_dates) < self.main_max_count or len(low_dates) < self.sub_max_count:
-            return self.data_set, self.label_set
-        
-        # get the starting index for lower df to start rolling
-        first_high_pivot_date = high_dates[self.main_max_count-1]
-        first_low_pivot_date = low_dates[self.sub_max_count-1]
-        
-        first_pivot_date = max(first_high_pivot_date, first_low_pivot_date)
-        
-        trading_date_data = min(high_dates[0], low_dates[0]) # cache all trading dates
-                
-        trading_dates_from_first = JqDataRetriever.get_trading_date(start_date=trading_date_data)
-        sub_seq_start_index = trading_dates_from_first[np.where(trading_dates_from_first==first_pivot_date.date())[0][0]+1]
-        start_pos = low_dates.get_loc(low_df_tb.loc[sub_seq_start_index:,:].index[0])
-        
-        for i in range(start_pos, len(low_dates)-self.sub_max_count): 
-            current_index = low_dates[i]
+        if self.use_standardized_sub_df:
+            high_df_tb = self.manual_wash(higher_df)
+            low_df_tb = self.manual_wash(lower_df)
             
-            ### get the higher sequence
-            high_seq = high_df_tb.loc[:current_index,:][-self.main_max_count:]
-            
-            if len(high_seq) != self.main_max_count: # make sure we have the correct lengh
-                continue
-            
-            ### get the lower sequence
-            low_seq = low_df_tb.loc[:current_index,:][-self.sub_max_count:]
-
-            if len(low_seq) != self.sub_max_count: # make sure we have the correct lengh
-                continue
-            
-            self.create_ml_data_set(high_seq, low_seq, trading_dates_from_first)
-        return self.data_set, self.label_set
+            if high_df_tb is None or high_df_tb.empty or low_df_tb is None or low_df_tb.empty:
+                return self.data_set, self.label_set
     
+            high_dates = high_df_tb.index
+            low_dates = low_df_tb.index
+            
+            if len(high_dates) < self.main_max_count or len(low_dates) < self.sub_max_count:
+                return self.data_set, self.label_set
+            
+            # get the starting index for lower df to start rolling
+            first_high_pivot_date = high_dates[self.main_max_count-1]
+            first_low_pivot_date = low_dates[self.sub_max_count-1]
+            
+            first_pivot_date = max(first_high_pivot_date, first_low_pivot_date)
+            
+            trading_date_data = min(high_dates[0], low_dates[0]) # cache all trading dates
+                    
+            trading_dates_from_first = JqDataRetriever.get_trading_date(start_date=trading_date_data)
+            sub_seq_start_index = trading_dates_from_first[np.where(trading_dates_from_first==first_pivot_date.date())[0][0]+1]
+            start_pos = low_dates.get_loc(low_df_tb.loc[sub_seq_start_index:,:].index[0])
+            
+            for i in range(start_pos, len(low_dates)): # -self.sub_max_count
+                current_index = low_dates[i]
+                
+                ### get the higher sequence
+                high_seq = high_df_tb.loc[:current_index,:][-self.main_max_count:]
+                
+                if len(high_seq) != self.main_max_count: # make sure we have the correct lengh
+                    continue
+            
+                ### get the lower sequence
+                low_seq = low_df_tb.loc[:current_index,:][-self.sub_max_count:]
+
+                if len(low_seq) != self.sub_max_count: # make sure we have the correct lengh
+                    continue                
+                
+                self.create_ml_data_set(high_seq, low_seq, trading_dates_from_first)
+        else:
+            high_window_size = 200
+            low_window_size = self.workout_count_num(self.monitor_level[1], high_window_size)
+            
+            trading_dates_from_first = JqDataRetriever.get_trading_date(start_date=higher_df.index[0].date())
+            
+            for i in range(low_window_size, len(lower_df)):
+                print("progress {0} @ {1}".format(i, len(lower_df)))
+                current_index = lower_df.index[i]
+                sub_higher_df = higher_df.loc[:current_index,:]
+                sub_lower_df = lower_df.loc[:current_index,:]
+
+                kb = KBarProcessor(sub_higher_df)
+                sub_higher_df = kb.getMarkedBL()
+                
+                kb = KBarProcessor(sub_lower_df)
+                sub_lower_df = kb.getMarkedBL()           
+
+                high_df_tb = self.manual_wash(sub_higher_df)
+                low_df_tb = self.manual_wash(sub_lower_df)
+                
+                if high_df_tb is None or high_df_tb.empty or low_df_tb is None or low_df_tb.empty:
+                    return self.data_set, self.label_set
+                
+                ### get the higher sequence
+                high_seq = high_df_tb[-self.main_max_count:]
+
+                if len(high_seq) != self.main_max_count: # make sure we have the correct lengh
+                    continue                
+
+                ### get the lower sequence
+                low_seq = low_df_tb[-self.sub_max_count:]
+                
+                if len(low_seq) != self.sub_max_count: # make sure we have the correct lengh
+                    continue                 
+                
+                self.create_ml_data_set(high_seq, low_seq, trading_dates_from_first)
+        
+        return self.data_set, self.label_set
+            
     def manual_wash(self, df):
         # add accumulative macd value to the pivot
         df['tb_pivot'] = df.apply(lambda row: 0 if pd.isnull(row['tb']) else 1, axis=1)
@@ -1000,10 +1035,14 @@ class MLKbarPrepSeq(MLKbarPrep):
         full_seq = pd.concat([high_seq, low_seq], sort=False)
         full_seq = normalize(full_seq.copy(deep=True), norm_range=self.norm_range, fields=self.monitor_fields)
         
+        if len(self.data_set) > 0 and np.isclose(full_seq.values, self.data_set[-1]).all():
+#             print("duplicated")
+            return
+        
         self.data_set.append(full_seq.values)
         self.label_set.append(label.value)
         
-    def create_ml_data_set_predict(self, high_seq, low_seq):  
+    def create_ml_data_set_predict(self, high_seq, low_seq):
         ### combine the sequence and make training data
         high_seq = high_seq[self.monitor_fields]
         low_seq = low_seq[self.monitor_fields]
@@ -1042,23 +1081,29 @@ class MLKbarPrepSeq(MLKbarPrep):
 
     def prepare_predict_data(self):
         if len(self.stock_df_dict) == 0:
-            return [], []
+            return []
         higher_df = self.stock_df_dict[self.monitor_level[0]]
         lower_df = self.stock_df_dict[self.monitor_level[1]]
+        
+        if higher_df is None or higher_df.empty or lower_df is None or lower_df.empty:
+            return []
          
         high_df_tb = self.manual_wash(higher_df)
         
         low_df_tb = self.manual_wash(lower_df)
+        
+        if high_df_tb is None or high_df_tb.empty or low_df_tb is None or low_df_tb.empty:
+            return []
 
         ### get the higher sequence
         high_seq = high_df_tb[-self.main_max_count:]
         if len(high_seq) != self.main_max_count: # make sure we have the correct lengh
-            continue
+            return []
          
         ### get the lower sequence
         low_seq = low_df_tb[-self.sub_max_count:]
         if len(low_seq) != self.sub_max_count: # make sure we have the correct lengh
-            continue
+            return []
              
         self.create_ml_data_set_predict(high_seq, low_seq)
         return self.data_set
@@ -1103,8 +1148,8 @@ class MLDataPrepSeq(MLDataPrep):
             mlk.load_stock_raw_data(stock_df)
             dl, ll = mlk.prepare_training_data()
             print("retrieve_stocks_data_from_raw sub: {0}".format(len(dl)))
-        if filename:
-            save_dataset((dl, ll), filename, self.isDebug)
+            if filename:
+                save_dataset((dl, ll), filename, self.isDebug)
         return (dl, ll)  
 
     def prepare_stock_data_predict(self, stock, period_count=100, today_date=None, predict_extra=False):
