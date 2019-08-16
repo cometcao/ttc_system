@@ -947,8 +947,14 @@ class MLKbarPrepSeq(MLKbarPrep):
             ### get the higher sequence
             high_seq = high_df_tb.loc[:current_index,:][-self.main_max_count:]
             
+            if len(high_seq) != self.main_max_count: # make sure we have the correct lengh
+                continue
+            
             ### get the lower sequence
             low_seq = low_df_tb.loc[:current_index,:][-self.sub_max_count:]
+
+            if len(low_seq) != self.sub_max_count: # make sure we have the correct lengh
+                continue
             
             self.create_ml_data_set(high_seq, low_seq, trading_dates_from_first)
         return self.data_set, self.label_set
@@ -1046,9 +1052,13 @@ class MLKbarPrepSeq(MLKbarPrep):
 
         ### get the higher sequence
         high_seq = high_df_tb[-self.main_max_count:]
+        if len(high_seq) != self.main_max_count: # make sure we have the correct lengh
+            continue
          
         ### get the lower sequence
         low_seq = low_df_tb[-self.sub_max_count:]
+        if len(low_seq) != self.sub_max_count: # make sure we have the correct lengh
+            continue
              
         self.create_ml_data_set_predict(high_seq, low_seq)
         return self.data_set
