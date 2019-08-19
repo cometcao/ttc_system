@@ -59,6 +59,7 @@ class MLKbarPrep(object):
                  use_standardized_sub_df=False,
                  monitor_level = ['1d', '30m'],
                  monitor_fields = ['open','close','high','low','money']):
+        self.label_record = {}
         self.isDebug = isDebug
         self.isAnal = isAnal
         self.count = count
@@ -84,6 +85,7 @@ class MLKbarPrep(object):
                         else count * 8 if self.monitor_level[0] == '5d' and level == '150m' \
                         else count * 40 if self.monitor_level[0] == '5d' and level == '30m' \
                         else count * 20 if self.monitor_level[0] == '5d' and level == '60m' \
+                        else count * 240 if self.monitor_level[0] == '5d' and level == '5m' \
                         else count * 8
 
     def get_high_df(self):
@@ -1026,7 +1028,11 @@ class MLKbarPrepSeq(MLKbarPrep):
         
         latest_high_label = high_seq.loc[high_seq.index[-1],'tb']
         
-        label = self.findCurrentLabel(latest_high_label, high_seq, low_seq, trading_dates_from_first)        
+        label = self.findCurrentLabel(latest_high_label, high_seq, low_seq, trading_dates_from_first)     
+        
+        #### DEBUG ###
+#         print("high date:{0}, low date:{1}, label:{2}".format(high_seq.index[-1], low_seq.index[-1], label))
+        ####   
         
         ### combine the sequence and make training data
         high_seq = high_seq[self.monitor_fields]
@@ -1053,11 +1059,7 @@ class MLKbarPrepSeq(MLKbarPrep):
         self.data_set.append(full_seq.values)
     
     def findCurrentLabel(self, latest_high_label, high_seq, low_seq, trading_dates_from_first):
-        last_low_item = low_seq.iloc[-1]
-        
-        
-        sub_start_peak_idx = trading_dates_from_first[np.where(trading_dates_from_first==((high_seq.index[-2]).date()))[0][0]+1]
-
+        sub_start_peak_idx = trading_dates_from_first[np.where(trading_dates_from_first==((high_seq.index[-1]).date()))[0][0]-4]
         
         if latest_high_label == TopBotType.top:
             sub_start_peak_idx = low_seq.loc[sub_start_peak_idx:,'high'].idxmax()
