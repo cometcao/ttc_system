@@ -941,7 +941,7 @@ class MLKbarPrepSeq(MLKbarPrep):
             sub_seq_start_index = trading_dates_from_first[np.where(trading_dates_from_first==first_pivot_date.date())[0][0]+1]
             start_pos = low_dates.get_loc(low_df_tb.loc[sub_seq_start_index:,:].index[0])
             
-            for i in range(start_pos, len(low_dates)-self.sub_max_count): # -self.sub_max_count to avoid latest label which aren't determined
+            for i in range(start_pos, len(low_dates)-30): # -self.sub_max_count to avoid latest label which aren't determined
                 current_index = low_dates[i]
                 
                 ### get the higher sequence
