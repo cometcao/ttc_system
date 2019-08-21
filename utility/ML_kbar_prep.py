@@ -888,13 +888,14 @@ class MLKbarPrepSeq(MLKbarPrep):
         self.main_max_count = main_max_count
     
     def prepare_df_data(self, stock_df, level):
+        stock_df = stock_df.dropna() # make sure we don't get any nan data
         if level == self.monitor_level[1]: # only add the fields in sub level
             # SMA
             sma_period = 233 if level == '30m' else 89 # 5m
             stock_df.loc[:,'sma'] = talib.SMA(stock_df['close'].values, sma_period) # use 233
         # MACD 
         _, _, stock_df.loc[:,'macd']  = talib.MACD(stock_df['close'].values)
-        stock_df = stock_df.dropna() # make sure we don't get any nan data
+        stock_df = stock_df.dropna() # make sure we don't generate any nan data
         stock_df = self.prepare_biaoli(stock_df, level)
         return stock_df
     
@@ -940,7 +941,7 @@ class MLKbarPrepSeq(MLKbarPrep):
             sub_seq_start_index = trading_dates_from_first[np.where(trading_dates_from_first==first_pivot_date.date())[0][0]+1]
             start_pos = low_dates.get_loc(low_df_tb.loc[sub_seq_start_index:,:].index[0])
             
-            for i in range(start_pos, len(low_dates)): # -self.sub_max_count
+            for i in range(start_pos, len(low_dates)-self.sub_max_count): # -self.sub_max_count to avoid latest label which aren't determined
                 current_index = low_dates[i]
                 
                 ### get the higher sequence
@@ -1150,8 +1151,8 @@ class MLDataPrepSeq(MLDataPrep):
             mlk.load_stock_raw_data(stock_df)
             dl, ll = mlk.prepare_training_data()
             print("retrieve_stocks_data_from_raw sub: {0}".format(len(dl)))
-            if filename:
-                save_dataset((dl, ll), filename, self.isDebug)
+        if filename:
+            save_dataset((dl, ll), filename, self.isDebug)
         return (dl, ll)  
 
     def prepare_stock_data_predict(self, stock, period_count=100, today_date=None, predict_extra=False):
