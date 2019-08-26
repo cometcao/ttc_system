@@ -888,15 +888,20 @@ class MLKbarPrepSeq(MLKbarPrep):
         self.main_max_count = main_max_count
     
     def prepare_df_data(self, stock_df, level):
-        stock_df = stock_df.dropna() # make sure we don't get any nan data
-        if level == self.monitor_level[1]: # only add the fields in sub level
-            # SMA
-            sma_period = 233 if level == '30m' else 89 # 5m
-            stock_df.loc[:,'sma'] = talib.SMA(stock_df['close'].values, sma_period) # use 233
-        # MACD 
-        _, _, stock_df.loc[:,'macd']  = talib.MACD(stock_df['close'].values)
-        stock_df = stock_df.dropna() # make sure we don't generate any nan data
-        stock_df = self.prepare_biaoli(stock_df, level)
+        try:
+            stock_df = stock_df.dropna() # make sure we don't get any nan data
+            if level == self.monitor_level[1]: # only add the fields in sub level
+                # SMA
+                sma_period = 233 if level == '30m' else 89 # 5m
+                stock_df.loc[:,'sma'] = talib.SMA(stock_df['close'].values, sma_period) # use 233
+                stock_df = stock_df.dropna()
+            # MACD 
+            _, _, stock_df.loc[:,'macd']  = talib.MACD(stock_df['close'].values)
+            stock_df = stock_df.dropna() # make sure we don't generate any nan data
+            stock_df = self.prepare_biaoli(stock_df, level)
+        except Exception as e:
+            print(str(e))
+            return None
         return stock_df
     
     def prepare_biaoli(self, stock_df, level):
@@ -920,14 +925,13 @@ class MLKbarPrepSeq(MLKbarPrep):
             high_df_tb = self.manual_wash(higher_df)
             low_df_tb = self.manual_wash(lower_df)
             
-            if high_df_tb is None or high_df_tb.empty or low_df_tb is None or low_df_tb.empty:
+            if high_df_tb is None or high_df_tb.empty or \
+                low_df_tb is None or low_df_tb.empty or \
+                len(high_df_tb) <= self.main_max_count or len(low_df_tb) <= self.sub_max_count:
                 return self.data_set, self.label_set
     
             high_dates = high_df_tb.index
             low_dates = low_df_tb.index
-            
-            if len(high_dates) < self.main_max_count or len(low_dates) < self.sub_max_count:
-                return self.data_set, self.label_set
             
             # get the starting index for lower df to start rolling
             first_high_pivot_date = high_dates[self.main_max_count-1]
@@ -939,7 +943,11 @@ class MLKbarPrepSeq(MLKbarPrep):
                     
             trading_dates_from_first = JqDataRetriever.get_trading_date(start_date=trading_date_data)
             sub_seq_start_index = trading_dates_from_first[np.where(trading_dates_from_first==first_pivot_date.date())[0][0]+1]
-            start_pos = low_dates.get_loc(low_df_tb.loc[sub_seq_start_index:,:].index[0])
+            try:
+                start_pos = low_dates.get_loc(low_df_tb.loc[sub_seq_start_index:,:].index[0])
+            except Exception as e:
+                print(str(e))
+                return self.data_set, self.label_set
             
             for i in range(start_pos, len(low_dates)-30): # -self.sub_max_count to avoid latest label which aren't determined
                 current_index = low_dates[i]
