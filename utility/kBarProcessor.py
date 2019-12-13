@@ -580,7 +580,6 @@ class KBarProcessor(object):
         if third.tb == TopBotType.top:    
             if third.chan_price > first.chan_price and\
              third.chan_price > fifith.chan_price and\
-#              forth.chan_price > second.chan_price and\ # NOT needed
              forth.chan_price > sixth.chan_price:
                 result_status = TopBotType.top
                 with_gap = first.chan_price < forth.chan_price
@@ -588,7 +587,6 @@ class KBarProcessor(object):
         elif third.tb == TopBotType.bot:
             if third.chan_price < first.chan_price and\
              third.chan_price < fifith.chan_price and\
-#              forth.chan_price < second.chan_price and\ # NOT needed
              forth.chan_price < sixth.chan_price:
                 result_status = TopBotType.bot
                 with_gap = first.chan_price > forth.chan_price
@@ -707,16 +705,15 @@ class KBarProcessor(object):
                     continue
                 else:
                     i = i + 2
-            i = i + 2
                 
     def direction_assert(self, firstElem, direction):
         # make sure we are checking the right elem by direction
-        if current_direction == TopBotType.top2bot:
+        if direction == TopBotType.top2bot:
             if firstElem.tb != TopBotType.bot:
-                continue
-        elif current_direction == TopBotType.bot2top:
+                print("We have invalid elem tb value: {0}".format(firstElem))
+        elif direction == TopBotType.bot2top:
             if firstElem.tb != TopBotType.top:
-                continue
+                print("We have invalid elem tb value: {0}".format(firstElem))
         else:
-            print("We have invalid elem tb value!!!!!")
+            print("We have invalid direction value!!!!!")
         
