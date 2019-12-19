@@ -650,11 +650,11 @@ class KBarProcessor(object):
             
             if with_gap: # check previous elements to see if the gap can be closed
                 previous_elem = self.get_previous_N_elem(first_loc, working_df, N=0, end_tb=first.tb, single_direction=True)
-                if len(previous_elem) >= 2:
+                if len(previous_elem) >= 1: # use single direction at least 1 needed
                     if first.tb == TopBotType.top:
-                        with_gap = working_df.iloc[previous_elem, working_df.columns.get_loc('chan_price')].max() >= forth.chan_price
+                        with_gap = working_df.iloc[previous_elem, working_df.columns.get_loc('chan_price')].max() < forth.chan_price
                     elif first.tb == TopBotType.bot:
-                        with_gap = working_df.iloc[previous_elem, working_df.columns.get_loc('chan_price')].min() <= forth.chan_price
+                        with_gap = working_df.iloc[previous_elem, working_df.columns.get_loc('chan_price')].min() > forth.chan_price
                     else:
                         assert first.tb == TopBotType.top or first.tb == TopBotType.bot, "Invalid first elem tb"
             # desired top/bot with direction
@@ -710,7 +710,7 @@ class KBarProcessor(object):
         '''
         i = loc-1
         result_locs = []
-        while i > 0:
+        while i >= 0:
             current_elem = working_df.iloc[i]
             if current_elem.tb != TopBotType.noTopBot:
                 if end_tb != TopBotType.noTopBot and current_elem.tb != end_tb and len(result_locs) == 0:
