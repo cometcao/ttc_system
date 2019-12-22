@@ -667,6 +667,69 @@ class KBarProcessor(object):
         
         return result_status, with_gap
     
+    def check_kline_gap_as_xd(self, next_valid_elems, working_df, direction):
+        first = working_df.iloc[next_valid_elems[0]]
+        third = working_df.iloc[next_valid_elems[2]]
+        forth = working_df.iloc[next_valid_elems[3]]
+        fifth = working_df.iloc[next_valid_elems[4]]
+        xd_gap_result = TopBotType.noTopBot
+        without_gap = False
+        with_xd_gap = False        
+
+        # check the corner case where xd can be formed by a single kline gap
+        # if kline gap (from original data) exists between second and third or third and forth
+        # A if so only check if third is top or bot comparing with first, 
+        # B with_gap is determined by checking if the kline gap range cover between first and forth
+        # C change direction as usual, and increment counter by 1 only
+          
+        if next_valid_elems[1] + 1 == next_valid_elems[2] and\
+        self.gap_exists_in_range(working_df.index[next_valid_elems[1]], working_df.index[next_valid_elems[2]]):
+            gap_ranges = self.gap_region(working_df.index[next_valid_elems[1]], working_df.index[next_valid_elems[2]])
+                
+            for (l,h) in gap_ranges:
+                # make sure first is within the gap_XD range
+                without_gap = (first.chan_price >= l and first.chan_price <= h) and (forth.chan_price >= l and forth.chan_price <= h)
+                if without_gap:
+                    with_xd_gap = True
+                    if self.isdebug:
+                        print("XD represented by kline gap, {0}, {1}".format(working_df.index[next_valid_elems[1]], working_df.index[next_valid_elems[2]]))
+          
+        if next_valid_elems[2] + 1 == next_valid_elems[3] and\
+        self.gap_exists_in_range(working_df.index[next_valid_elems[2]], working_df.index[next_valid_elems[3]]):
+            gap_ranges = self.gap_region(working_df.index[next_valid_elems[2]], working_df.index[next_valid_elems[3]])
+  
+            for (l,h) in gap_ranges:
+                # make sure first : second is within the gap_XD range
+                without_gap = first.chan_price >= l and first.chan_price <= h and forth.chan_price >= l and forth.chan_price <= h
+                if without_gap:
+                    with_xd_gap = True
+                    if self.isdebug:
+                        print("XD represented by kline gap, {0}, {1}".format(working_df.index[next_valid_elems[2]], working_df.index[next_valid_elems[3]]))
+        
+        if with_xd_gap:
+            if (direction == TopBotType.bot2top and third.chan_price > fifth.chan_price and third.chan_price > first.chan_price):
+                xd_gap_result = TopBotType.top
+            elif (direction == TopBotType.top2bot and third.chan_price < first.chan_price and third.chan_price < fifth.chan_price):
+                xd_gap_result = TopBotType.bot
+        
+        return xd_gap_result, not without_gap, with_xd_gap
+        ######################################################################################################
+    
+    def check_previous_elem_to_avoid_xd_gap(self, with_gap, next_valid_elems, working_df):
+        first = working_df.iloc[next_valid_elems[0]]
+        forth = working_df.iloc[next_valid_elems[3]]
+        previous_elem = self.get_previous_N_elem(next_valid_elems[0], working_df, N=0, end_tb=first.tb, single_direction=True)
+        if len(previous_elem) >= 1: # use single direction at least 1 needed
+            if first.tb == TopBotType.top:
+                with_gap = working_df.iloc[previous_elem, working_df.columns.get_loc('chan_price')].max() < forth.chan_price
+            elif first.tb == TopBotType.bot:
+                with_gap = working_df.iloc[previous_elem, working_df.columns.get_loc('chan_price')].min() > forth.chan_price
+            else:
+                assert first.tb == TopBotType.top or first.tb == TopBotType.bot, "Invalid first elem tb"
+        if not with_gap and self.isdebug:
+            print("elem gap unchecked at {0}".format(working_df.index[next_valid_elems[0]]))      
+        return with_gap  
+    
     def check_XD_topbot_directed(self, next_valid_elems, direction, working_df):
         first = working_df.iloc[next_valid_elems[0]]
         second = working_df.iloc[next_valid_elems[1]]
@@ -674,70 +737,21 @@ class KBarProcessor(object):
         forth = working_df.iloc[next_valid_elems[3]]
         fifth = working_df.iloc[next_valid_elems[4]]
         sixth = working_df.iloc[next_valid_elems[5]]     
+        with_xd_gap = False
         
-        without_gap = False
-        with_xd_gap = False        
-        xd_gap_result = TopBotType.noTopBot        
+        xd_gap_result, with_gap, with_xd_gap = self.check_kline_gap_as_xd(next_valid_elems, working_df, direction)
         
-        # check the corner case where xd can be formed by a single kline gap
-        # if kline gap (from original data) exists between second and third or third and forth
-        # A if so only check if third is top or bot comparing with first, 
-        # B with_gap is determined by checking if the kline gap range cover between first and forth
-        # C change direction as usual, and increment counter by 1 only
-        
-        if next_valid_elems[1] + 1 == next_valid_elems[2] and\
-        self.gap_exists_in_range(working_df.index[next_valid_elems[1]], working_df.index[next_valid_elems[2]]):
-            gap_ranges = self.gap_region(working_df.index[next_valid_elems[1]], working_df.index[next_valid_elems[2]])
-            
-            if (third.chan_price > first.chan_price and direction == TopBotType.bot2top):
-                xd_gap_result = TopBotType.top
-            elif (third.chan_price < first.chan_price and direction == TopBotType.top2bot):
-                xd_gap_result = TopBotType.bot
-
-            for (l,h) in gap_ranges:
-                # make sure first is within the gap_XD range
-                without_gap = (first.chan_price >= l and first.chan_price <= h) and (forth.chan_price >= l and forth.chan_price <= h)
-                if without_gap:
-                    with_xd_gap = True
-                    if self.isdebug:
-                        print("XD represented by kline gap, {0}, {1}, {2}".format(xd_gap_result, working_df.index[next_valid_elems[1]], working_df.index[next_valid_elems[2]]))
-                    return xd_gap_result, not without_gap, with_xd_gap
-        
-        if next_valid_elems[2] + 1 == next_valid_elems[3] and\
-        self.gap_exists_in_range(working_df.index[next_valid_elems[2]], working_df.index[next_valid_elems[3]]):
-            gap_ranges = self.gap_region(working_df.index[next_valid_elems[2]], working_df.index[next_valid_elems[3]])
-            
-            if (third.chan_price > first.chan_price and direction == TopBotType.bot2top):
-                xd_gap_result = TopBotType.top
-            elif (third.chan_price < first.chan_price and direction == TopBotType.top2bot):
-                xd_gap_result = TopBotType.bot
-
-            for (l,h) in gap_ranges:
-                # make sure first : second is within the gap_XD range
-                without_gap = first.chan_price >= l and first.chan_price <= h and forth.chan_price >= l and forth.chan_price <= h
-                if without_gap:
-                    with_xd_gap = True
-                    if self.isdebug:
-                        print("XD represented by kline gap, {0}, {1}, {2}".format(xd_gap_result, working_df.index[next_valid_elems[2]], working_df.index[next_valid_elems[3]]))
-                    return xd_gap_result, not without_gap, with_xd_gap        
-        ######################################################################################################
+        if with_xd_gap and xd_gap_result != TopBotType.noTopBot:
+            return xd_gap_result, with_gap, with_xd_gap
         
         result, with_gap = self.check_XD_topbot(first, second, third, forth, fifth, sixth)
         
         if (result == TopBotType.top and direction == TopBotType.bot2top) or (result == TopBotType.bot and direction == TopBotType.top2bot):
+            if self.isdebug:
+                print("XD tb found to be {0}".format(result))
             
             if with_gap: # check previous elements to see if the gap can be closed TESTED!
-                previous_elem = self.get_previous_N_elem(next_valid_elems[0], working_df, N=0, end_tb=first.tb, single_direction=True)
-                if len(previous_elem) >= 1: # use single direction at least 1 needed
-                    if first.tb == TopBotType.top:
-                        with_gap = working_df.iloc[previous_elem, working_df.columns.get_loc('chan_price')].max() < forth.chan_price
-                    elif first.tb == TopBotType.bot:
-                        with_gap = working_df.iloc[previous_elem, working_df.columns.get_loc('chan_price')].min() > forth.chan_price
-                    else:
-                        assert first.tb == TopBotType.top or first.tb == TopBotType.bot, "Invalid first elem tb"
-                if not with_gap and self.isdebug:
-                    print("elem gap unchecked at {0}".format(working_df.index[next_valid_elems[0]]))
-            # desired top/bot with direction
+                with_gap = self.check_previous_elem_to_avoid_xd_gap(with_gap, next_valid_elems, working_df)
             return result, with_gap, with_xd_gap
         else:
             return TopBotType.noTopBot, with_gap, with_xd_gap
