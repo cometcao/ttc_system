@@ -219,7 +219,10 @@ class KBarProcessor(object):
         gap_working_df.loc[:,'low_s1'] = gap_working_df['low'].shift(1)
         gap_working_df.drop(gap_working_df.index[0], inplace=True)
                 
-        gap_working_df['gap_range'] = gap_working_df.apply(lambda row: (row['high_s1'], row['low']) if (row['low'] - row['high_s1']) > 0 else (row['high'], row['low_s1']) if (row['high'] - row['low_s1']) < 0 else np.nan, axis=1)
+        # the gap take the pure range between two klines including the range of kline themself, 
+        # so instead of pure gap of high_s1, low / high, low_s1
+        # we have                   low_s1, high / high_s1, low
+        gap_working_df['gap_range'] = gap_working_df.apply(lambda row: (row['low_s1'], row['high']) if (row['low'] - row['high_s1']) > 0 else (row['low'], row['high_s1']) if (row['high'] - row['low_s1']) < 0 else np.nan, axis=1)
         return gap_working_df[gap_working_df['gap'] == True]['gap_range'].tolist()
         
 
@@ -574,14 +577,29 @@ class KBarProcessor(object):
         elif direction == TopBotType.bot2top:
             assert firstElem.tb == thirdElem.tb == TopBotType.top and  secondElem.tb == forthElem.tb == TopBotType.bot, "Invalid starting tb status for checking inclusion bot2top: {0}, {1}, {2}, {3}".format(firstElem, thirdElem, secondElem, forthElem)       
         
-        if self.gap_exists_in_range(working_df.index[next_valid_elems[0]], working_df.index[next_valid_elems[1]]) or\
-            self.gap_exists_in_range(working_df.index[next_valid_elems[2]], working_df.index[next_valid_elems[3]]):
-            if self.isdebug:
-                print("inclusion ignored due to kline gaps, with loc {0}".format(working_df.index[next_valid_elems]))
-            return True
-        
         if (firstElem.chan_price <= thirdElem.chan_price and secondElem.chan_price >= forthElem.chan_price) or\
-            (firstElem.chan_price >= thirdElem.chan_price and secondElem.chan_price <= forthElem.chan_price):        
+            (firstElem.chan_price >= thirdElem.chan_price and secondElem.chan_price <= forthElem.chan_price):  
+            
+            ############################## special case of kline gap as XD ##############################
+            if self.gap_exists_in_range(working_df.index[next_valid_elems[0]], working_df.index[next_valid_elems[1]]):
+                regions = self.gap_region(working_df.index[next_valid_elems[0]], working_df.index[next_valid_elems[1]])
+                for re in regions:
+                    if re[0] <= thirdElem.chan_price <= forthElem.chan_price <= re[1] or\
+                        re[0] <= forthElem.chan_price <= thirdElem.chan_price <= re[1]:
+                        if self.isdebug:
+                            print("inclusion ignored due to kline gaps, with loc {0}".format(working_df.index[next_valid_elems]))
+                        return True
+
+            if self.gap_exists_in_range(working_df.index[next_valid_elems[2]], working_df.index[next_valid_elems[3]]):
+                regions = self.gap_region(working_df.index[next_valid_elems[2]], working_df.index[next_valid_elems[3]])
+                for re in regions:
+                    if re[0] <= firstElem.chan_price <= secondElem.chan_price <= re[1] or\
+                        re[0] <= secondElem.chan_price <= firstElem.chan_price <= re[1]:
+                        if self.isdebug:
+                            print("inclusion ignored due to kline gaps, with loc {0}".format(working_df.index[next_valid_elems]))
+                        return True             
+            ############################## special case of kline gap as XD ##############################                
+                  
             working_df.iloc[next_valid_elems[1], working_df.columns.get_loc('tb')] = TopBotType.noTopBot
             working_df.iloc[next_valid_elems[2], working_df.columns.get_loc('tb')] = TopBotType.noTopBot
             
@@ -609,7 +627,6 @@ class KBarProcessor(object):
                 break
             
             if with_gap:
-            
                 if self.is_XD_inclusion_free(direction, next_valid_elems[:4], working_df):
                     if self.is_XD_inclusion_free(direction, next_valid_elems[-4:], working_df):
                         break
@@ -656,15 +673,15 @@ class KBarProcessor(object):
         fifth = working_df.iloc[next_valid_elems[4]]
         sixth = working_df.iloc[next_valid_elems[5]]     
         
+        with_gap = True
+        with_xd_gap = False        
+        result = TopBotType.noTopBot        
+        
         # check the corner case where xd can be formed by a single kline gap
         # if kline gap (from original data) exists between second and third or third and forth
         # A if so only check if third is top or bot comparing with first, 
         # B with_gap is determined by checking if the kline gap range cover first
         # C change direction as usual, and increment counter by 1 only
-
-        with_gap = True
-        with_xd_gap = False        
-        result = TopBotType.noTopBot
         
         if self.gap_exists_in_range(working_df.index[next_valid_elems[1]], working_df.index[next_valid_elems[2]]):
             
@@ -676,11 +693,12 @@ class KBarProcessor(object):
                 result = TopBotType.bot
 
             for (l,h) in gap_ranges:
-                with_gap = first.chan_price < l or first.chan_price > h
+                # make sure first : second is within the gap_XD range
+                with_gap = first.chan_price < l or first.chan_price > h or second.chan_price < l or second.chan_price > h
                 if not with_gap:
                     with_xd_gap = True
                     if self.isdebug:
-                        print("XD represented by kline gap, {0}, {1}, {2}".format(result, with_gap, with_xd_gap))
+                        print("XD represented by kline gap, {0}, {1}".format(result, working_df.index[next_valid_elems[0]]))
                     break
             
             return result, with_gap, with_xd_gap
@@ -695,11 +713,12 @@ class KBarProcessor(object):
                 result = TopBotType.bot
 
             for (l,h) in gap_ranges:
-                with_gap = first.chan_price < l or first.chan_price > h
+                # make sure first : second is within the gap_XD range
+                with_gap = first.chan_price < l or first.chan_price > h or second.chan_price < l or second.chan_price > h
                 if not with_gap:
                     with_xd_gap = True
                     if self.isdebug:
-                        print("XD represented by kline gap, {0}, {1}, {2}".format(result, with_gap, with_xd_gap))
+                        print("XD represented by kline gap, {0}, {1}".format(result, working_df.index[next_valid_elems[0]]))
                     break
             
             return result, with_gap, with_xd_gap        
@@ -718,6 +737,8 @@ class KBarProcessor(object):
                         with_gap = working_df.iloc[previous_elem, working_df.columns.get_loc('chan_price')].min() > forth.chan_price
                     else:
                         assert first.tb == TopBotType.top or first.tb == TopBotType.bot, "Invalid first elem tb"
+                if not with_gap and self.isdebug:
+                    print("elem gap unchecked at {0}".format(working_df.index[next_valid_elems[0]]))
             # desired top/bot with direction
             return result, with_gap, with_xd_gap
         else:
