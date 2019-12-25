@@ -35,6 +35,7 @@ class KBarProcessor(object):
         self.kDataFrame_standardized = copy.deepcopy(kDf)
         self.kDataFrame_standardized = self.kDataFrame_standardized.assign(new_high=np.nan, new_low=np.nan, trend_type=np.nan)
         self.kDataFrame_marked = None
+        self.kDataFrame_xd = None
         self.gap_XD = []
     
     def synchForChart(self):
@@ -548,6 +549,12 @@ class KBarProcessor(object):
 #         self.defineBi_new()
         return self.kDataFrame_origin.join(self.kDataFrame_marked[['new_index', 'tb']])
     
+    def getIntegradedXD(self, initial_state=TopBotType.noTopBot):
+        temp_df = self.getIntegraded(initial_state)
+        self.defineXD()
+        
+        return temp_df.join(self.kDataFrame_xd['xd_tb'])
+    
 ################################################## XD defintion ##################################################            
     
     def find_initial_direction(self, working_df):
@@ -758,7 +765,7 @@ class KBarProcessor(object):
     
     def defineXD(self):
         
-        working_df = self.kDataFrame_marked[['chan_price', 'tb']]
+        working_df = self.kDataFrame_marked[['chan_price', 'tb','new_index']] # new index used for central region
     
 #         working_df['original_tb'] = working_df['tb']
         working_df.loc[:,'original_tb'] = working_df['tb']
@@ -770,8 +777,8 @@ class KBarProcessor(object):
         # loop through to find XD top bot
         working_df = self.find_XD(initial_i, initial_direction, working_df)
 
-        working_df = working_df[(working_df['xd_tb']==TopBotType.top) | (working_df['xd_tb']==TopBotType.bot)]
-        
+        self.kDataFrame_xd = working_df[(working_df['xd_tb']==TopBotType.top) | (working_df['xd_tb']==TopBotType.bot)]
+            
         return working_df
 
     def get_next_N_elem(self, loc, working_df, N=4, start_tb=TopBotType.noTopBot, single_direction=False):
