@@ -6,6 +6,8 @@ Created on 23 Dec 2019
 '''
 
 import numpy as np
+import pandas as pd
+import talib
 from utility.biaoLiStatus import * 
 from utility.kBarProcessor import *
 
@@ -13,16 +15,26 @@ class Chan_Node(object):
     def __init__(self, df_node):
         self.time = df_node.name
         self.chan_price = df_node.chan_price
+        self.loc = df_node.new_index
+        
+    def __repr__(self):
+        return "price: {0} time: {1} loc: {2} ".format(self.chan_price, self.time, self.loc)
 
 class XianDuan_Node(Chan_Node):
     def __init__(self, df_node):
         Chan_Node.__init__(self, df_node)
         self.tb = df_node.xd_tb
         
+    def __repr__(self):
+        return super().__repr__() + "tb: {0}".format(self.tb)
+        
 class BI_Node(Chan_Node):
     def __init__(self, df_node):
         Chan_Node.__init__(self, df_node)
         self.tb = df_node.tb
+
+    def __repr__(self):
+        return super().__repr__() + "tb: {0}".format(self.tb)
 
 class Double_Nodes(object):
     def __init__(self, start, end):
@@ -55,10 +67,11 @@ class ZouShi(object):
     '''
     This class contain the full dissasemble of current zou shi, alternative of zslx and zs
     '''
-    def __init__(self, all_nodes, direction):
+    def __init__(self, all_nodes, direction, isdebug=False):
         self.zslx_all_nodes = all_nodes
         self.direction = direction
         self.zslx_result = []
+        self.isdebug = isdebug
     
     def analyze(self):
         i = 0
@@ -76,11 +89,15 @@ class ZouShi(object):
                     if not temp_zslx.isEmpty():
                         self.zslx_result.append(temp_zslx)
                     temp_zslx = ZhongShu(first, second, third, forth, self.direction)
+                    if self.isdebug:
+                        print("Zhong Shu found: {0}, end previous {1}".format(temp_zslx, self.zslx_result[-1]))
                     previous_node = forth
                     i = i + 4
                 else:
                     # continue in zslx
                     temp_zslx.add_new_nodes(first)
+                    if self.isdebug:
+                        print("continue current zou shi lei xing: {0}".format(temp_zslx))
                     previous_node = first
                     i = i + 1
             else:
@@ -89,13 +106,18 @@ class ZouShi(object):
                         # new zsxl going out of zs
                         self.zslx_result.append(temp_zslx)
                         temp_zslx = ZouShiLeiXing([previous_node, first, second])
+                        if self.isdebug:
+                            print("started new zou shi lei xing: {0}, end previous zhong shu {1}".format(temp_zslx, self.zslx_result[-1]))
                         previous_node = second
                         i = i + 2
                     else:
                         # continue in the zs
                         temp_zslx.add_new_nodes(first)
+                        if self.isdebug:
+                            print("continue zhong shu: {0}".format(temp_zslx))
                         previous_node = first
                         i = i + 1
+        return self.zslx_result
 
 class ZouShiLeiXing(object):
     '''
@@ -104,7 +126,6 @@ class ZouShiLeiXing(object):
     B normal zou shi
     '''
     def __init__(self):
-        self.direction = direction
         self.zoushi_nodes = []
         
 #         self.entrance_node = []
@@ -117,20 +138,23 @@ class ZouShiLeiXing(object):
         return self.zoushi_nodes == []
     
     def add_new_nodes(self, tb_nodes):
-        if type(xd_tb_nodes) is list:
+        if type(tb_nodes) is list:
             self.zoushi_nodes = self.zoushi_nodes + tb_nodes
         else:
             self.zoushi_nodes.append(tb_nodes)
         
-        self.get_amplitude_region(tb_nodes)
+        self.get_amplitude_region(self.zoushi_nodes)
+    
+    def __repr__(self):
+        return '\n{' + '\n'.join([node.__repr__() for node in self.zoushi_nodes]) + '}'
 
     @classmethod
     def is_valid_central_region(cls, direction, first, second, third, forth):
         valid = False
         if direction == TopBotType.top2bot:
-            central_region = self.first.chan_price < self.second.chan_price and self.second.chan_price > self.third.chan_price and self.third.chan_price < self.forth.chan_price
+            central_region = first.chan_price < second.chan_price and second.chan_price > third.chan_price and third.chan_price < forth.chan_price
         elif direction == TopBotType.bot2top:
-            central_region = self.first.chan_price > self.second.chan_price and self.second.chan_price < self.third.chan_price and self.third.chan_price > self.forth.chan_price            
+            central_region = first.chan_price > second.chan_price and second.chan_price < third.chan_price and third.chan_price > forth.chan_price            
         else:
             print("Invalid direction: {0}".format(direction))
         return valid
@@ -166,6 +190,7 @@ class ZhongShu(ZouShiLeiXing):
     
     def __init__(self, first, second, third, forth, direction):
         ZouShiLeiXing.__init__(self)
+        self.direction = direction
         self.first = first
         self.second = second
         self.third = third
@@ -252,25 +277,27 @@ class CentralRegionProcess(object):
     def __init__(self, kDf, high_df, isdebug=False):    
         self.original_xd_df = kDf
         self.high_level_df = high_df
+        self.analytic_result = []
+        self.isdebug = isdebug
         
         
     
     def find_initial_direction(self, high_level_df):
         # higher level df data, find nearest top or bot
         # use 30m or 1d
-        max_price_idx = high_level_df.['close'].idxmax()
-        min_price_idx = high_level_df.['close'].idxmin()
+        max_price_idx = high_level_df['close'].idxmax()
+        min_price_idx = high_level_df['close'].idxmin()
         initial_idx = min(max_price_idx, min_price_idx)
         initial_direction = TopBotType.top2bot if max_price_idx > min_price_idx else TopBotType.bot2top
+        if self.isdebug:
+            print("initial direction: {0}, start idx {1}".format(initial_direction, initial_idx))
         return initial_idx, initial_direction     
     
     def find_central_region(self, initial_idx, initial_direction, working_df):
-        i = initial_loc
         working_df = working_df.loc[initial_idx:,:]
-        zoushi = ZouShi(working_df.apply(lambda row: XianDuan_Node(row), axis=1).tolist(), initial_direction)
-        zoushi.analyze()
-        
-        
+#         zoushi = ZouShi(working_df.apply(lambda row: XianDuan_Node(row), axis=1).tolist(), initial_direction)
+        zoushi = ZouShi([XianDuan_Node(working_df.iloc[i]) for i in range(working_df.shape[0])], initial_direction, isdebug=self.isdebug)
+        return zoushi.analyze()
     
     def define_central_region(self):
         '''
@@ -278,23 +305,31 @@ class CentralRegionProcess(object):
         '''
         working_df = self.original_xd_df        
         
-        self.prepare_df_data(working_df)
+        working_df = self.prepare_df_data(working_df)
         
         init_idx, init_d = self.find_initial_direction(self.high_level_df)
         
-        self.find_central_region(init_idx, init_d, working_df)
+        self.analytic_result = self.find_central_region(init_idx, init_d, working_df)
+        
+        print(self.analytic_result)
         
         
-        
-        
-    def prepare_df_data(self, working_df):
-        working_df['tb_pivot'] = df.apply(lambda row: 0 if pd.isnull(row['xd_tb']) else 1, axis=1)
+    def prepare_df_data(self, working_df):        
+        _, _, working_df.loc[:,'macd'] = talib.MACD(working_df['close'].values)
+
+        working_df['tb_pivot'] = working_df.apply(lambda row: 0 if pd.isnull(row['xd_tb']) else 1, axis=1)
         groups = working_df['tb_pivot'][::-1].cumsum()[::-1]
         working_df['tb_pivot_acc'] = groups
-         
+        
         df_macd_acc = working_df.groupby(groups)['macd'].agg([('macd_acc_negative' , lambda x : x[x < 0].sum()) , ('macd_acc_positive' , lambda x : x[x > 0].sum())])
         working_df = pd.merge(working_df, df_macd_acc, left_on='tb_pivot_acc', right_index=True)
-        working_df['macd_acc'] = working_df.apply(lambda row: 0 if pd.isnull(row['tb']) else row['macd_acc_negative'] if row['xd_tb'] == TopBotType.bot else row['macd_acc_positive'] if row['xd_tb'] == TopBotType.top else 0, axis=1)
+        working_df['macd_acc'] = working_df.apply(lambda row: 0 if pd.isnull(row['xd_tb']) else row['macd_acc_negative'] if row['xd_tb'] == TopBotType.bot else row['macd_acc_positive'] if row['xd_tb'] == TopBotType.top else 0, axis=1)
+        
+        working_df = working_df[(working_df['xd_tb']==TopBotType.top) | (working_df['xd_tb']==TopBotType.bot)]
+        
+        if self.isdebug:
+            print("working_df: {0}".format(working_df.head(10)[['chan_price', 'xd_tb', 'new_index']]))
+        return working_df
     
     
 
