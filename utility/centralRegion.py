@@ -67,15 +67,27 @@ class ZouShi(object):
     '''
     This class contain the full dissasemble of current zou shi, alternative of zslx and zs
     '''
-    def __init__(self, all_nodes, direction, isdebug=False):
+    def __init__(self, all_nodes, isdebug=False):
         self.zslx_all_nodes = all_nodes
-        self.direction = direction
         self.zslx_result = []
         self.isdebug = isdebug
     
-    def analyze(self):
+    def work_out_direction(self, first, third):
+        assert first.tb == third.tb, "Invalid tb information for direction"
+        result_direction = TopBotType.noTopBot
+        if first.tb == TopBotType.top:
+            result_direction = TopBotType.bot2top if third.chan_price > first.chan_price else TopBotType.top2bot
+        elif first.tb == TopBotType.bot:
+            result_direction = TopBotType.bot2top if third.chan_price > first.chan_price else TopBotType.top2bot
+        else:
+            pass
+            
+        return result_direction
+            
+    
+    def analyze(self, initial_direction):
         i = 0
-        temp_zslx = ZouShiLeiXing()
+        temp_zslx = ZouShiLeiXing(initial_direction, [])
         previous_node = None
         while i < len(self.zslx_all_nodes) - 4:
             first = self.zslx_all_nodes[i]
@@ -84,13 +96,14 @@ class ZouShi(object):
             forth = self.zslx_all_nodes[i+3]
             
             if type(temp_zslx) is ZouShiLeiXing:
-                if ZouShiLeiXing.is_valid_central_region(self.direction, first, second, third, forth):
+                if ZouShiLeiXing.is_valid_central_region(temp_zslx.direction, first, second, third, forth):
                     # new zs found end previous zslx
                     if not temp_zslx.isEmpty():
                         self.zslx_result.append(temp_zslx)
-                    temp_zslx = ZhongShu(first, second, third, forth, self.direction)
+                    # use previous zslx direction for new sz direction
+                    temp_zslx = ZhongShu(first, second, third, forth, temp_zslx.direction)
                     if self.isdebug:
-                        print("Zhong Shu found: {0}, end previous {1}".format(temp_zslx, self.zslx_result[-1]))
+                        print("start new Zhong Shu, end previous zslx")
                     previous_node = forth
                     i = i + 4
                 else:
@@ -101,22 +114,21 @@ class ZouShi(object):
                     previous_node = first
                     i = i + 1
             else:
-                if type(temp_zslx) is Zhongshu: 
-                    if temp_zslx.out_of_zhongshu(first, second):
+                if type(temp_zslx) is ZhongShu: 
+                    ed = temp_zslx.out_of_zhongshu(first, second)
+                    if ed != TopBotType.noTopBot:
                         # new zsxl going out of zs
                         self.zslx_result.append(temp_zslx)
-                        temp_zslx = ZouShiLeiXing([previous_node, first, second])
+                        temp_zslx = ZouShiLeiXing(ed, [previous_node, first])
                         if self.isdebug:
-                            print("started new zou shi lei xing: {0}, end previous zhong shu {1}".format(temp_zslx, self.zslx_result[-1]))
-                        previous_node = second
-                        i = i + 2
+                            print("start new zou shi lei xing, end previous zhong shu")
                     else:
                         # continue in the zs
                         temp_zslx.add_new_nodes(first)
                         if self.isdebug:
                             print("continue zhong shu: {0}".format(temp_zslx))
-                        previous_node = first
-                        i = i + 1
+                    previous_node = first
+                    i = i + 1
         return self.zslx_result
 
 class ZouShiLeiXing(object):
@@ -125,11 +137,9 @@ class ZouShiLeiXing(object):
     A central region
     B normal zou shi
     '''
-    def __init__(self):
-        self.zoushi_nodes = []
-        
-#         self.entrance_node = []
-#         self.exit_node = []
+    def __init__(self, direction, nodes=None):
+        self.zoushi_nodes = nodes
+        self.direction = direction
         
         self.amplitude_region = []
         self.time_region = []
@@ -146,15 +156,15 @@ class ZouShiLeiXing(object):
         self.get_amplitude_region(self.zoushi_nodes)
     
     def __repr__(self):
-        return '\n{' + '\n'.join([node.__repr__() for node in self.zoushi_nodes]) + '}'
+        return "\nZou Shi Lei Xing: {0}\n[\n".format(self.direction) + '\n'.join([node.__repr__() for node in self.zoushi_nodes]) + '\n]'
 
     @classmethod
     def is_valid_central_region(cls, direction, first, second, third, forth):
         valid = False
         if direction == TopBotType.top2bot:
-            central_region = first.chan_price < second.chan_price and second.chan_price > third.chan_price and third.chan_price < forth.chan_price
+            valid = first.chan_price < second.chan_price and second.chan_price > third.chan_price and third.chan_price < forth.chan_price
         elif direction == TopBotType.bot2top:
-            central_region = first.chan_price > second.chan_price and second.chan_price < third.chan_price and third.chan_price > forth.chan_price            
+            valid = first.chan_price > second.chan_price and second.chan_price < third.chan_price and third.chan_price > forth.chan_price            
         else:
             print("Invalid direction: {0}".format(direction))
         return valid
@@ -189,8 +199,7 @@ class ZhongShu(ZouShiLeiXing):
     '''
     
     def __init__(self, first, second, third, forth, direction):
-        ZouShiLeiXing.__init__(self)
-        self.direction = direction
+        ZouShiLeiXing.__init__(self, direction, [])
         self.first = first
         self.second = second
         self.third = third
@@ -203,19 +212,29 @@ class ZhongShu(ZouShiLeiXing):
         self.get_core_region()
         self.get_amplitude_region()
         self.get_CR_core_time_region()
-        self.get_CR_time_region()
+        self.get_time_region()
+    
+    def __repr__(self):
+        return "\nZhong Shu {0}:{1}-{2}-{3}-{4}\n[".format(self.direction, self.first.chan_price, self.second.chan_price, self.third.chan_price, self.forth.chan_price) + '\n'.join([node.__repr__() for node in self.extra_nodes]) + ']'        
     
     def add_new_nodes(self, tb_nodes):
-        if type(xd_tb_nodes) is list:
+        if type(tb_nodes) is list:
             self.extra_nodes = self.extra_nodes + tb_nodes
+            self.get_amplitude_region(tb_nodes)   
         else:
             self.extra_nodes.append(tb_nodes)
-        
-        self.get_amplitude_region(tb_nodes)    
+            self.get_amplitude_region([tb_nodes])    
     
     def out_of_zhongshu(self, node1, node2):
         [l,h] = self.get_core_region()
-        return (node1.chan_price < l and node2.chan_price < l) or (node1.chan_price > h and node2.chan_price > h)
+        exit_direction = TopBotType.noTopBot
+        if (node1.chan_price < l and node2.chan_price < l):
+            exit_direction = TopBotType.top2bot  
+        elif (node1.chan_price > h and node2.chan_price > h):
+            exit_direction = TopBotType.bot2top
+        else:
+            exit_direction = TopBotType.noTopBot
+        return exit_direction
     
     def not_in_core(self, node):
         [l,h] = self.get_core_region()
@@ -224,23 +243,23 @@ class ZhongShu(ZouShiLeiXing):
     def get_core_region(self):
         upper = 0.0
         lower = 0.0
-        if direction == TopBotType.bot2top and first.xd_tb == third.xd_tb == TopBotType.top and second.xd_tb == forth.xd_tb == TopBotType.bot:
-            upper = min(first.chan_price, third.chan_price)
-            lower = max(second.chan_price, forth.chan_price)
-        elif direction == TopBotType.top2bot and first.xd_tb == third.xd_tb == TopBotType.bot and second.xd_tb == forth.xd_tb == TopBotType.top:
-            upper = max(first.chan_price, third.chan_price)
-            lower = min(second.chan_price, forth.chan_price)
+        if self.direction == TopBotType.bot2top and self.first.tb == self.third.tb == TopBotType.top and self.second.tb == self.forth.tb == TopBotType.bot:
+            upper = min(self.first.chan_price, self.third.chan_price)
+            lower = max(self.second.chan_price, self.forth.chan_price)
+        elif self.direction == TopBotType.top2bot and self.first.tb == self.third.tb == TopBotType.bot and self.second.tb == self.forth.tb == TopBotType.top:
+            upper = max(self.first.chan_price, self.third.chan_price)
+            lower = min(self.second.chan_price, self.forth.chan_price)
         else:
             print("Invalid central region")       
         self.core_region = [lower, upper] 
         return self.core_region
     
     def get_CR_core_time_region(self):
-        self.core_time_region = [first.name, forth.name]
+        self.core_time_region = [self.first.time, self.forth.time]
         return self.core_time_region
 
     def get_entrance_node(self):
-        return first
+        return self.first
     
     def get_exit_node(self):
         return self.extra_nodes[-1]
@@ -250,15 +269,15 @@ class ZhongShu(ZouShiLeiXing):
             if not self.extra_nodes:
                 self.time_region = self.get_CR_core_time_region()
             else:
-                self.time_region = [self.core_region[0].name, self.extra_nodes[-1].name]
+                self.time_region = [self.core_region[0].time, self.extra_nodes[-1].time]
         else:
-            self.extra_nodes.sort(key=lambda x: x.name)
-            self.time_region = [self.core_region[0].name, self.extra_nodes[-1].name]
+            self.extra_nodes.sort(key=lambda x: x.time)
+            self.time_region = [self.core_region[0].time, self.extra_nodes[-1].time]
         return self.time_region
 
     def get_amplitude_region(self, xd_tb_nodes=None):
         if not self.amplitude_region:
-            self.amplitude_region = [min(first.chan_price, second.chan_price, third.chan_price, forth.chan_price), max(first.chan_price, second.chan_price, third.chan_price, forth.chan_price)]
+            self.amplitude_region = [min(self.first.chan_price, self.second.chan_price, self.third.chan_price, self.forth.chan_price), max(self.first.chan_price, self.second.chan_price, self.third.chan_price, self.forth.chan_price)]
         else:
             if xd_tb_nodes is not None:
                 xd_prices = [xp.chan_price for xp in xd_tb_nodes]
@@ -266,7 +285,7 @@ class ZhongShu(ZouShiLeiXing):
                 min_p = min(xd_prices)
                 self.amplitude_region = [min(self.amplitude_region[0], min_p), max(self.amplitude_region[1], max_p)]
             else:
-                all_nodes = [first, second, third, forth] + self.extra_nodes
+                all_nodes = [self.first, self.second, self.third, self.forth] + self.extra_nodes
                 self.amplitude_region = [min(all_nodes), max(all_nodes)]
         return self.amplitude_region
     
@@ -274,7 +293,7 @@ class CentralRegionProcess(object):
     '''
     This lib takes XD data, and the dataframe must contain chan_price, new_index, xd_tb, macd columns
     '''
-    def __init__(self, kDf, high_df, isdebug=False):    
+    def __init__(self, kDf, high_df=None, isdebug=False):    
         self.original_xd_df = kDf
         self.high_level_df = high_df
         self.analytic_result = []
@@ -282,22 +301,32 @@ class CentralRegionProcess(object):
         
         
     
-    def find_initial_direction(self, high_level_df):
+    def find_initial_direction_highlevel(self):
         # higher level df data, find nearest top or bot
         # use 30m or 1d
-        max_price_idx = high_level_df['close'].idxmax()
-        min_price_idx = high_level_df['close'].idxmin()
-        initial_idx = min(max_price_idx, min_price_idx)
+        max_price_idx = self.high_level_df['close'].idxmax()
+        min_price_idx = self.high_level_df['close'].idxmin()
+        initial_idx = max(max_price_idx, min_price_idx)
         initial_direction = TopBotType.top2bot if max_price_idx > min_price_idx else TopBotType.bot2top
         if self.isdebug:
             print("initial direction: {0}, start idx {1}".format(initial_direction, initial_idx))
-        return initial_idx, initial_direction     
+        return initial_idx, initial_direction  
+    
+    def find_initial_direction(self): 
+        max_price_idx = self.original_xd_df['chan_price'].idxmax()
+        min_price_idx = self.original_xd_df['chan_price'].idxmin()
+        initial_idx = min(max_price_idx, min_price_idx)
+        initial_direction = TopBotType.bot2top if max_price_idx > min_price_idx else TopBotType.top2bot
+        if self.isdebug:
+            print("initial direction: {0}, start idx {1}".format(initial_direction, initial_idx))
+        return initial_idx, initial_direction  
+        
     
     def find_central_region(self, initial_idx, initial_direction, working_df):
         working_df = working_df.loc[initial_idx:,:]
 #         zoushi = ZouShi(working_df.apply(lambda row: XianDuan_Node(row), axis=1).tolist(), initial_direction)
-        zoushi = ZouShi([XianDuan_Node(working_df.iloc[i]) for i in range(working_df.shape[0])], initial_direction, isdebug=self.isdebug)
-        return zoushi.analyze()
+        zoushi = ZouShi([XianDuan_Node(working_df.iloc[i]) for i in range(working_df.shape[0])], isdebug=self.isdebug)
+        return zoushi.analyze(initial_direction)
     
     def define_central_region(self):
         '''
@@ -307,7 +336,7 @@ class CentralRegionProcess(object):
         
         working_df = self.prepare_df_data(working_df)
         
-        init_idx, init_d = self.find_initial_direction(self.high_level_df)
+        init_idx, init_d = self.find_initial_direction()
         
         self.analytic_result = self.find_central_region(init_idx, init_d, working_df)
         
