@@ -10,6 +10,7 @@ import pandas as pd
 import talib
 from utility.biaoLiStatus import * 
 from utility.kBarProcessor import *
+from pandas.core.computation.expr import _all_node_names
 
 class Chan_Node(object):
     def __init__(self, df_node):
@@ -19,6 +20,9 @@ class Chan_Node(object):
         
     def __repr__(self):
         return "price: {0} time: {1} loc: {2} ".format(self.chan_price, self.time, self.loc)
+    
+    def __eq__(self, node):
+        return self.time == node.time and self.chan_price == node.chan_price and self.loc == node.loc
 
 class XianDuan_Node(Chan_Node):
     def __init__(self, df_node):
@@ -27,6 +31,9 @@ class XianDuan_Node(Chan_Node):
         
     def __repr__(self):
         return super().__repr__() + "tb: {0}".format(self.tb)
+    
+    def __eq__(self, node):
+        return super().__eq__(node) and self.tb == node.tb
         
 class BI_Node(Chan_Node):
     def __init__(self, df_node):
@@ -35,6 +42,9 @@ class BI_Node(Chan_Node):
 
     def __repr__(self):
         return super().__repr__() + "tb: {0}".format(self.tb)
+    
+    def __eq__(self, node):
+        return super().__eq__(node) and self.tb == node.tb
 
 class Double_Nodes(object):
     def __init__(self, start, end):
@@ -99,6 +109,7 @@ class ZouShi(object):
                 if ZouShiLeiXing.is_valid_central_region(temp_zslx.direction, first, second, third, forth):
                     # new zs found end previous zslx
                     if not temp_zslx.isEmpty():
+                        temp_zslx.add_new_nodes(first)
                         self.zslx_result.append(temp_zslx)
                     # use previous zslx direction for new sz direction
                     temp_zslx = ZhongShu(first, second, third, forth, temp_zslx.direction)
@@ -119,7 +130,7 @@ class ZouShi(object):
                     if ed != TopBotType.noTopBot:
                         # new zsxl going out of zs
                         self.zslx_result.append(temp_zslx)
-                        temp_zslx = ZouShiLeiXing(ed, [previous_node, first])
+                        temp_zslx = ZouShiLeiXing(ed, [previous_node])
                         if self.isdebug:
                             print("start new zou shi lei xing, end previous zhong shu")
                     else:
@@ -127,8 +138,8 @@ class ZouShi(object):
                         temp_zslx.add_new_nodes(first)
                         if self.isdebug:
                             print("continue zhong shu: {0}".format(temp_zslx))
-                    previous_node = first
-                    i = i + 1
+                        previous_node = first
+                        i = i + 1
         return self.zslx_result
 
 class ZouShiLeiXing(object):
@@ -151,12 +162,14 @@ class ZouShiLeiXing(object):
         if type(tb_nodes) is list:
             self.zoushi_nodes = self.zoushi_nodes + tb_nodes
         else:
-            self.zoushi_nodes.append(tb_nodes)
+            if tb_nodes not in self.zoushi_nodes:
+                self.zoushi_nodes.append(tb_nodes)
         
         self.get_amplitude_region(self.zoushi_nodes)
     
     def __repr__(self):
-        return "\nZou Shi Lei Xing: {0}\n[\n".format(self.direction) + '\n'.join([node.__repr__() for node in self.zoushi_nodes]) + '\n]'
+        [s, e] = self.get_time_region()
+        return "\nZou Shi Lei Xing: {0} {1}->{2}\n[\n".format(self.direction, s, e) + '\n'.join([node.__repr__() for node in self.zoushi_nodes]) + '\n]'
 
     @classmethod
     def is_valid_central_region(cls, direction, first, second, third, forth):
@@ -208,14 +221,17 @@ class ZhongShu(ZouShiLeiXing):
 
         self.core_region = []
         self.core_time_region = []
+        self.core_amplitude_region = []
 
         self.get_core_region()
+        self.get_core_amplitude_region()
+        self.get_core_time_region()
         self.get_amplitude_region()
-        self.get_CR_core_time_region()
         self.get_time_region()
     
     def __repr__(self):
-        return "\nZhong Shu {0}:{1}-{2}-{3}-{4}\n[".format(self.direction, self.first.chan_price, self.second.chan_price, self.third.chan_price, self.forth.chan_price) + '\n'.join([node.__repr__() for node in self.extra_nodes]) + ']'        
+        [s, e] = self.get_time_region()
+        return "\nZhong Shu {0}:{1}-{2}-{3}-{4} {5}->{6}\n[".format(self.direction, self.first.chan_price, self.second.chan_price, self.third.chan_price, self.forth.chan_price, s, e) + '\n'.join([node.__repr__() for node in self.extra_nodes]) + ']'        
     
     def add_new_nodes(self, tb_nodes):
         if type(tb_nodes) is list:
@@ -253,28 +269,15 @@ class ZhongShu(ZouShiLeiXing):
             print("Invalid central region")       
         self.core_region = [lower, upper] 
         return self.core_region
+
+    def get_core_amplitude_region(self):
+        price_list = [self.first.chan_price, self.second.chan_price, self.third.chan_price, self.forth.chan_price]
+        self.core_amplitude_region = [min(price_list), max(price_list)]
     
-    def get_CR_core_time_region(self):
+    def get_core_time_region(self):
         self.core_time_region = [self.first.time, self.forth.time]
-        return self.core_time_region
-
-    def get_entrance_node(self):
-        return self.first
+        return self.core_time_region    
     
-    def get_exit_node(self):
-        return self.extra_nodes[-1]
-
-    def get_time_region(self):    
-        if not self.time_region: # assume node stored in time order
-            if not self.extra_nodes:
-                self.time_region = self.get_CR_core_time_region()
-            else:
-                self.time_region = [self.core_region[0].time, self.extra_nodes[-1].time]
-        else:
-            self.extra_nodes.sort(key=lambda x: x.time)
-            self.time_region = [self.core_region[0].time, self.extra_nodes[-1].time]
-        return self.time_region
-
     def get_amplitude_region(self, xd_tb_nodes=None):
         if not self.amplitude_region:
             self.amplitude_region = [min(self.first.chan_price, self.second.chan_price, self.third.chan_price, self.forth.chan_price), max(self.first.chan_price, self.second.chan_price, self.third.chan_price, self.forth.chan_price)]
@@ -286,8 +289,27 @@ class ZhongShu(ZouShiLeiXing):
                 self.amplitude_region = [min(self.amplitude_region[0], min_p), max(self.amplitude_region[1], max_p)]
             else:
                 all_nodes = [self.first, self.second, self.third, self.forth] + self.extra_nodes
-                self.amplitude_region = [min(all_nodes), max(all_nodes)]
-        return self.amplitude_region
+                all_nodes_price = [n.chan_price for n in all_nodes]
+                self.amplitude_region = [min(all_nodes_price), max(all_nodes_price)]
+        return self.amplitude_region    
+
+    def get_time_region(self):    
+        if not self.time_region: # assume node stored in time order
+            if not self.extra_nodes:
+                self.time_region = self.get_core_time_region()
+            else:
+                self.time_region = [self.core_time_region[0], self.extra_nodes[-1].time]
+        else:
+            if self.extra_nodes:
+                self.extra_nodes.sort(key=lambda x: x.time)
+                self.time_region = [self.core_time_region[0], self.extra_nodes[-1].time]
+        return self.time_region
+
+    def get_entrance_node(self):
+        return self.first
+    
+    def get_exit_node(self):
+        return self.extra_nodes[-1]
     
 class CentralRegionProcess(object):
     '''
@@ -340,25 +362,57 @@ class CentralRegionProcess(object):
         
         self.analytic_result = self.find_central_region(init_idx, init_d, working_df)
         
-        print(self.analytic_result)
+        if self.isdebug:
+            print("Zou Shi disassembled: {0}".format(self.analytic_result))
+            
+        
+        
+    def convert_to_graph_data(self):
+        '''
+        We are assuming the Zou Shi is disassembled properly with data in time order
+        '''
+        x_axis = []
+        y_axis = []
+        for zs in self.analytic_result:
+            if type(zs) is ZhongShu:
+                x_axis = x_axis + zs.get_core_region()
+                y_axis = y_axis + zs.get_core_time_region()
+            else:
+                continue
+        
+        return x_axis, y_axis
         
         
     def prepare_df_data(self, working_df):        
         _, _, working_df.loc[:,'macd'] = talib.MACD(working_df['close'].values)
 
-        working_df['tb_pivot'] = working_df.apply(lambda row: 0 if pd.isnull(row['xd_tb']) else 1, axis=1)
+#         working_df['tb_pivot'] = working_df.apply(lambda row: 0 if pd.isnull(row['xd_tb']) else 1, axis=1)
+#         groups = working_df['tb_pivot'][::-1].cumsum()[::-1]
+#         working_df['tb_pivot_acc'] = groups
+#         
+#         df_macd_acc = working_df.groupby(groups)['macd'].agg([('macd_acc_negative' , lambda x : x[x < 0].sum()) , ('macd_acc_positive' , lambda x : x[x > 0].sum())])
+#         working_df = pd.merge(working_df, df_macd_acc, left_on='tb_pivot_acc', right_index=True)
+#         working_df['macd_acc'] = working_df.apply(lambda row: 0 if pd.isnull(row['xd_tb']) else row['macd_acc_negative'] if row['xd_tb'] == TopBotType.bot else row['macd_acc_positive'] if row['xd_tb'] == TopBotType.top else 0, axis=1)
+        working_df = self.prepare_macd(working_df, 'tb')
+        working_df = self.prepare_macd(working_df, 'xd_tb')
+
+        working_df = working_df[(working_df['xd_tb']==TopBotType.top) | (working_df['xd_tb']==TopBotType.bot)]
+        
+        if self.isdebug:
+            print("working_df: {0}".format(working_df.head(10)[['chan_price', 'xd_tb', 'new_index','macd_acc_tb', 'macd_acc_xd_tb']]))
+        return working_df
+    
+    def prepare_macd(self, working_df, tb_col):
+        working_df['tb_pivot'] = working_df.apply(lambda row: 0 if pd.isnull(row[tb_col]) else 1, axis=1)
         groups = working_df['tb_pivot'][::-1].cumsum()[::-1]
         working_df['tb_pivot_acc'] = groups
         
         df_macd_acc = working_df.groupby(groups)['macd'].agg([('macd_acc_negative' , lambda x : x[x < 0].sum()) , ('macd_acc_positive' , lambda x : x[x > 0].sum())])
         working_df = pd.merge(working_df, df_macd_acc, left_on='tb_pivot_acc', right_index=True)
-        working_df['macd_acc'] = working_df.apply(lambda row: 0 if pd.isnull(row['xd_tb']) else row['macd_acc_negative'] if row['xd_tb'] == TopBotType.bot else row['macd_acc_positive'] if row['xd_tb'] == TopBotType.top else 0, axis=1)
+        working_df['macd_acc_'+tb_col] = working_df.apply(lambda row: 0 if pd.isnull(row[tb_col]) else row['macd_acc_negative'] if row[tb_col] == TopBotType.bot else row['macd_acc_positive'] if row[tb_col] == TopBotType.top else 0, axis=1)
         
-        working_df = working_df[(working_df['xd_tb']==TopBotType.top) | (working_df['xd_tb']==TopBotType.bot)]
+        working_df.drop(['tb_pivot', 'tb_pivot_acc', 'macd_acc_negative', 'macd_acc_positive'], axis=1, inplace=True)
         
-        if self.isdebug:
-            print("working_df: {0}".format(working_df.head(10)[['chan_price', 'xd_tb', 'new_index']]))
         return working_df
-    
-    
+        
 
