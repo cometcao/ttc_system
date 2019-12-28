@@ -10,7 +10,6 @@ import pandas as pd
 import talib
 from utility.biaoLiStatus import * 
 from utility.kBarProcessor import *
-from pandas.core.computation.expr import _all_node_names
 
 class Chan_Node(object):
     def __init__(self, df_node):
