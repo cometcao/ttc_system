@@ -8,9 +8,17 @@ Created on 23 Dec 2019
 import numpy as np
 import pandas as pd
 import talib
+from enum import Enum 
 # from collections import OrderedDict
 from utility.biaoLiStatus import * 
 from utility.kBarProcessor import *
+
+class ZhongShuLevel(Enum):
+    previousprevious = -2
+    previous = -1
+    current = 0
+    next = 1
+    nextnext = 2
 
 class Chan_Node(object):
     def __init__(self, df_node):
@@ -28,6 +36,7 @@ class XianDuan_Node(Chan_Node):
     def __init__(self, df_node):
         Chan_Node.__init__(self, df_node)
         self.tb = df_node.xd_tb
+        self.macd_acc = df_node.macd_acc_xd_tb
         
     def __repr__(self):
         return super().__repr__() + "tb: {0}".format(self.tb)
@@ -39,6 +48,7 @@ class BI_Node(Chan_Node):
     def __init__(self, df_node):
         Chan_Node.__init__(self, df_node)
         self.tb = df_node.tb
+        self.macd_acc = df_node.macd_acc_tb
 
     def __repr__(self):
         return super().__repr__() + "tb: {0}".format(self.tb)
@@ -199,6 +209,34 @@ class ZouShiLeiXing(object):
             self.zoushi_nodes.sort(key=lambda x: x.time)
             self.time_region = [self.zoushi_nodes[0].time, self.zoushi_nodes[-1].time]
         return self.time_region
+    
+    def get_amplitude_loc(self):
+        all_node_price = [node.chan_price for node in self.zoushi_nodes]
+        max_price_loc = self.zoushi_nodes[all_node_price.index(min(all_node_price))].loc
+        min_price_loc = self.zoushi_nodes[all_node_price.index(max(all_node_price))].loc
+        return min_price_loc, max_price_loc
+    
+    def work_out_slope(self):
+        '''
+        negative slope meaning price going down
+        '''
+        min_price_loc, max_price_loc = self.get_amplitude_loc()
+        off_set = max_price_loc - min_price_loc # this could be negative
+        
+        [min_price, max_price] = self.get_amplitude_region()
+        return (max_price - min_price) / off_set
+    
+    def get_macd_acc(self):
+        top_nodes = [node for node in self.zoushi_nodes if node.tb == TopBotType.top]
+        bot_nodes = [node for node in self.zoushi_nodes if node.tb == TopBotType.bot]
+        macd_acc = 0.0
+        if self.direction == TopBotType.bot2top:
+            macd_acc = sum([node.macd_acc for node in top_nodes])
+        elif self.direction == TopBotType.top2bot:
+            macd_acc = sum([node.macd_acc for node in bot_nodes])
+        else:
+            print("We have invalid direction for ZhongShu")
+        return macd_acc
 
 class ZhongShu(ZouShiLeiXing):
     '''
@@ -226,7 +264,7 @@ class ZhongShu(ZouShiLeiXing):
     
     def __repr__(self):
         [s, e] = self.get_time_region()
-        return "\nZhong Shu {0}:{1}-{2}-{3}-{4} {5}->{6}\n[".format(self.direction, self.first.chan_price, self.second.chan_price, self.third.chan_price, self.forth.chan_price, s, e) + '\n'.join([node.__repr__() for node in self.extra_nodes]) + ']'        
+        return "\nZhong Shu {0}:{1}-{2}-{3}-{4} {5}->{6} level@{7}\n[".format(self.direction, self.first.chan_price, self.second.chan_price, self.third.chan_price, self.forth.chan_price, s, e, self.get_level()) + '\n'.join([node.__repr__() for node in self.extra_nodes]) + ']'        
     
     def add_new_nodes(self, tb_nodes):
         if type(tb_nodes) is list:
@@ -301,19 +339,33 @@ class ZhongShu(ZouShiLeiXing):
                 self.time_region = [self.core_time_region[0], self.extra_nodes[-1].time]
         return self.time_region
 
-    def get_entrance_node(self):
-        return self.first
-    
-    def get_exit_node(self):
-        return self.extra_nodes[-1]
+    def get_level(self):
+        # 4 core nodes + 6 extra nodes => 9 xd as next level
+        return ZhongShuLevel.current if len(self.extra_nodes) < 6 else ZhongShuLevel.next if 6 <= len(self.extra_nodes) < 24 else ZhongShuLevel.nextnext
+
+    def take_last_xd_as_zslx(self, direction):
+        if (direction == TopBotType.top2bot and self.extra_nodes[-1].tb == TopBotType.bot) or\
+            (direction == TopBotType.bot2top and self.extra_nodes[-1].tb == TopBotType.top):
+            return ZouShiLeiXing(self.extra_nodes)
+        return ZouShiLeiXing()
+
+    def is_running_type(self):
+        running_type = False
+        if self.direction == TopBotType.bot2top:
+            pass
+        elif self.direction == TopBotType.top2bot:
+            pass
+        else:
+            pass
     
 class CentralRegionProcess(object):
     '''
     This lib takes XD data, and the dataframe must contain chan_price, new_index, xd_tb, macd columns
     '''
-    def __init__(self, kDf, high_df=None, isdebug=False):    
+    def __init__(self, kDf, high_df=None, isdebug=False, use_xd=True):    
         self.original_xd_df = kDf
         self.high_level_df = high_df
+        self.use_xd = use_xd
         self.analytic_result = []
         self.isdebug = isdebug
         
@@ -368,8 +420,8 @@ class CentralRegionProcess(object):
     
     def find_central_region(self, initial_idx, initial_direction, working_df):
         working_df = working_df.loc[initial_idx:,:]
-#         zoushi = ZouShi(working_df.apply(lambda row: XianDuan_Node(row), axis=1).tolist(), initial_direction)
-        zoushi = ZouShi([XianDuan_Node(working_df.iloc[i]) for i in range(working_df.shape[0])], isdebug=self.isdebug)
+        
+        zoushi = ZouShi([XianDuan_Node(working_df.iloc[i]) for i in range(working_df.shape[0])], isdebug=self.isdebug) if self.use_xd else ZouShi([BI_Node(working_df.iloc[i]) for i in range(working_df.shape[0])], isdebug=self.isdebug)
         return zoushi.analyze(initial_direction)
     
     def define_central_region(self):
@@ -387,7 +439,7 @@ class CentralRegionProcess(object):
         if self.isdebug:
             print("Zou Shi disassembled: {0}".format(self.analytic_result))
             
-        
+        return self.analytic_result
         
     def convert_to_graph_data(self):
         '''
