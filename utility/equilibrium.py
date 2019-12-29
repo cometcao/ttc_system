@@ -39,7 +39,7 @@ class Equilibrium():
         
         a, B, c = self.find_most_recent_zoushi()
         
-        self.check_exhaustion(a, B, c)
+        return self.check_exhaustion(a, B, c)
         
     def check_exhaustion(self, zslx_a, zs_B, zslx_c):
         zslx_slope = zslx_a.work_out_slope()
@@ -74,7 +74,35 @@ class Equilibrium():
         return self.isQvShi
     
     
-            
-            
+class NestedInterval():            
+    '''
+    This class utilize BEI CHI and apply them to multiple nested levels, 
+    existing level goes:
+    current_level -> XD -> BI
+    '''
+    def __init__(self, df_xd_bi, isdebug=False):
+        self.df_xd_bi = df_xd_bi
+        self.isdebug = isdebug
+    
+    def analyze_zoushi(self, use_xd):
+        crp = CentralRegionProcess(self.xd_df, isdebug=self.isdebug, use_xd=use_xd) # XD
+        analytics = crp.define_central_region()
+        
+        eq = Equilibrium(self.xd_df, analytics,self.isdebug)
+        return eq.define_equilibrium(), analytics[-1].direction
+    
+    def is_trade_point(self, direction):
+        '''
+        use direction param to check long/short point
+        '''
+        # XD
+        xd_exhausted, xd_direction = self.analyze_zoushi(use_xd=True)
+        
+        # BI
+        bi_exhausted, bi_direction = self.analyze_zoushi(use_xd=False)
+        
+        return xd_direction == bi_direction and xd_exhausted and bi_exhausted:
+
+
         
                 

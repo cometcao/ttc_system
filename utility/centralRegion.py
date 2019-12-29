@@ -69,19 +69,25 @@ class Double_Nodes(object):
     def get_time_region(self):
         return self.start.time, self.end.time
 
-class XianDuan(object):
+    def work_out_slope(self):
+        return (end.chan_price - start.chan_price) / (end.loc - start.loc)
+
+class XianDuan(Double_Nodes):
     '''
     This class takes two xd nodes 
     '''
     def __init__(self, start, end):
         Double_Nodes.__init__(self, start, end)
     
-class BI(object):
+    
+class BI(Double_Nodes):
     '''
     This class takes two bi nodes 
     '''
     def __init__(self, start, end):
         Double_Nodes.__init__(self, start, end)
+        
+
         
 class ZouShi(object):
     '''
@@ -237,6 +243,27 @@ class ZouShiLeiXing(object):
         else:
             print("We have invalid direction for ZhongShu")
         return macd_acc
+    
+    def check_exhaustion(self):
+        '''
+        check most recent two XD or BI at current direction on slopes
+        '''
+        i = 0
+        all_double_nodes = []
+        while i < len(self.zoushi_nodes)-1:
+            current_node = self.zoushi_nodes[i]
+            next_node = self.zoushi_nodes[i+1]
+            dn = Double_Nodes(current_node, next_node)
+            all_double_nodes.append(dn)
+            i = i + 1
+        
+        same_direction_nodes = [n for n in all_double_nodes if n.direction == self.direction]
+        if (self.direction == TopBotType.top2bot and same_direction_nodes[-1].end.tb == TopBotType.bot) or\
+            (self.direction == TopBotType.bot2top and same_direction_nodes[-1].end.tb == TopBotType.top):
+            return abs(same_direction_nodes[-1].work_out_slope()) < abs(same_direction_nodes[-3].work_out_slope())
+        else:
+            return False
+        
 
 class ZhongShu(ZouShiLeiXing):
     '''
@@ -443,7 +470,7 @@ class CentralRegionProcess(object):
         
     def convert_to_graph_data(self):
         '''
-        We are assuming the Zou Shi is disassembled properly with data in time order
+        We are assuming the Zou Shi is disassembled properly with data in timely order
         '''
         x_axis = []
         y_axis = []
@@ -460,20 +487,13 @@ class CentralRegionProcess(object):
     def prepare_df_data(self, working_df):        
         _, _, working_df.loc[:,'macd'] = talib.MACD(working_df['close'].values)
 
-#         working_df['tb_pivot'] = working_df.apply(lambda row: 0 if pd.isnull(row['xd_tb']) else 1, axis=1)
-#         groups = working_df['tb_pivot'][::-1].cumsum()[::-1]
-#         working_df['tb_pivot_acc'] = groups
-#         
-#         df_macd_acc = working_df.groupby(groups)['macd'].agg([('macd_acc_negative' , lambda x : x[x < 0].sum()) , ('macd_acc_positive' , lambda x : x[x > 0].sum())])
-#         working_df = pd.merge(working_df, df_macd_acc, left_on='tb_pivot_acc', right_index=True)
-#         working_df['macd_acc'] = working_df.apply(lambda row: 0 if pd.isnull(row['xd_tb']) else row['macd_acc_negative'] if row['xd_tb'] == TopBotType.bot else row['macd_acc_positive'] if row['xd_tb'] == TopBotType.top else 0, axis=1)
-        working_df = self.prepare_macd(working_df, 'tb')
-        working_df = self.prepare_macd(working_df, 'xd_tb')
+        tb_name = 'xd_tb' if self.use_xd else 'tb'
+        working_df = self.prepare_macd(working_df, tb_name)
 
-        working_df = working_df[(working_df['xd_tb']==TopBotType.top) | (working_df['xd_tb']==TopBotType.bot)]
+        working_df = working_df[(working_df[tb_name]==TopBotType.top) | (working_df[tb_name]==TopBotType.bot)]
         
         if self.isdebug:
-            print("working_df: {0}".format(working_df.head(10)[['chan_price', 'xd_tb', 'new_index','macd_acc_tb', 'macd_acc_xd_tb']]))
+            print("working_df: {0}".format(working_df.head(10)[['chan_price', tb_name, 'new_index','macd_acc_tb', 'macd_acc_xd_tb']]))
         return working_df
     
     def prepare_macd(self, working_df, tb_col):
