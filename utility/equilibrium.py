@@ -53,7 +53,7 @@ class Equilibrium():
             return False
         
         if np.sign(latest_slope) == np.sign(zslx_slope) and abs(latest_slope) < abs(zslx_slope):
-            if self.isdebug:
+            if self.isdebug or self.isDescription:
                 print("exhaustion found by reduced slope: {0} {1}".format(zslx_slope, latest_slope))
             return True
 
