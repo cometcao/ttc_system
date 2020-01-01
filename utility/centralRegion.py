@@ -41,7 +41,7 @@ class Chan_Node(object):
 
 class XianDuan_Node(Chan_Node):
     def __init__(self, df_node):
-        Chan_Node.__init__(self, df_node)
+        super(XianDuan_Node, self).__init__(df_node)
         self.tb = df_node.xd_tb
         self.macd_acc = df_node.macd_acc_xd_tb
         
@@ -53,7 +53,7 @@ class XianDuan_Node(Chan_Node):
         
 class BI_Node(Chan_Node):
     def __init__(self, df_node):
-        Chan_Node.__init__(self, df_node)
+        super(BI_Node, self).__init__(df_node)
         self.tb = df_node.tb
         self.macd_acc = df_node.macd_acc_tb
 
@@ -139,6 +139,14 @@ class ZouShiLeiXing(object):
         else:
             print("Invalid direction: {0}".format(direction))
         return valid
+
+    def get_reverse_split_zslx(self):
+        '''
+        split current zslx by top or bot
+        '''
+        all_price = [node.chan_price for node in self.zoushi_nodes]
+        toporbotprice = max(all_price) if self.direction == TopBotType.bot2top else min(all_price)
+        return TopBotType.top2bot if self.direction == TopBotType.bot2top else TopBotType.top2bot, self.zoushi_nodes[all_price.index(toporbotprice):]
 
     def get_amplitude_region(self, xd_tb_nodes=None):
         if not self.amplitude_region:
@@ -227,7 +235,7 @@ class ZhongShu(ZouShiLeiXing):
     '''
     
     def __init__(self, first, second, third, forth, direction):
-        ZouShiLeiXing.__init__(self, direction, [])
+        super(ZhongShu, self).__init__(direction, None)
         self.first = first
         self.second = second
         self.third = third
