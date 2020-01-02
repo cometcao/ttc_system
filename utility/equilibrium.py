@@ -317,7 +317,7 @@ class Equilibrium():
                 if self.isdebug:
                     print("TYPE III trade point 5")
         
-        # TYPE III where zslx form reverse direction zhongshu
+        # TYPE III where zslx form reverse direction zhongshu, and last XD of new zhong shu didn't go back 
         if type(self.analytic_result[-1]) is ZhongShu:
             pre_zs = self.analytic_result[-3]
             zslx = self.analytic_result[-2]
@@ -333,7 +333,7 @@ class Equilibrium():
                         print("TYPE III trade point 3")
                     # TODO weak III
                 
-        # TYPE III two reverse direction zslx
+        # TYPE III two reverse direction zslx, with new reverse direction zhongshu in the middle
         if type(self.analytic_result[-1]) is ZouShiLeiXing:
             latest_zslx = self.analytic_result[-1]
             now_zs = self.analytic_result[-2]
@@ -346,7 +346,7 @@ class Equilibrium():
             
 
         if self.isDescription or self.isdebug:
-            print("all trade point {0}".format(all_types))
+            print("all chan types {0}".format(all_types))
 
         return all_types
     
