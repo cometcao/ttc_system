@@ -180,6 +180,10 @@ class Equilibrium():
         for zs in recent_zoushi:
             if type(zs) is ZhongShu:
                 recent_zhongshu.append(zs)
+            
+        if len(recent_zhongshu) < 2:
+            self.isQvShi = False
+            return
         
         # STARDARD CASE
         if (recent_zhongshu[-2].direction == recent_zhongshu[-1].direction or recent_zhongshu[-2].is_complex_type()):
