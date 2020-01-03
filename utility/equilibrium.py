@@ -201,7 +201,7 @@ class Equilibrium():
         for zs in recent_zoushi:
             if type(zs) is ZhongShu:
                 recent_zhongshu.append(zs)
-            
+        
         if len(recent_zhongshu) < 2:
             self.isQvShi = False
             if self.isdebug:
@@ -232,7 +232,7 @@ class Equilibrium():
         if self.isQvShi and self.isDescription:
             print("QU SHI FOUND")
         return self.isQvShi        
-    
+        
     def define_equilibrium(self):        
         if len(self.analytic_result) < 2: # if we don't have enough data, return False directly
             if self.isdebug:
@@ -382,10 +382,10 @@ class Equilibrium():
                     print("TYPE III trade point 4")        
                 # TODO weak III
             
-
+                
         if all_types and (self.isDescription or self.isdebug):
             print("all chan types {0}".format(all_types))
-
+            
         return all_types
     
     
@@ -429,7 +429,3 @@ class NestedInterval():
             print("Fen Bi {0} {1}".format(bi_direction, "exhausted" if bi_exhausted else "continues"))
         
         return xd_direction == bi_direction == direction and xd_exhausted and bi_exhausted
-
-
-        
-                
