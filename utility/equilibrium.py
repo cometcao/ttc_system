@@ -346,19 +346,17 @@ class Equilibrium():
                     
             split_direction, split_nodes = zslx.get_reverse_split_zslx()
             pure_zslx = ZouShiLeiXing(split_direction, self.original_df, split_nodes)
-            if not self.two_zslx_interact_original(zs, pure_zslx):
+            # at least two split nodes required to form a zslx
+            if len(split_nodes) >= 2 and not self.two_zslx_interact_original(zs, pure_zslx):
                 all_types.append((Chan_Type.III, pure_zslx.direction))
                 if self.isdebug:
-                    print("TYPE III trade point 5")
+                    print("TYPE III trade point 7")
         
         # TYPE III where zslx form reverse direction zhongshu, and last XD of new zhong shu didn't go back 
         if len(self.analytic_result) >= 3 and type(self.analytic_result[-1]) is ZhongShu:
             pre_zs = self.analytic_result[-3]
             zslx = self.analytic_result[-2]
             now_zs = self.analytic_result[-1]            
-
-            core_region = pre_zs.get_core_region()
-            amplitude_region_original = pre_zs.amplitude_region_original()
             
             if not now_zs.is_complex_type() and\
                 ((now_zs.forth.tb == TopBotType.bot and now_zs.direction == TopBotType.bot2top) or\
@@ -367,7 +365,10 @@ class Equilibrium():
                     all_types.append((Chan_Type.III, TopBotType.top2bot if now_zs.direction == TopBotType.bot2top else TopBotType.bot2top))
                     if self.isdebug:
                         print("TYPE III trade point 3")
-                    # TODO weak III
+                elif not self.two_zslx_interact(pre_zs, now_zs):
+                    all_types.append((Chan_Type.III_weak, TopBotType.top2bot if now_zs.direction == TopBotType.bot2top else TopBotType.bot2top))
+                    if self.isdebug:
+                        print("TYPE III trade point 4")                    
                 
         # TYPE III two reverse direction zslx, with new reverse direction zhongshu in the middle
         if len(self.analytic_result) >= 4 and type(self.analytic_result[-1]) is ZouShiLeiXing:
@@ -377,12 +378,14 @@ class Equilibrium():
             if not self.two_zslx_interact_original(pre_zs, latest_zslx) and latest_zslx.direction != now_zs.direction:
                 all_types.append((Chan_Type.III, latest_zslx.direction))
                 if self.isdebug:
-                    print("TYPE III trade point 4")        
-                # TODO weak III
-            
+                    print("TYPE III trade point 5")   
+            if not self.two_zslx_interact(pre_zs, latest_zslx) and latest_zslx.direction != now_zs.direction:
+                all_types.append((Chan_Type.III_weak, latest_zslx.direction))
+                if self.isdebug:
+                    print("TYPE III trade point 6")                             
                 
         if all_types and (self.isDescription or self.isdebug):
-            print("all chan types {0}".format(all_types))
+            print("all chan types found: {0}".format(all_types))
             
         return all_types
     

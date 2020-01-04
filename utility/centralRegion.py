@@ -161,8 +161,8 @@ class ZouShiLeiXing(object):
     def get_amplitude_region_original(self, re_evaluate=False):
         if not self.amplitude_region_origin or re_evaluate:
             [s, e] = self.get_time_region(re_evaluate)
-            price_series = self.original_df.loc[s:e, 'chan_price']
-            self.amplitude_region_origin = [price_series.min(), price_series.max()]
+            price_series = self.original_df.loc[s:e, ['high', 'low']]
+            self.amplitude_region_origin = [price_series['low'].min(), price_series['high'].max()]
         return self.amplitude_region_origin
 
     def get_time_region(self, re_evaluate=False):    
@@ -311,8 +311,8 @@ class ZhongShu(ZouShiLeiXing):
     def get_amplitude_region_original(self, re_evaluate=False):
         if not self.amplitude_region_origin or re_evaluate:
             [s, e] = self.get_time_region(re_evaluate)
-            region_price_series = self.original_df.loc[s:e, 'chan_price']
-            self.amplitude_region_origin = [region_price_series.min(), region_price_series.max()]
+            region_price_series = self.original_df.loc[s:e, ['high','low']]
+            self.amplitude_region_origin = [region_price_series['low'].min(), region_price_series['high'].max()]
         return self.amplitude_region_origin
         
 
