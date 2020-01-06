@@ -27,6 +27,19 @@ def check_chan_low(stock, end_time, count, period, direction):
     result = ni.is_trade_point(direction=direction)
     return result
 
+def check_chan_by_type_exhaustion(stock, end_time, count, period, direction, chan_type):
+    stock_df = JqDataRetriever.get_research_data(stock, count=count, end_date=end_time, period=period,fields= ['open',  'high', 'low','close', 'money'])
+    kb_df = KBarProcessor(stock_df, isdebug=False)
+    xd_df = kb_df.getIntegradedXD()
+    crp_df = CentralRegionProcess(xd_df, isdebug=False, use_xd=True)
+    anal_result_df = crp_df.define_central_region()
+    eq = Equilibrium(xd_df, anal_result_df, isdebug=False, isDescription=True)
+    chan_types = eq.check_chan_type()
+    for chan_t, chan_d in chan_types:
+        if chan_t == chan_type and chan_d == direction:    
+            ni = NestedInterval(xd_df, isdebug=False, isDescription=True)   
+            return ni.is_trade_point(direction=direction)
+    return False
 
 class CentralRegionProcess(object):
     '''
@@ -194,7 +207,7 @@ class Equilibrium():
         two adjacent ZhongShu going in the same direction, or the first ZhongShu is complex(can be both direction)
         '''
         result = False
-        if zs1.get_level().value >= zs2.get_level().value == zs_level and\
+        if zs1.get_level().value >= zs2.get_level().value == zs_level.value and\
             (zs1.direction == zs2.direction or zs1.is_complex_type()):
             [l1, u1] = zs1.get_amplitude_region_original()
             [l2, u2] = zs2.get_amplitude_region_original()
