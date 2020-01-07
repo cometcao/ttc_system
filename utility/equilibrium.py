@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 def check_chan_high(stock, end_time, count, period, direction, chan_type):
-    stock_high = JqDataRetriever.get_research_data(stock, count=count, end_date=end_time, period=period,fields= ['open',  'high', 'low','close', 'money'], skip_suspended=False)
+    stock_high = JqDataRetriever.get_research_data(stock, count=count, end_date=end_time, period=period,fields= ['open',  'high', 'low','close', 'money'], skip_suspended=True)
     kb_high = KBarProcessor(stock_high, isdebug=False)
     xd_df_high = kb_high.getIntegradedXD()
     crp_high = CentralRegionProcess(xd_df_high, isdebug=False, use_xd=True)
@@ -20,7 +20,7 @@ def check_chan_high(stock, end_time, count, period, direction, chan_type):
     return False
 
 def check_chan_low(stock, end_time, count, period, direction):
-    stock_low = JqDataRetriever.get_research_data(stock, count=count, end_date=end_time, period=period,fields= ['open',  'high', 'low','close', 'money'],skip_suspended=False)
+    stock_low = JqDataRetriever.get_research_data(stock, count=count, end_date=end_time, period=period,fields= ['open',  'high', 'low','close', 'money'],skip_suspended=True)
     kb_low = KBarProcessor(stock_low, isdebug=False)
     xd_df_low = kb_low.getIntegradedXD()
     ni = NestedInterval(xd_df_low, isdebug=False, isDescription=True)        
@@ -28,7 +28,7 @@ def check_chan_low(stock, end_time, count, period, direction):
     return result
 
 def check_chan_by_type_exhaustion(stock, end_time, count, period, direction, chan_type):
-    stock_df = JqDataRetriever.get_research_data(stock, count=count, end_date=end_time, period=period,fields= ['open',  'high', 'low','close', 'money'],skip_suspended=False)
+    stock_df = JqDataRetriever.get_research_data(stock, count=count, end_date=end_time, period=period,fields= ['open',  'high', 'low','close', 'money'],skip_suspended=True)
     kb_df = KBarProcessor(stock_df, isdebug=False)
     xd_df = kb_df.getIntegradedXD()
     crp_df = CentralRegionProcess(xd_df, isdebug=False, use_xd=True)
