@@ -526,8 +526,11 @@ class NestedInterval():
             print("Xian Duan {0} {1}".format(xd_direction, "exhausted" if xd_exhausted else "continues"))
         
         # BI
-        bi_exhausted, bi_direction = self.analyze_zoushi(use_xd=False)
-        if self.isDescription or self.isdebug:
-            print("Fen Bi {0} {1}".format(bi_direction, "exhausted" if bi_exhausted else "continues"))
+        if xd_exhausted:
+            bi_exhausted, bi_direction = self.analyze_zoushi(use_xd=False)
+            if self.isDescription or self.isdebug:
+                print("Fen Bi {0} {1}".format(bi_direction, "exhausted" if bi_exhausted else "continues"))
         
-        return xd_direction == bi_direction == direction and xd_exhausted and bi_exhausted
+            return xd_direction == bi_direction == direction and xd_exhausted and bi_exhausted
+        else:
+            return xd_exhausted
