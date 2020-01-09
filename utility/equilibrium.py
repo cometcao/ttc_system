@@ -12,7 +12,7 @@ def check_chan_high(stock, end_time, count, period, direction, chan_type):
     xd_df_high = kb_high.getIntegradedXD()
     crp_high = CentralRegionProcess(xd_df_high, isdebug=False, use_xd=True)
     anal_result_high = crp_high.define_central_region()
-    eq = Equilibrium(xd_df_high, anal_result_high, isdebug=False, isDescription=True)
+    eq = Equilibrium(xd_df_high, anal_result_high, isdebug=False, isDescription=True, check_bi=False)
     chan_types = eq.check_chan_type()
     for chan_t, chan_d in chan_types:
         if chan_t == chan_type and chan_d == direction:
@@ -23,7 +23,7 @@ def check_chan_low(stock, end_time, count, period, direction):
     stock_low = JqDataRetriever.get_research_data(stock, count=count, end_date=end_time, period=period,fields= ['open',  'high', 'low','close', 'money'],skip_suspended=True)
     kb_low = KBarProcessor(stock_low, isdebug=False)
     xd_df_low = kb_low.getIntegradedXD()
-    ni = NestedInterval(xd_df_low, isdebug=False, isDescription=True)        
+    ni = NestedInterval(xd_df_low, isdebug=False, isDescription=True, check_bi=False)        
     result = ni.is_trade_point(direction=direction)
     return result
 
@@ -37,7 +37,7 @@ def check_chan_by_type_exhaustion(stock, end_time, count, period, direction, cha
     chan_types = eq.check_chan_type()
     for chan_t, chan_d in chan_types:
         if ((chan_t in chan_type) if type(chan_type) is list else (chan_t == chan_type)) and chan_d == direction:    
-            ni = NestedInterval(xd_df, isdebug=False, isDescription=True)   
+            ni = NestedInterval(xd_df, isdebug=False, isDescription=True, check_bi=False)   
             return ni.is_trade_point(direction=direction), chan_t
     return False, Chan_Type.INVALID
 
@@ -497,10 +497,11 @@ class NestedInterval():
     existing level goes:
     current_level -> XD -> BI
     '''
-    def __init__(self, df_xd_bi, isdebug=False, isDescription=True):
+    def __init__(self, df_xd_bi, isdebug=False, isDescription=True, check_bi=False):
         self.df_xd_bi = df_xd_bi
         self.isdebug = isdebug
         self.isDescription = isDescription
+        self.check_bi = check_bi
     
     def analyze_zoushi(self, use_xd):
         crp = CentralRegionProcess(self.df_xd_bi, isdebug=self.isdebug, use_xd=use_xd) # XD
@@ -526,7 +527,7 @@ class NestedInterval():
             print("Xian Duan {0} {1}".format(xd_direction, "exhausted" if xd_exhausted else "continues"))
         
         # BI
-        if xd_exhausted:
+        if xd_exhausted and self.check_bi:
             bi_exhausted, bi_direction = self.analyze_zoushi(use_xd=False)
             if self.isDescription or self.isdebug:
                 print("Fen Bi {0} {1}".format(bi_direction, "exhausted" if bi_exhausted else "continues"))
