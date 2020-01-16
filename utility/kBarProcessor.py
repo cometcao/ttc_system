@@ -9,6 +9,23 @@ import copy
 import talib
 from utility.biaoLiStatus import * 
 
+def filter_high_level_type_III_by_index(period = '5d',direction=TopBotType.top2bot, stock_index='000985.XSHG'):
+    all_stocks = JqDataRetriever.get_index_stocks(stock_index)
+    result_stocks = []
+    for stock in all_stocks:
+        stock_high = JqDataRetriever.get_research_data(stock, 
+                                                       count=5, 
+                                                       end_date=pd.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
+                                                       period=period,
+                                                       fields= ['open',  'high', 'low','close', 'money'], 
+                                                       skip_suspended=True)
+        if KBarProcessor.filter_high_level_kbar(stock_high, direction=direction):
+            result_stocks.append(stock)
+    print("qualifying stocks:{0}".format(result_stocks))
+    
+    return result_stocks
+
+
 def synchOpenPrice(open, close, high, low):
     if open > close:
         return high
@@ -1113,3 +1130,46 @@ class KBarProcessor(object):
             result = False
             print("We have invalid direction value!!!!!")
         return result
+    
+    @classmethod
+    def contain_zhongshu(cls, first, second, third):
+        if first.high >= second.high >= first.low or\
+            first.high >= second.low >= first.low or\
+            second.high >= first.high >= second.low or\
+            second.high >= first.low >= second.low:
+            new_high, new_low = min(first.high, second.high), max(first.low, second.low)
+            if new_high >= third.high >= new_low or\
+                new_high >= third.low >= new_low or\
+                third.high >= new_high >= third.low or\
+                third.high >= new_low >= third.low:
+                return True, max(first.high, second.high, third.high), min(first.low, second.low, third.low)
+        return False, 0, 0
+    
+    @classmethod
+    def filter_high_level_kbar(cls, high_df, direction=TopBotType.top2bot):
+        '''
+        This method used by weekly (5d) data to find out rough 5m Zhongshu and 
+        type III trade point
+        
+        It is used as initial filters for all stocks on markets
+        
+        1. find nearest 5m zhongshu => three consecutive weekly kbar share price region
+        2. the kbar following the zhongshu escapes by direction, 
+        3. the same kbar or next kbar's return attempt never touch the previous zhongshu (only strong case)
+        '''
+        result = False
+        
+        if high_df.shape[0] >= 4:
+            first = high_df.iloc[-5]
+            second = high_df.iloc[-4]
+            third = high_df.iloc[-3]
+            forth = high_df.iloc[-2]
+            fifth = high_df.iloc[-1]
+            check_result, k_m, k_l = cls.contain_zhongshu(first, second, third)
+            if check_result and fifth.close < fifth.open and fifth.close < forth.close:
+                result = fifth.low > k_m if direction == TopBotType.top2bot else fifth.high < k_l
+            if not result and fifth.close < fifth.open and fifth.close < forth.close:
+                check_result, k_m, k_l = cls.contain_zhongshu(second, third, forth)
+                result = check_result and fifth.low > k_m if direction == TopBotType.top2bot else fifth.high < k_l
+                
+        return result 
