@@ -9,7 +9,7 @@ import copy
 import talib
 from utility.biaoLiStatus import * 
 
-def filter_high_level_type_III_by_index(period = '5d',direction=TopBotType.top2bot, stock_index='000985.XSHG'):
+def filter_high_level_type_III_by_index(period = '5d',direction=TopBotType.top2bot, stock_index='000985.XSHG', df=False):
     all_stocks = JqDataRetriever.get_index_stocks(stock_index)
     result_stocks = []
     for stock in all_stocks:
@@ -18,8 +18,9 @@ def filter_high_level_type_III_by_index(period = '5d',direction=TopBotType.top2b
                                                        end_date=pd.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), 
                                                        period=period,
                                                        fields= ['open',  'high', 'low','close', 'money'], 
-                                                       skip_suspended=True)
-        if KBarProcessor.filter_high_level_kbar(stock_high, direction=direction):
+                                                       skip_suspended=True, 
+                                                       df = df)
+        if KBarProcessor.filter_high_level_kbar(stock_high, direction=direction, df=df):
             result_stocks.append(stock)
     print("qualifying stocks:{0}".format(result_stocks))
     
@@ -37,6 +38,17 @@ def synchClosePrice(open, close, high, low):
         return high
     else:
         return low    
+
+class KBar(object):
+    '''
+    used for initial filter with OCHL
+    '''
+    def __init__(self, open, close, high, low):
+        self.open = open
+        self.close = close
+        self.high = high
+        self.low = low
+
 
 class KBarProcessor(object):
     '''
@@ -1145,8 +1157,19 @@ class KBarProcessor(object):
                 return True, max(first.high, second.high, third.high), min(first.low, second.low, third.low)
         return False, 0, 0
     
+    @classmethod 
+    def create_five_kbar(cls, high_df):
+        i = -5
+        kbar_list = []
+        while i <= -1:
+            kb = KBar(high_df['open'][i], high_df['close'][i], high_df['high'][i], high_df['low'][i])
+            kbar_list.append(kb)
+            i = i + 1
+        return kbar_list
+        
+    
     @classmethod
-    def filter_high_level_kbar(cls, high_df, direction=TopBotType.top2bot):
+    def filter_high_level_kbar(cls, high_df, direction=TopBotType.top2bot, df=True):
         '''
         This method used by weekly (5d) data to find out rough 5m Zhongshu and 
         type III trade point
@@ -1159,17 +1182,33 @@ class KBarProcessor(object):
         '''
         result = False
         
-        if high_df.shape[0] >= 4:
-            first = high_df.iloc[-5]
-            second = high_df.iloc[-4]
-            third = high_df.iloc[-3]
-            forth = high_df.iloc[-2]
-            fifth = high_df.iloc[-1]
-            check_result, k_m, k_l = cls.contain_zhongshu(first, second, third)
-            if check_result and fifth.close < fifth.open and fifth.close < forth.close:
-                result = fifth.low > k_m if direction == TopBotType.top2bot else fifth.high < k_l
-            if not result and fifth.close < fifth.open and fifth.close < forth.close:
-                check_result, k_m, k_l = cls.contain_zhongshu(second, third, forth)
-                result = check_result and fifth.low > k_m if direction == TopBotType.top2bot else fifth.high < k_l
+        if df:
+            if high_df.shape[0] >= 4:
+                first = high_df.iloc[-5]
+                second = high_df.iloc[-4]
+                third = high_df.iloc[-3]
+                forth = high_df.iloc[-2]
+                fifth = high_df.iloc[-1]
+                check_result, k_m, k_l = cls.contain_zhongshu(first, second, third)
+                if check_result and fifth.close < fifth.open and fifth.close < forth.close:
+                    result = fifth.low > k_m if direction == TopBotType.top2bot else fifth.high < k_l
+                if not result and fifth.close < fifth.open and fifth.close < forth.close:
+                    check_result, k_m, k_l = cls.contain_zhongshu(second, third, forth)
+                    result = check_result and fifth.low > k_m if direction == TopBotType.top2bot else fifth.high < k_l
+        else:
+            if len(high_df['open']) >= 4:
+                kbar_list = cls.create_five_kbar(high_df)
+                first = kbar_list[-5]
+                second = kbar_list[-4]
+                third = kbar_list[-3]
+                forth = kbar_list[-2]
+                fifth = kbar_list[-1]
+                
+                check_result, k_m, k_l = cls.contain_zhongshu(first, second, third)
+                if check_result and fifth.close < fifth.open and fifth.close < forth.close:
+                    result = fifth.low > k_m if direction == TopBotType.top2bot else fifth.high < k_l
+                if not result and fifth.close < fifth.open and fifth.close < forth.close:
+                    check_result, k_m, k_l = cls.contain_zhongshu(second, third, forth)
+                    result = check_result and fifth.low > k_m if direction == TopBotType.top2bot else fifth.high < k_l                
                 
         return result 
