@@ -5,7 +5,6 @@ Created on 18 Jan 2020
 @author: MetalInvest
 '''
 import numpy as np
-import copy
 from utility.centralRegion import Chan_Type
 from utility.biaoLiStatus import TopBotType
 from utility.securityDataManager import *
