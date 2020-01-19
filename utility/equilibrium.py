@@ -6,24 +6,28 @@ from utility.securityDataManager import *
 import numpy as np
 import pandas as pd
 
-def check_chan_high(stock, end_time, count, period, direction, chan_type):
+def check_chan_type(stock, end_time, count, period, direction, chan_type):
     stock_high = JqDataRetriever.get_research_data(stock, count=count, end_date=end_time, period=period,fields= ['open',  'high', 'low','close', 'money'], skip_suspended=True)
     kb_high = KBarProcessor(stock_high, isdebug=False)
     xd_df_high = kb_high.getIntegradedXD()
     crp_high = CentralRegionProcess(xd_df_high, isdebug=False, use_xd=True)
-    anal_result_high = crp_high.define_central_region()
-    eq = Equilibrium(xd_df_high, anal_result_high, isdebug=False, isDescription=True, check_bi=False)
+    anal_result_high_zoushi = crp_high.define_central_region()
+    eq = Equilibrium(xd_df_high, anal_result_high_zoushi.zslx_result, isdebug=False, isDescription=True, check_bi=False)
     chan_types = eq.check_chan_type()
     for chan_t, chan_d in chan_types:
         if chan_t == chan_type and chan_d == direction:
             return True
     return False
 
-def check_chan_low(stock, end_time, count, period, direction):
-    stock_low = JqDataRetriever.get_research_data(stock, count=count, end_date=end_time, period=period,fields= ['open',  'high', 'low','close', 'money'],skip_suspended=True)
-    kb_low = KBarProcessor(stock_low, isdebug=False)
-    xd_df_low = kb_low.getIntegradedXD()
-    ni = NestedInterval(xd_df_low, isdebug=False, isDescription=True, check_bi=False)        
+def check_chan_exhaustion(stock, end_time, count, period, direction):
+    stock_df = JqDataRetriever.get_research_data(stock, count=count, end_date=end_time, period=period,fields= ['open',  'high', 'low','close', 'money'],skip_suspended=True)
+    kb = KBarProcessor(stock_df, isdebug=False)
+    xd_df = kb.getIntegradedXD()
+    
+    crp = CentralRegionProcess(xd_df_high, isdebug=False, use_xd=True)
+    anal_result_zoushi = crp.define_central_region()
+    
+    ni = NestedInterval(xd_df, anal_result_zoushi,isdebug=False, isDescription=True, check_bi=False)        
     result = ni.is_trade_point(direction=direction)
     return result
 
@@ -32,13 +36,13 @@ def check_chan_by_type_exhaustion(stock, end_time, count, period, direction, cha
     kb_df = KBarProcessor(stock_df, isdebug=False)
     xd_df = kb_df.getIntegradedXD()
     crp_df = CentralRegionProcess(xd_df, isdebug=False, use_xd=True)
-    anal_result_df = crp_df.define_central_region()
-    eq = Equilibrium(xd_df, anal_result_df, isdebug=False, isDescription=True)
+    anal_zoushi = crp_df.define_central_region()
+    eq = Equilibrium(xd_df, anal_zoushi.zslx_result, isdebug=False, isDescription=True)
     chan_types = eq.check_chan_type()
     for chan_t, chan_d in chan_types:
         if ((chan_t in chan_type) if type(chan_type) is list else (chan_t == chan_type)) and chan_d == direction:    
-            ni = NestedInterval(xd_df, isdebug=False, isDescription=True, check_bi=False)   
-            return ni.is_trade_point(direction=direction), chan_t
+            ni = NestedInterval(xd_df, anal_zoushi, isdebug=False, isDescription=True, check_bi=False)
+            return ni.is_trade_point(direction=direction, chan_type=chan_t), chan_t
     return False, Chan_Type.INVALID
 
 class CentralRegionProcess(object):
@@ -132,7 +136,7 @@ class CentralRegionProcess(object):
         
         self.zoushi = self.find_central_region(init_idx, init_d, working_df)
             
-        return self.zoushi.zslx_result
+        return self.zoushi
         
     def convert_to_graph_data(self):
         '''
@@ -514,38 +518,39 @@ class NestedInterval():
     existing level goes:
     current_level -> XD -> BI
     '''
-    def __init__(self, df_xd_bi, isdebug=False, isDescription=True, check_bi=False):
+    def __init__(self, df_xd_bi, anal_zoushi, isdebug=False, isDescription=True, check_bi=False):
         self.df_xd_bi = df_xd_bi
+        self.anal_zoushi = anal_zoushi
         self.isdebug = isdebug
         self.isDescription = isDescription
         self.check_bi = check_bi
     
-    def analyze_zoushi(self, use_xd):
-        crp = CentralRegionProcess(self.df_xd_bi, isdebug=self.isdebug, use_xd=use_xd) # XD
-        anal_result = crp.define_central_region()
-        
+    def analyze_zoushi(self, direction, chan_type = Chan_Type.INVALID):
         if not anal_result:
             if self.isdebug:
                 print("not enough data analyze_zoushi")
             return False, TopBotType.noTopBot
         
-        eq = Equilibrium(self.df_xd_bi, anal_result, self.isdebug)
-        return eq.define_equilibrium(), anal_result[-1].direction
+        split_time = self.anal_zoushi.sub_zoushi_time(chan_type, direction)
+        focus_result = self.anal_zoushi.split_by_time(split_time) if split_time is not None else self.anal_zoushi.zslx_result
+        
+        eq = Equilibrium(self.df_xd_bi, focus_result, self.isdebug)
+        return eq.define_equilibrium(), focus_result[-1].direction
     
-    def is_trade_point(self, direction):
+    def is_trade_point(self, direction, chan_type):
         '''
         use direction param to check long/short point
         '''
         if self.isdebug:
             print("looking for {0} point".format("long" if direction == TopBotType.top2bot else "short"))
         # XD
-        xd_exhausted, xd_direction = self.analyze_zoushi(use_xd=True)
+        xd_exhausted, xd_direction = self.analyze_zoushi(direction, chan_type)
         if self.isDescription or self.isdebug:
             print("Xian Duan {0} {1}".format(xd_direction, "exhausted" if xd_exhausted else "continues"))
         
         # BI
         if xd_exhausted and self.check_bi:
-            bi_exhausted, bi_direction = self.analyze_zoushi(use_xd=False)
+            bi_exhausted, bi_direction = self.analyze_zoushi(direction, chan_type)
             if self.isDescription or self.isdebug:
                 print("Fen Bi {0} {1}".format(bi_direction, "exhausted" if bi_exhausted else "continues"))
         
