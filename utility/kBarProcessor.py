@@ -563,6 +563,7 @@ class KBarProcessor(object):
         
         # 1. at least 1 kbar between DING DI
         working_df['new_index_diff'] = working_df.loc[:,'new_index'].shift(-1)-working_df.loc[:,'new_index']
+        
         temp_index_list = working_df[working_df['new_index_diff']<4].index
         temp_loc_list = [working_df.index.get_loc(idx) for idx in temp_index_list]
         tb_loc = working_df.columns.get_loc('tb')
@@ -586,7 +587,6 @@ class KBarProcessor(object):
             next_elem = working_df.iloc[next]
             
             if next_elem.new_index - current_elem.new_index >= 4 or\
-                current_elem.tb == next_elem.tb or\
                 current_elem.tb == TopBotType.noTopBot:
                 if self.isdebug:
                     print("current close distance ignored: {0}, {1}, {2}".format(previous_elem.new_index, current_elem.new_index, next_elem.new_index))
@@ -613,21 +613,42 @@ class KBarProcessor(object):
                 if previous_elem.tb == TopBotType.top:
                     if previous_elem.high >= next_elem.high:
                         working_df.iloc[next,tb_loc] = TopBotType.noTopBot
-                        continue
                     elif previous_elem.high < next_elem.high:
                         working_df.iloc[previous,tb_loc] = TopBotType.noTopBot
-                        continue
                 elif previous_elem.tb == TopBotType.bot:
                     if previous_elem.low <= next_elem.low:
                         working_df.iloc[next,tb_loc] = TopBotType.noTopBot
-                        continue
                     elif previous_elem.low > next_elem.low:
                         working_df.iloc[previous,tb_loc] = TopBotType.noTopBot
-                        continue
                 else:
                     print("something wrong here! 1")
-            count_idx = count_idx + 1
-        working_df = working_df.drop('new_index_diff', 1)
+            else:
+                if previous_elem.tb == current_elem.tb:
+                    if previous_elem.tb == TopBotType.top:
+                        if previous_elem.high >= current_elem.high:
+                            working_df.iloc[current,tb_loc] = TopBotType.noTopBot
+                        elif previous_elem.high < current_elem.high:
+                            working_df.iloc[previous,tb_loc] = TopBotType.noTopBot
+                    elif previous_elem.tb == TopBotType.bot:
+                        if previous_elem.low <= current_elem.low:
+                            working_df.iloc[current,tb_loc] = TopBotType.noTopBot
+                        elif previous_elem.low > current_elem.low:
+                            working_df.iloc[previous,tb_loc] = TopBotType.noTopBot
+                elif current_elem.tb == next_elem.tb:
+                    if current_elem.tb == TopBotType.top:
+                        if current_elem.high >= next_elem.high:
+                            working_df.iloc[next,tb_loc] = TopBotType.noTopBot
+                        elif current_elem.high < next_elem.high:
+                            working_df.iloc[current,tb_loc] = TopBotType.noTopBot
+                    elif current_elem.tb == TopBotType.bot:
+                        if current_elem.low <= next_elem.low:
+                            working_df.iloc[next,tb_loc] = TopBotType.noTopBot
+                        elif current_elem.low > next_elem.low:
+                            working_df.iloc[current,tb_loc] = TopBotType.noTopBot
+                else:
+                    print("something wrong here! 2")
+            
+        working_df = working_df.drop(['new_index_diff'], 1)
         working_df = working_df[working_df['tb'] != TopBotType.noTopBot]
         
         # 2. DING followed by DI and DI followed by DING
@@ -761,8 +782,8 @@ class KBarProcessor(object):
     def getIntegraded(self, initial_state=TopBotType.noTopBot):
         self.standardize(initial_state)
         self.markTopBot(initial_state)
-#         self.defineBi()
-        self.defineBi_chan()
+        self.defineBi()
+#         self.defineBi_chan()
         self.getPureBi()
         return self.kDataFrame_origin.join(self.kDataFrame_marked[['new_index', 'tb', 'chan_price']])
     
