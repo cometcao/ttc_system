@@ -30,7 +30,10 @@ def filter_high_level_by_index(direction=TopBotType.top2bot,
                                                    fields= ['open',  'high', 'low','close', 'money'], 
                                                    df = df)
             for ct in chan_types:
-                if KBar.filter_high_level_kbar(stock_high, direction=direction, df=df, chan_type=ct):
+                if KBar.filter_high_level_kbar(stock_high, 
+                                               direction=direction, 
+                                               df=df, 
+                                               chan_type=ct):
                     result_stocks.add(stock)
     print("qualifying stocks:{0}".format(result_stocks))
     
