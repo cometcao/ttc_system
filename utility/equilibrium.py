@@ -523,7 +523,7 @@ class Equilibrium():
         if len(self.analytic_result) >= 3 and type(self.analytic_result[-1]) is ZhongShu:
             pre_zs = self.analytic_result[-3]
             zslx = self.analytic_result[-2]
-            now_zs = self.analytic_result[-1]            
+            now_zs = self.analytic_result[-1]
             
             if not now_zs.is_complex_type():
                 if not check_end_tb or\
@@ -536,7 +536,7 @@ class Equilibrium():
                     elif not self.two_zslx_interact(pre_zs, now_zs):
                         all_types.append((Chan_Type.III_weak, TopBotType.top2bot if now_zs.direction == TopBotType.bot2top else TopBotType.bot2top))
                         if self.isdebug:
-                            print("TYPE III trade point 4")                    
+                            print("TYPE III trade point 4")
                 
         # TYPE III two reverse direction zslx, with new reverse direction zhongshu in the middle
         if len(self.analytic_result) >= 4 and type(self.analytic_result[-1]) is ZouShiLeiXing:
@@ -551,7 +551,7 @@ class Equilibrium():
                  (latest_zslx.zoushi_nodes[-1].tb == TopBotType.bot and latest_zslx.direction == TopBotType.top2bot)):
                     all_types.append((Chan_Type.III, latest_zslx.direction))
                     if self.isdebug:
-                        print("TYPE III trade point 5")   
+                        print("TYPE III trade point 5")
             if not self.two_zslx_interact(pre_zs, latest_zslx) and\
                 latest_zslx.direction != now_zs.direction and\
                 not now_zs.is_complex_type():
@@ -560,11 +560,11 @@ class Equilibrium():
                  (latest_zslx.zoushi_nodes[-1].tb == TopBotType.bot and latest_zslx.direction == TopBotType.top2bot)):            
                     all_types.append((Chan_Type.III_weak, latest_zslx.direction))
                     if self.isdebug:
-                        print("TYPE III trade point 6")                             
-                
+                        print("TYPE III trade point 6")
+        all_types = list(set(all_types))
         if all_types and (self.isDescription or self.isdebug):
             print("all chan types found: {0}".format(all_types))
-            
+
         return all_types
     
     
@@ -600,18 +600,25 @@ class NestedInterval():
     def analyze_zoushi(self, direction, chan_type = Chan_Type.INVALID):
         anal_result = True
         if self.isdebug:
-            print("looking for {0} point".format("long" if direction == TopBotType.top2bot else "short"))
+            print("looking for {0} at top level {1} point with type:{2}".format("long" if direction == TopBotType.top2bot else "short",
+                                                                      self.periods[0],
+                                                                      chan_type))
         # high level
         xd_df, anal_zoushi = self.df_zoushi_tuple_list[0]
         if anal_zoushi is None:
             return False, Chan_Type.INVALID
         eq = Equilibrium(xd_df, anal_zoushi.zslx_result, isdebug=self.isdebug, isDescription=self.isDescription)
-        chan_types = list(set(eq.check_chan_type(check_end_tb=False)))
+        chan_types = eq.check_chan_type(check_end_tb=False)
         if not chan_types:
             return False, chan_types
+        for _, chan_d in chan_types: # early checks if we have any types found with opposite direction, no need to go further
+            if chan_d != direction:
+                if self.isdebug:
+                    print("opposite direction chan type found")
+                return False, chan_types
+        
         for chan_t, chan_d in chan_types:
             high_exhausted = ((chan_t in chan_type) if type(chan_type) is list else (chan_t == chan_type)) and\
-                            chan_d == direction and\
                             (eq.define_equilibrium(direction, check_tb_structure=False, check_xd_exhaustion=False) if chan_t == Chan_Type.I else True)
             if self.isDescription or self.isdebug:
                 print("Top level {0} {1} {2}".format(self.periods[0], chan_d, "ready" if high_exhausted else "not ready"))
@@ -624,6 +631,10 @@ class NestedInterval():
             
             i = 1
             while i < len(self.df_zoushi_tuple_list):
+                if self.isdebug:
+                    print("looking for {0} at top level {1} point with type:{2}".format("long" if direction == TopBotType.top2bot else "short",
+                                                                              self.periods[i],
+                                                                              chan_t))
                 xd_df_low, anal_zoushi_low = self.df_zoushi_tuple_list[i]
                 if anal_zoushi_low is None:
                     return False, chan_types
