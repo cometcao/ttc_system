@@ -187,6 +187,12 @@ class CentralRegionProcess(object):
         
         return working_df
 
+def take_start_price(elem):
+    if len(elem.zoushi_nodes) > 0:
+        return elem.zoushi_nodes[-1].chan_price
+    else:
+        return 0
+
 class Equilibrium():
     '''
     This class use ZouShi analytic results to check BeiChi
@@ -203,8 +209,12 @@ class Equilibrium():
     
     def find_most_recent_zoushi(self, direction):
         '''
-        Make sure we return the most recent Zhong Shu and the Zou Shi Lei Xing Entering it.
-        The Zou Shi Lei Xing Exiting it will be reworked on the original df
+        Make sure we find the appropriate two XD for comparison.
+        A. in case of QVSHI
+        B. in case of no QVSHI
+            1. compare the entering zhongshu XD/split XD with last XD of the zhongshu
+            2. compare entering XD with exit XD for the group of complicated zhongshu
+            3. compare two zslx entering and exiting zhongshu (can be opposite direction)
         '''
         if self.isQvShi:
             if type(self.analytic_result[-1]) is ZhongShu and self.analytic_result[-1].is_complex_type():  
@@ -218,32 +228,71 @@ class Equilibrium():
                 print("Invalid Zou Shi type")
                 return None, None, None
         else:
-            # complex zhongshu comparison within
             if type(self.analytic_result[-1]) is ZhongShu and\
-                self.analytic_result[-1].get_level().value >= ZhongShuLevel.current.value:
+                self.analytic_result[-1].is_complex_type():
                 zs = self.analytic_result[-1]
                 last_xd = zs.take_last_xd_as_zslx()
-                first_xd = zs.take_first_xd_as_zslx(direction)
-                return (first_xd, self.analytic_result[-1], last_xd) if last_xd.direction == direction else (None, None, None)
-            elif len(self.analytic_result) >= 5 and\
-                self.analytic_result[-1].direction == direction and\
-                type(self.analytic_result[-1]) is ZouShiLeiXing and\
-                type(self.analytic_result[-2]) is ZhongShu and\
-                type(self.analytic_result[-4]) is ZhongShu and\
-                self.two_zslx_interact_original(self.analytic_result[-4], self.analytic_result[-2]):
-                ## zhong shu combination
-                i = -4
-                while -(i-2) <= len(self.analytic_result):
-                    if not self.two_zslx_interact_original(self.analytic_result[i-2], self.analytic_result[i]):
-                        return self.analytic_result[i-1], self.analytic_result[i:-1],self.analytic_result[-1]
-                    i = i - 2
-                return None, None, None
-            elif len(self.analytic_result) >= 3 and\
-                type(self.analytic_result[-1]) is ZouShiLeiXing and\
-                type(self.analytic_result[-2]) is ZhongShu and\
-                type(self.analytic_result[-3]) is ZouShiLeiXing and\
-                self.analytic_result[-1].direction == direction:
-                return self.analytic_result[-3], self.analytic_result[-2], self.analytic_result[-1]
+                if last_xd.direction != direction:
+                    return None, None, None
+                
+                if len(self.analytic_result) >= 3 and\
+                    type(self.analytic_result[-2]) is ZouShiLeiXing and\
+                    type(self.analytic_result[-1]) is ZhongShu and\
+                    type(self.analytic_result[-3]) is ZhongShu and\
+                    self.two_zslx_interact_original(self.analytic_result[-1], self.analytic_result[-3]):
+                    ## zhong shu combination
+                    i = -3
+                    marked = False
+                    while -(i-2) <= len(self.analytic_result):
+                        if not self.two_zslx_interact_original(self.analytic_result[i-2], self.analytic_result[i]):
+                            first_xd = self.analytic_result[i-1]
+                            zs = self.analytic_result[i:-1]
+                            marked = True
+                            break
+                        i = i - 2
+                    if not marked or -(i-2) > len(self.analytic_result):
+                        all_zs = [zs for zs in self.analytic_result if type(zs) is ZhongShu]
+                        all_first_xd = [zs.take_first_xd_as_zslx(direction) for zs in all_zs]
+                        first_xd = sorted(all_first_xd, key=take_start_price, reverse=direction==TopBotType.top2bot)[0]
+                        
+                elif len(self.analytic_result) < 2 or self.analytic_result[-2].direction != last_xd.direction:
+                    first_xd = zs.take_first_xd_as_zslx(direction)
+                else:
+                    first_xd = self.analytic_result[-2]
+                return first_xd, zs, last_xd
+
+            elif type(self.analytic_result[-1]) is ZouShiLeiXing:
+                last_xd = self.analytic_result[-1]
+                zs = self.analytic_result[-2]
+                if last_xd.direction != direction:
+                    return None, None, None
+                
+                if len(self.analytic_result) >= 5 and\
+                    type(self.analytic_result[-2]) is ZhongShu and\
+                    type(self.analytic_result[-4]) is ZhongShu and\
+                    self.two_zslx_interact_original(self.analytic_result[-4], self.analytic_result[-2]):
+                    ## zhong shu combination
+                    i = -4
+                    marked = False
+                    while -(i-2) <= len(self.analytic_result):
+                        if not self.two_zslx_interact_original(self.analytic_result[i-2], self.analytic_result[i]):
+                            first_xd = self.analytic_result[i-1]
+                            zs = self.analytic_result[i:-1]
+                            marked = True
+                            break
+                        i = i - 2
+                    if not marked or -(i-2) > len(self.analytic_result):
+                        all_zs = [zs for zs in self.analytic_result if type(zs) is ZhongShu]
+                        all_first_xd = [zs.take_first_xd_as_zslx(direction) for zs in all_zs]
+                        first_xd = sorted(all_first_xd, key=take_start_price, reverse=direction==TopBotType.top2bot)[0]
+                        
+                elif len(self.analytic_result) < 3 or self.analytic_result[-3].direction != last_xd.direction:
+                    first_xd = zs.take_first_xd_as_zslx(direction)
+                else:
+                    first_xd = self.analytic_result[-3]
+                    
+                return first_xd, zs, last_xd
+                
             else:
                 print("Invalid Zou Shi type")
                 return None, None, None
@@ -352,8 +401,13 @@ class Equilibrium():
             c_s =zslx_c.get_tb_structure()
             if a_s[0] != c_s[0] or a_s[-1] != c_s[-1]:
                 if self.isdebug:
-                    print("Not match ZSLX structure")
+                    print("Not matching ZSLX structure")
                 return exhaustion_result
+        
+        if int(zslx_a.get_magnitude() - zslx_c.get_magnitude()) != 0:
+            if self.isdebug:
+                print("Not matching magnitude")
+            return exhaustion_result
         
         zslx_slope = zslx_a.work_out_slope()
         
