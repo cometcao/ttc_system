@@ -244,7 +244,8 @@ class Equilibrium():
                     i = -3
                     marked = False
                     while -(i-2) <= len(self.analytic_result):
-                        if not self.two_zslx_interact_original(self.analytic_result[i-2], self.analytic_result[i]):
+                        if not self.two_zslx_interact_original(self.analytic_result[i-2], self.analytic_result[i]) or\
+                            (not self.analytic_result[i-2].is_complex_type() and self.analytic_result[i-2].direction != self.analytic_result[i].direction):
                             first_xd = self.analytic_result[i-1]
                             zs = self.analytic_result[i:-1]
                             marked = True
@@ -275,7 +276,8 @@ class Equilibrium():
                     i = -4
                     marked = False
                     while -(i-2) <= len(self.analytic_result):
-                        if not self.two_zslx_interact_original(self.analytic_result[i-2], self.analytic_result[i]):
+                        if not self.two_zslx_interact_original(self.analytic_result[i-2], self.analytic_result[i]) or\
+                            (not self.analytic_result[i-2].is_complex_type() and self.analytic_result[i-2].direction != self.analytic_result[i].direction):
                             first_xd = self.analytic_result[i-1]
                             zs = self.analytic_result[i:-1]
                             marked = True
