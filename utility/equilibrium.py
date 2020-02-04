@@ -5,6 +5,7 @@ from utility.securityDataManager import *
 
 import numpy as np
 import pandas as pd
+from builtins import True
 
 def check_chan_type(stock, end_time, count, period, direction, chan_type, isdebug=False):
     stock_high = JqDataRetriever.get_research_data(stock, count=count, end_date=end_time, period=period,fields= ['open',  'high', 'low','close'], skip_suspended=True)
