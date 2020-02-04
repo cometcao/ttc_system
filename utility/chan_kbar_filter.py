@@ -18,7 +18,7 @@ def filter_high_level_by_index(direction=TopBotType.top2bot,
                                df=False, 
                                periods = ['60m', '120m', '1d'],
                                end_dt=pd.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                               chan_types=[Chan_Type.III, Chan_Type.I]):
+                               chan_types=[Chan_Type.I, Chan_Type.III]):
     all_stocks = get_index_stocks(stock_index)
     result_stocks = set()
     for stock in all_stocks:
@@ -28,7 +28,8 @@ def filter_high_level_by_index(direction=TopBotType.top2bot,
                                                    end_dt=end_dt, 
                                                    unit=p,
                                                    fields= ['open',  'high', 'low','close'], 
-                                                   df = df)
+                                                   df = df,
+                                                   include_now=True)
             for ct in chan_types:
                 if KBar.filter_high_level_kbar(stock_high, 
                                                direction=direction, 

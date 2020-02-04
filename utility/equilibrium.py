@@ -21,6 +21,7 @@ def check_chan_type(stock, end_time, count, period, direction, chan_type, isdebu
     return False
 
 def check_chan_exhaustion(stock, end_time, count, period, direction, isdebug=False):
+    print("working on stock: {0}, {1}".format(stock, period))
     stock_df = JqDataRetriever.get_research_data(stock, count=count, end_date=end_time, period=period,fields= ['open',  'high', 'low','close'],skip_suspended=True)
     kb = KBarProcessor(stock_df, isdebug=isdebug)
     xd_df = kb.getIntegradedXD()
@@ -35,30 +36,60 @@ def check_chan_exhaustion(stock, end_time, count, period, direction, isdebug=Fal
         return False
 
 def check_chan_by_type_exhaustion(stock, end_time, periods, count, direction, chan_type, isdebug=False):
+    print("working on stock: {0} at {1}".format(stock, periods))
     ni = NestedInterval(stock, 
                         end_dt=end_time, 
                         periods=periods, 
                         count=count, 
                         isdebug=isdebug, 
-                        isDescription=True)
+                        isDescription=True,
+                        isAnal=is_anal)
+    
     return ni.analyze_zoushi(direction, chan_type)
 
-def check_chan_indepth(stock, end_time, period, count, direction, isdebug=False):
+def check_chan_indepth(stock, end_time, period, count, direction, isdebug=False, is_anal=False):
+    print("working on stock: {0}".format(stock))
     ni = NestedInterval(stock, 
                         end_dt=end_time, 
                         periods=[period], 
                         count=count, 
                         isdebug=isdebug, 
-                        isDescription=True)
+                        isDescription=True,
+                        isAnal=is_anal)
     return ni.indepth_analyze_zoushi(direction)
 
-def check_stock_full(stock, end_time, periods=['5m', '1m'], count=2000, direction=TopBotType.top2bot, isdebug=False):
+def check_stock_sub(stock, end_time, periods, count=2000, direction=TopBotType.top2bot, isdebug=False, is_anal=False, split_time=None):
+    print("working on stock: {0} at {1}".format(stock, periods))
     ni = NestedInterval(stock, 
                         end_dt=end_time, 
                         periods=periods, 
                         count=count,
                         isdebug=isdebug, 
-                        isDescription=True)
+                        isDescription=True,
+                        isAnal=is_anal)
+    
+    for pe in periods:
+        exhausted, chan_types, split_time = ni.full_check_zoushi(pe, 
+                                                             direction, 
+                                                             check_end_tb=True, 
+                                                             check_tb_structure=True, 
+                                                             check_xd_exhaustion=True, 
+                                                             split_time=split_time)
+        if not exhausted:
+            return exhausted
+    return True
+    
+    
+
+def check_stock_full(stock, end_time, periods=['5m', '1m'], count=2000, direction=TopBotType.top2bot, isdebug=False, is_anal=False):
+    print("working on stock: {0}".format(stock))
+    ni = NestedInterval(stock, 
+                        end_dt=end_time, 
+                        periods=periods, 
+                        count=count,
+                        isdebug=isdebug, 
+                        isDescription=True,
+                        isAnal=is_anal)
     
     top_pe = periods[0]
     exhausted, chan_types, splitTime = ni.full_check_zoushi(top_pe, 
@@ -690,11 +721,12 @@ class NestedInterval():
     current_level -> XD -> BI
     periods goes from high to low level
     '''
-    def __init__(self, stock, end_dt, periods, count=2000, isdebug=False, isDescription=True):
+    def __init__(self, stock, end_dt, periods, count=2000, isdebug=False, isDescription=True, isAnal=True):
         self.stock = stock
         self.end_dt = end_dt
         self.periods = periods
         self.count = count
+        self.is_anal = isAnal
 
         self.isdebug = isdebug
         self.isDescription = isDescription
@@ -730,16 +762,16 @@ class NestedInterval():
         # high level
         xd_df, anal_zoushi = self.df_zoushi_tuple_list[0]
         if anal_zoushi is None:
-            return False, []
+            return False, [], None
         eq = Equilibrium(xd_df, anal_zoushi.zslx_result, isdebug=self.isdebug, isDescription=self.isDescription)
         chan_types = eq.check_chan_type(check_end_tb=False)
         if not chan_types:
-            return False, chan_types
+            return False, chan_types, None
         for _, chan_d,_ in chan_types: # early checks if we have any types found with opposite direction, no need to go further
             if chan_d != direction:
                 if self.isdebug:
                     print("opposite direction chan type found")
-                return False, chan_types
+                return False, chan_types, None
         
         for chan_t, chan_d, chan_p in chan_types:
             high_exhausted = ((chan_t in chan_type) if type(chan_type) is list else (chan_t == chan_type)) and\
@@ -750,7 +782,7 @@ class NestedInterval():
                                                                            "ready" if high_exhausted else "not ready",
                                                                            chan_p))
             if not high_exhausted:
-                return False, chan_types
+                return False, chan_types, None
 
             split_time = anal_zoushi.sub_zoushi_time(chan_t, chan_d)
             if self.isdebug:
@@ -764,19 +796,19 @@ class NestedInterval():
                                                                               chan_t))
                 xd_df_low, anal_zoushi_low = self.df_zoushi_tuple_list[i]
                 if anal_zoushi_low is None:
-                    return False, chan_types
+                    return False, chan_types, split_time
                 split_anal_zoushi_result = anal_zoushi_low.split_by_time(split_time)
                 eq = Equilibrium(xd_df_low, split_anal_zoushi_result, isdebug=self.isdebug, isDescription=self.isDescription)
                 low_exhausted = eq.define_equilibrium(direction, check_tb_structure=True, check_xd_exhaustion=True)
                 if self.isDescription or self.isdebug:
                     print("Sub level {0} {1} {2}".format(self.periods[i], eq.isQvShi,"exhausted" if low_exhausted else "continues"))
                 if not low_exhausted:
-                    return False, chan_types
+                    return False, chan_types, split_time
                 # update split time for next level
                 i = i + 1
                 if i < len(self.df_zoushi_tuple_list):
                     split_time = anal_zoushi_low.sub_zoushi_time(Chan_Type.INVALID, direction)
-        return anal_result, chan_types
+        return anal_result, chan_types, split_time
     
     def indepth_analyze_zoushi(self, direction):
         '''
