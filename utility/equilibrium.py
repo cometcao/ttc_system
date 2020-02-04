@@ -436,7 +436,7 @@ class Equilibrium():
         # last zhong shu interacts with second, this is for TYPE II trade point
         if len(recent_zhongshu) >= 3 and\
             (recent_zhongshu[-2].direction == recent_zhongshu[-1].direction) and\
-            (not recent_zhongshu[-1].is_complex_type()):
+            recent_zhongshu[-1].is_complex_type():
             first_two_zs_qs = self.two_zhongshu_form_qvshi(recent_zhongshu[-3], recent_zhongshu[-2])
             second_third_interact = self.two_zslx_interact_original(recent_zhongshu[-2], recent_zhongshu[-1])
             self.isQvShi = first_two_zs_qs and second_third_interact
@@ -564,16 +564,13 @@ class Equilibrium():
             # case of return into last QV shi Zhong shu
             if type(self.analytic_result[-1]) is ZhongShu: # Type I return into core region
                 zs = self.analytic_result[-1]
-                if zs.is_complex_type() and len(zs.extra_nodes) >= 3:
+                if zs.is_complex_type() and\
+                    len(zs.extra_nodes) >= 4:
                     core_region = zs.get_core_region()
-                    if (zs.extra_nodes[-3].chan_price > core_region[1] and\
-                        zs.extra_nodes[-2].chan_price <= core_region[1] and\
-                        zs.extra_nodes[-1].chan_price > core_region[1] and\
-                        zs.direction == TopBotType.bot2top) or\
-                        (zs.extra_nodes[-3].chan_price < core_region[0] and\
-                         zs.extra_nodes[-2].chan_price >= core_region[0] and\
-                         zs.extra_nodes[-1].chan_price < core_region[0] and\
-                         zs.direction == TopBotType.top2bot):
+                    if (zs.direction == TopBotType.bot2top and\
+                        zs.extra_nodes[-2].chan_price < core_region[1]) or\
+                        (zs.direction == TopBotType.top2bot and\
+                         zs.extra_nodes[-2].chan_price > core_region[0]):
                             if check_end_tb:
                                 if ((zs.extra_nodes[-1].tb == TopBotType.top and zs.direction == TopBotType.bot2top) or\
                                     (zs.extra_nodes[-1].tb == TopBotType.bot and zs.direction == TopBotType.top2bot)):
@@ -594,14 +591,14 @@ class Equilibrium():
                     len(zslx.zoushi_nodes) >= 3:
                     core_region = zs.get_core_region()
                     amplitude_region = zs.get_amplitude_region_original()  
-                    if (zslx.zoushi_nodes[-3].chan_price > core_region[1] and\
+                    if (zs.direction == TopBotType.bot2top and\
+                        zslx.zoushi_nodes[-3].chan_price > amplitude_region[1] and\
                         zslx.zoushi_nodes[-2].chan_price <= amplitude_region[1] and\
-                        zslx.zoushi_nodes[-1].chan_price > core_region[1] and\
-                        zs.direction == TopBotType.bot2top) or\
-                        (zslx.zoushi_nodes[-3].chan_price < core_region[0] and\
+                        zslx.zoushi_nodes[-1].chan_price > amplitude_region[1]) or\
+                        (zs.direction == TopBotType.top2bot and\
+                         zslx.zoushi_nodes[-3].chan_price < amplitude_region[0] and\
                          zslx.zoushi_nodes[-2].chan_price >= amplitude_region[0] and\
-                         zslx.zoushi_nodes[-1].chan_price < core_region[0] and\
-                         zs.direction == TopBotType.top2bot):     
+                         zslx.zoushi_nodes[-1].chan_price < amplitude_region[0]):
                             if check_end_tb:
                                 if ((zslx.zoushi_nodes[-1].tb == TopBotType.top and zs.direction == TopBotType.bot2top) or\
                                     (zslx.zoushi_nodes[-1].tb == TopBotType.bot and zs.direction == TopBotType.top2bot)):
@@ -611,8 +608,8 @@ class Equilibrium():
                             else:
                                 all_types.append((Chan_Type.II_weak, zs.direction, core_region[0] if zs.direction == TopBotType.top2bot else core_region[1]))
                                 if self.isdebug:
-                                    print("TYPE II trade point 4")                        
-                        
+                                    print("TYPE II trade point 4")
+                                    
         # III current Zhong Shu must end, simple case
         if type(self.analytic_result[-1]) is ZouShiLeiXing:
             zslx = self.analytic_result[-1]
@@ -774,41 +771,42 @@ class NestedInterval():
                     print("opposite direction chan type found")
                 return False, chan_types, None
         
-        for chan_t, chan_d, chan_p in chan_types:
-            high_exhausted = ((chan_t in chan_type) if type(chan_type) is list else (chan_t == chan_type)) and\
-                            (eq.define_equilibrium(direction, check_tb_structure=False, check_xd_exhaustion=False) if chan_t == Chan_Type.I else True)
-            if self.isDescription or self.isdebug:
-                print("Top level {0} {1} {2} with price level: {3}".format(self.periods[0], 
-                                                                           chan_d, 
-                                                                           "ready" if high_exhausted else "not ready",
-                                                                           chan_p))
-            if not high_exhausted:
-                return False, chan_types, None
+        chan_t, chan_d, chan_p = chan_types[0]
+        high_exhausted = ((chan_t in chan_type) if type(chan_type) is list else (chan_t == chan_type)) and\
+                        (eq.define_equilibrium(direction, check_tb_structure=False, check_xd_exhaustion=False) if chan_t == Chan_Type.I else True)
+        if self.isDescription or self.isdebug:
+            print("Top level {0} {1} {2} with price level: {3}".format(self.periods[0], 
+                                                                       chan_d, 
+                                                                       "ready" if high_exhausted else "not ready",
+                                                                       chan_p))
+        if not high_exhausted:
+            return False, chan_types, None
 
-            split_time = anal_zoushi.sub_zoushi_time(chan_t, chan_d)
+        split_time = anal_zoushi.sub_zoushi_time(chan_t, chan_d)
+        if self.isdebug:
+            print("split time at {0}".format(split_time))
+        
+        # lower level
+        i = 1
+        while i < len(self.df_zoushi_tuple_list):
             if self.isdebug:
-                print("split time at {0}".format(split_time))
-            
-            i = 1
-            while i < len(self.df_zoushi_tuple_list):
-                if self.isdebug:
-                    print("looking for {0} at top level {1} point with type:{2}".format("long" if direction == TopBotType.top2bot else "short",
-                                                                              self.periods[i],
-                                                                              chan_t))
-                xd_df_low, anal_zoushi_low = self.df_zoushi_tuple_list[i]
-                if anal_zoushi_low is None:
-                    return False, chan_types, split_time
-                split_anal_zoushi_result = anal_zoushi_low.split_by_time(split_time)
-                eq = Equilibrium(xd_df_low, split_anal_zoushi_result, isdebug=self.isdebug, isDescription=self.isDescription)
-                low_exhausted = eq.define_equilibrium(direction, check_tb_structure=True, check_xd_exhaustion=True)
-                if self.isDescription or self.isdebug:
-                    print("Sub level {0} {1} {2}".format(self.periods[i], eq.isQvShi,"exhausted" if low_exhausted else "continues"))
-                if not low_exhausted:
-                    return False, chan_types, split_time
-                # update split time for next level
-                i = i + 1
-                if i < len(self.df_zoushi_tuple_list):
-                    split_time = anal_zoushi_low.sub_zoushi_time(Chan_Type.INVALID, direction)
+                print("looking for {0} at top level {1} point with type:{2}".format("long" if direction == TopBotType.top2bot else "short",
+                                                                          self.periods[i],
+                                                                          chan_t))
+            xd_df_low, anal_zoushi_low = self.df_zoushi_tuple_list[i]
+            if anal_zoushi_low is None:
+                return False, chan_types, split_time
+            split_anal_zoushi_result = anal_zoushi_low.split_by_time(split_time)
+            eq = Equilibrium(xd_df_low, split_anal_zoushi_result, isdebug=self.isdebug, isDescription=self.isDescription)
+            low_exhausted = eq.define_equilibrium(direction, check_tb_structure=True, check_xd_exhaustion=True)
+            if self.isDescription or self.isdebug:
+                print("Sub level {0} {1} {2}".format(self.periods[i], eq.isQvShi,"exhausted" if low_exhausted else "continues"))
+            if not low_exhausted:
+                return False, chan_types, split_time
+            # update split time for next level
+            i = i + 1
+            if i < len(self.df_zoushi_tuple_list):
+                split_time = anal_zoushi_low.sub_zoushi_time(Chan_Type.INVALID, direction)
         return anal_result, chan_types, split_time
     
     def indepth_analyze_zoushi(self, direction):
