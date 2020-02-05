@@ -469,18 +469,21 @@ class Equilibrium():
                 print("Not enough DATA check_exhaustion")
             return exhaustion_result
         
-        if check_tb_structure:
-            a_s = zslx_a.get_tb_structure() 
-            c_s =zslx_c.get_tb_structure()
-            if a_s[0] != c_s[0] or a_s[-1] != c_s[-1]:
-                if self.isdebug:
-                    print("Not matching ZSLX structure")
-                return exhaustion_result
         
-        if int(zslx_a.get_magnitude() - zslx_c.get_magnitude()) != 0:
+        a_s = zslx_a.get_tb_structure() 
+        c_s =zslx_c.get_tb_structure()
+        if abs(zslx_a.get_magnitude() - zslx_c.get_magnitude()) > 0.1 and\
+            a_s != c_s:
             if self.isdebug:
                 print("Not matching magnitude")
             return exhaustion_result
+        
+        if check_tb_structure:
+            if a_s[0] != c_s[0] or a_s[-1] != c_s[-1]:
+                if self.isdebug:
+                    print("Not matching structure")
+                return exhaustion_result
+        
         
         zslx_slope = zslx_a.work_out_slope()
         
@@ -528,33 +531,32 @@ class Equilibrium():
                 zslx2= self.analytic_result[-3]
                 [lc, uc] = zs.get_core_region()
                 if zslx.direction == zslx2.direction:
-                    if check_end_tb:
-                        if zslx.direction == TopBotType.top2bot and zslx.zoushi_nodes[-1].tb == TopBotType.bot:
+                    if zslx.direction == TopBotType.top2bot and\
+                        (check_end_tb or zslx.zoushi_nodes[-1].tb == TopBotType.bot) and\
+                        zslx.zoushi_nodes[-1].chan_price < lc:
                             if self.isdebug:
                                 print("TYPE I trade point 1")
                             all_types.append((Chan_Type.I, TopBotType.top2bot, lc))
-                        elif zslx.direction == TopBotType.bot2top and zslx.zoushi_nodes[-1].tb == TopBotType.top:
+                    elif zslx.direction == TopBotType.bot2top and\
+                        (check_end_tb or zslx.zoushi_nodes[-1].tb == TopBotType.top) and\
+                        zslx.zoushi_nodes[-1].chan_price > uc:
                             if self.isdebug:
                                 print("TYPE I trade point 2")
                             all_types.append((Chan_Type.I, TopBotType.bot2top, uc))
-                    else:
-                        if self.isdebug:
-                            print("TYPE I trade point 3")
-                        all_types.append((Chan_Type.I, zslx.direction, lc if zslx.direction==TopBotType.top2bot else uc))
             
             if type(self.analytic_result[-1]) is ZhongShu: # last XD in zhong shu must make top or bot
                 zs = self.analytic_result[-1]
 #                 [l,u] = zs.get_amplitude_region_original()
                 [lc, uc] = zs.get_core_region()
                 if zs.is_complex_type() and len(zs.extra_nodes) >= 1:
-                    if zs.extra_nodes[-1].tb == TopBotType.bot and\
-                        zs.direction == TopBotType.top2bot and\
+                    if zs.direction == TopBotType.top2bot and\
+                        (check_end_tb or zs.extra_nodes[-1].tb == TopBotType.bot) and\
                         zs.extra_nodes[-1].chan_price < lc:
                         if self.isdebug:
                             print("TYPE I trade point 3")
                         all_types.append((Chan_Type.I, TopBotType.top2bot, lc))
                     elif zs.direction == TopBotType.bot2top and\
-                        zs.extra_nodes[-1].tb == TopBotType.top and\
+                        (check_end_tb or zs.extra_nodes[-1].tb == TopBotType.top) and\
                         zs.extra_nodes[-1].chan_price > uc:
                         all_types.append((Chan_Type.I, TopBotType.bot2top, uc))
                         if self.isdebug:
@@ -881,7 +883,7 @@ class NestedInterval():
         chan_t, chan_d, chan_p = chan_types[0] 
         exhausted = eq.define_equilibrium(direction, check_tb_structure=check_tb_structure, check_xd_exhaustion=check_xd_exhaustion) if chan_t == Chan_Type.I else True
         if self.isDescription or self.isdebug:
-            print("current level {0} {1} {2}".format(self.periods[0], chan_d, "ready" if exhausted else "not ready"))
+            print("current level {0} {1} {2}".format(period, chan_d, "ready" if exhausted else "not ready"))
         if not exhausted:
             return False, chan_types, None
         else:
