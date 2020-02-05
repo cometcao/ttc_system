@@ -472,7 +472,7 @@ class Equilibrium():
         
         a_s = zslx_a.get_tb_structure() 
         c_s =zslx_c.get_tb_structure()
-        if abs(zslx_a.get_magnitude() - zslx_c.get_magnitude()) > 0.1 and\
+        if int(zslx_a.get_magnitude() - zslx_c.get_magnitude()) != 0 and\
             a_s != c_s:
             if self.isdebug:
                 print("Not matching magnitude")
@@ -532,13 +532,13 @@ class Equilibrium():
                 [lc, uc] = zs.get_core_region()
                 if zslx.direction == zslx2.direction:
                     if zslx.direction == TopBotType.top2bot and\
-                        (check_end_tb or zslx.zoushi_nodes[-1].tb == TopBotType.bot) and\
+                        (not check_end_tb or zslx.zoushi_nodes[-1].tb == TopBotType.bot) and\
                         zslx.zoushi_nodes[-1].chan_price < lc:
                             if self.isdebug:
                                 print("TYPE I trade point 1")
                             all_types.append((Chan_Type.I, TopBotType.top2bot, lc))
                     elif zslx.direction == TopBotType.bot2top and\
-                        (check_end_tb or zslx.zoushi_nodes[-1].tb == TopBotType.top) and\
+                        (not check_end_tb or zslx.zoushi_nodes[-1].tb == TopBotType.top) and\
                         zslx.zoushi_nodes[-1].chan_price > uc:
                             if self.isdebug:
                                 print("TYPE I trade point 2")
@@ -550,13 +550,13 @@ class Equilibrium():
                 [lc, uc] = zs.get_core_region()
                 if zs.is_complex_type() and len(zs.extra_nodes) >= 1:
                     if zs.direction == TopBotType.top2bot and\
-                        (check_end_tb or zs.extra_nodes[-1].tb == TopBotType.bot) and\
+                        (not check_end_tb or zs.extra_nodes[-1].tb == TopBotType.bot) and\
                         zs.extra_nodes[-1].chan_price < lc:
                         if self.isdebug:
                             print("TYPE I trade point 3")
                         all_types.append((Chan_Type.I, TopBotType.top2bot, lc))
                     elif zs.direction == TopBotType.bot2top and\
-                        (check_end_tb or zs.extra_nodes[-1].tb == TopBotType.top) and\
+                        (not check_end_tb or zs.extra_nodes[-1].tb == TopBotType.top) and\
                         zs.extra_nodes[-1].chan_price > uc:
                         all_types.append((Chan_Type.I, TopBotType.bot2top, uc))
                         if self.isdebug:
@@ -817,6 +817,9 @@ class NestedInterval():
         '''
         xd_df, anal_zoushi_xd = self.df_zoushi_tuple_list[0]
         
+        if anal_zoushi_xd is None:
+            return False
+        
         split_time = anal_zoushi_xd.sub_zoushi_time(Chan_Type.INVALID, direction)
         
         if self.isdebug:
@@ -826,6 +829,9 @@ class NestedInterval():
         anal_zoushi_bi = crp_df.define_central_region()
         
         split_anal_zoushi_bi = anal_zoushi_bi.split_by_time(split_time)
+        
+        if split_anal_zoushi_bi is None:
+            return False
         
         eq = Equilibrium(xd_df, split_anal_zoushi_bi, isdebug=self.isdebug, isDescription=self.isDescription)
         bi_exhausted = eq.define_equilibrium(direction, check_tb_structure=True, check_xd_exhaustion=True)
