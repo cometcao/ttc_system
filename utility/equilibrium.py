@@ -78,7 +78,9 @@ def check_stock_sub(stock, end_time, periods, count=2000, direction=TopBotType.t
                                                              split_time=split_time)
         if not exhausted:
             return exhausted
-    return True
+        else:
+            exhausted = ni.indepth_analyze_zoushi(direction, split_time)
+    return exhausted
     
     
 
@@ -811,7 +813,7 @@ class NestedInterval():
                 split_time = anal_zoushi_low.sub_zoushi_time(Chan_Type.INVALID, direction)
         return anal_result, chan_types, split_time
     
-    def indepth_analyze_zoushi(self, direction):
+    def indepth_analyze_zoushi(self, direction, split_time=None):
         '''
         specifically used to gauge the smallest level of precision, check at BI level
         '''
@@ -820,7 +822,7 @@ class NestedInterval():
         if anal_zoushi_xd is None:
             return False
         
-        split_time = anal_zoushi_xd.sub_zoushi_time(Chan_Type.INVALID, direction)
+        split_time = anal_zoushi_xd.sub_zoushi_time(Chan_Type.INVALID, direction) if split_time is None else split_time
         
         if self.isdebug:
             print("XD split time at:{0}".format(split_time))
@@ -887,7 +889,7 @@ class NestedInterval():
         # only type II and III can coexist, only need to check the first one
         # reverse direction case are dealt above
         chan_t, chan_d, chan_p = chan_types[0] 
-        exhausted = eq.define_equilibrium(direction, check_tb_structure=check_tb_structure, check_xd_exhaustion=check_xd_exhaustion) if chan_t == Chan_Type.I else True
+        exhausted = eq.define_equilibrium(direction, check_tb_structure=check_tb_structure, check_xd_exhaustion=check_xd_exhaustion)
         if self.isDescription or self.isdebug:
             print("current level {0} {1} {2}".format(period, chan_d, "ready" if exhausted else "not ready"))
         if not exhausted:
