@@ -945,7 +945,11 @@ class NestedInterval():
         chan_t, chan_d, chan_p = chan_types[0] 
         exhausted = eq.define_equilibrium(direction, check_tb_structure=check_tb_structure, check_xd_exhaustion=check_xd_exhaustion)
         if self.isDescription or self.isdebug:
-            print("current level {0} {1} {2}".format(period, chan_d, "ready" if exhausted else "not ready"))
+            print("current level {0} {1} {2} {3} with price:{4}".format(period, 
+                                                                        chan_d, 
+                                                                        "ready" if exhausted else "not ready",
+                                                                        chan_t,
+                                                                        chan_p))
         if not exhausted:
             return False, chan_types, None
         else:
