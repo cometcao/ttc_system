@@ -35,12 +35,15 @@ class DataRetriever():
 
 class JqDataRetriever(DataRetriever):
     @staticmethod
-    def get_data(security, start_date='2006-01-01', end_date=str(datetime.datetime.today()), count=100, period='1d', fields=None, skip_suspended=False, adjust_type='pre', df=True):
+    def get_data(security, end_date=str(datetime.datetime.today()), count=100, period='1d', fields=None, skip_suspended=False, adjust_type='pre', df=True):
         return jqdatasdk.attribute_history(security, count, period, fields = fields, skip_paused=skip_suspended, df=df)
     @staticmethod
-    def get_research_data(security, start_date='2006-01-01', end_date=str(datetime.datetime.today()), count=100, period='1d', fields=None, skip_suspended=False, adjust_type='pre'):
+    def get_research_data(security, start_date=None, end_date=str(datetime.datetime.today()), count=100, period='1d', fields=None, skip_suspended=False, adjust_type='pre'):
         JqDataRetriever.authenticate()
-        return jqdatasdk.get_price(security, count=count, end_date=end_date, frequency=period, fields = fields, skip_paused=skip_suspended, fq=adjust_type)
+        if start_date is not None:
+            return jqdatasdk.get_price(security, start_date=start_date, end_date=end_date, frequency=period, fields = fields, skip_paused=skip_suspended, fq=adjust_type)
+        else:
+            return jqdatasdk.get_price(security, count=count, end_date=end_date, frequency=period, fields = fields, skip_paused=skip_suspended, fq=adjust_type)
     
     @staticmethod
     def get_bars(security, count, unit='1d',fields=['date', 'open','high','low','close'],include_now=True, end_dt=None, fq_ref_date=None, df=False):
