@@ -8,7 +8,7 @@ import numpy as np
 import copy
 import talib
 from utility.biaoLiStatus import * 
-from utility.chan_commone_include import GOLDEN_RATIO, MIN_PRICE_UNIT
+from utility.chan_common_include import GOLDEN_RATIO, MIN_PRICE_UNIT
 
 def synchOpenPrice(open, close, high, low):
     if open > close:

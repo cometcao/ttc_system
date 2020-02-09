@@ -4,6 +4,9 @@ Created on 09 Feb 2020
 
 @author: MetalInvest
 '''
+from enum import Enum 
+
+
 
 ######################## chan_kbar_filter ##########################
 TYPE_III_NUM = 5

@@ -8,7 +8,6 @@ Created on 23 Dec 2019
 import numpy as np
 import pandas as pd
 import talib
-from enum import Enum 
 from collections import OrderedDict
 from utility.biaoLiStatus import * 
 from utility.kBarProcessor import *
