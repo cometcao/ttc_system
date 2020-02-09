@@ -98,7 +98,7 @@ def check_stock_sub(stock,
                                                              check_end_tb=True, 
                                                              check_tb_structure=True) # data split at retrieval time
         if not exhausted and not check_bi:
-            return exhausted
+            return exhausted, xd_exhausted
         elif check_bi and xd_exhausted:
             exhausted, xd_exhausted = check_chan_indepth(stock, 
                                            end_time=end_time, 
