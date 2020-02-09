@@ -2,6 +2,7 @@ from utility.biaoLiStatus import *
 from utility.kBarProcessor import *
 from utility.centralRegion import *
 from utility.securityDataManager import *
+from utility.chan_common_include import *
 
 import numpy as np
 import pandas as pd

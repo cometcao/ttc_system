@@ -13,20 +13,7 @@ from collections import OrderedDict
 from utility.biaoLiStatus import * 
 from utility.kBarProcessor import *
 
-class ZhongShuLevel(Enum):
-    previousprevious = -2
-    previous = -1
-    current = 0
-    next = 1
-    nextnext = 2
-    
-class Chan_Type(Enum):
-    INVALID = 0
-    I = 1
-    II = 2
-    III = 3
-    III_weak = 4
-    II_weak = 5
+from utility.chan_common_include import ZhongShuLevel, Chan_Type
 
 class Chan_Node(object):
     def __init__(self, df_node):
