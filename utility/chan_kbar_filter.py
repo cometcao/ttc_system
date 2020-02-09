@@ -20,7 +20,8 @@ def filter_high_level_by_index(direction=TopBotType.top2bot,
                                end_dt=pd.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                                chan_types=[Chan_Type.I, Chan_Type.III]):
     all_stocks = get_index_stocks(stock_index)
-    result_stocks = set()
+    result_stocks_I = set()
+    result_stocks_III = set()
     for stock in all_stocks:
         for p in periods:
             stock_high = JqDataRetriever.get_bars(stock, 
@@ -35,10 +36,15 @@ def filter_high_level_by_index(direction=TopBotType.top2bot,
                                                direction=direction, 
                                                df=df, 
                                                chan_type=ct):
-                    result_stocks.add(stock)
-    print("qualifying stocks:{0}".format(result_stocks))
+                    if ct == Chan_Type.I:
+                        result_stocks_I.add(stock)
+                    elif ct == Chan_Type.III:
+                        result_stocks_III.add(stock)
+    type_i = sorted(list(result_stocks_I))
+    type_iii = sorted(list(result_stocks_III))
+    print("qualifying type I stocks:{0} type III stocks".format(type_i, type_iii))
     
-    return sorted(list(result_stocks))
+    return type_i + type_iii
 
 class KBar(object):
     '''
