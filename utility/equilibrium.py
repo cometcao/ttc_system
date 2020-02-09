@@ -101,14 +101,10 @@ def check_stock_sub(stock,
         if not exhausted and not check_bi:
             return exhausted, xd_exhausted
         elif check_bi and xd_exhausted:
-            exhausted, xd_exhausted = check_chan_indepth(stock, 
-                                           end_time=end_time, 
-                                           period=pe, 
-                                           count=count, 
-                                           direction=direction, 
-                                           isdebug=False, 
-                                           is_anal=False, 
-                                           split_time=split_time)
+            ni.use_xd=True
+            ni.prepare_data(periods[i], split_time, initial_direction=direction)
+            exhausted, xd_exhausted = ni.indepth_analyze_zoushi(direction, split_time)
+            
         i = i + 1
         if i < len(periods):
             ni.prepare_data(periods[i], split_time, initial_direction=direction)
@@ -135,7 +131,7 @@ def check_stock_full(stock, end_time, periods=['5m', '1m'], count=2000, directio
                                                      check_tb_structure=True)
     stock_profile = [chan_types[0]]
     
-    if exhausted and xd_exhausted:
+    if exhausted:
         i = 1
         while i < len(periods):
             ni.prepare_data(periods[i], splitTime, initial_direction=direction)
@@ -144,14 +140,14 @@ def check_stock_full(stock, end_time, periods=['5m', '1m'], count=2000, directio
                                                                                  check_end_tb=True, 
                                                                                  check_tb_structure=True) # data split at retrieval time
             stock_profile.append(sub_chan_types[0])
-            if not (sub_exhausted and sub_xd_exhausted):
+            if not (sub_exhausted or sub_xd_exhausted):
                 return False, stock_profile
             i = i + 1
             if i < len(periods):
                 ni.prepare_data(periods[i], splitTime, initial_direction=direction)
-        return (sub_exhausted and sub_xd_exhausted), stock_profile
+        return (xd_exhausted or sub_exhausted) and sub_xd_exhausted, stock_profile
     else:
-        return (exhausted and xd_exhausted), stock_profile
+        return exhausted, stock_profile
 
 class CentralRegionProcess(object):
     '''
