@@ -113,7 +113,7 @@ def check_stock_sub(stock,
     
 
 def check_stock_full(stock, end_time, periods=['5m', '1m'], count=2000, direction=TopBotType.top2bot, isdebug=False, is_anal=False):
-    print("check_stock_full working on stock: {0} at {1}".format(stock, periods))
+    print("check_stock_full working on stock: {0} at {1} on {2}".format(stock, periods, end_time))
     top_pe = periods[0]
     ni = NestedInterval(stock, 
                         end_dt=end_time, 
