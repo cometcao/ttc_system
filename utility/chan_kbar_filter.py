@@ -6,12 +6,11 @@ Created on 18 Jan 2020
 '''
 import numpy as np
 import pandas as pd
-from utility.centralRegion import Chan_Type
+
 from utility.biaoLiStatus import TopBotType
 from utility.securityDataManager import *
 
-TYPE_III_NUM = 5
-TYPE_I_NUM = 10
+from utility.chan_common_include import TYPE_III_NUM, TYPE_I_NUM, GOLDEN_RATIO, Chan_Type
 
 def filter_high_level_by_index(direction=TopBotType.top2bot, 
                                stock_index='000985.XSHG', 
@@ -111,7 +110,7 @@ class KBar(object):
         forth = kbar_list[-TYPE_III_NUM+3]
         fifth = kbar_list[-TYPE_III_NUM+4]
         result = False
-        if fifth.close < fifth.open or (fifth.close-fifth.low)/(fifth.high-fifth.low) <= 1-GOLDEN_RATIO:
+        if (fifth.close < fifth.open) or ((fifth.close-fifth.low)/(fifth.high-fifth.low) <= (1-GOLDEN_RATIO)):
             check_result, k_m, k_l = cls.contain_zhongshu(first, second, third, return_core_range=False)
             if check_result:
                 result = fifth.low > k_m if direction == TopBotType.top2bot else fifth.high < k_l
