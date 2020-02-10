@@ -99,16 +99,16 @@ def check_stock_sub(stock,
                                                              check_end_tb=True, 
                                                              check_tb_structure=True) # data split at retrieval time
         if not exhausted and not check_bi:
-            return exhausted, xd_exhausted
-        elif check_bi and xd_exhausted:
-            ni.use_xd=True
+            return exhausted, xd_exhausted, chan_types
+        elif check_bi and not xd_exhausted:
+            ni.use_xd=False
             ni.prepare_data(periods[i], split_time, initial_direction=direction)
-            exhausted, xd_exhausted = ni.indepth_analyze_zoushi(direction, split_time)
+            exhausted, xd_exhausted = ni.indepth_analyze_zoushi(direction, None)
             
         i = i + 1
         if i < len(periods):
             ni.prepare_data(periods[i], split_time, initial_direction=direction)
-    return exhausted, xd_exhausted
+    return exhausted, xd_exhausted, chan_types
     
     
 
@@ -490,10 +490,12 @@ class Equilibrium():
 
         
     def define_equilibrium(self, direction, check_tb_structure=False):
-        if len(self.analytic_result) < 2 and type(self.analytic_result[-1]) is ZouShiLeiXing: # if we don't have enough data, return False directly
+        # in case of Zhong Shu not formed, 
+        if len(self.analytic_result) < 2 and type(self.analytic_result[-1]) is ZouShiLeiXing: 
+            zslx = self.analytic_result[-1]
             if self.isdebug:
                 print("ZhongShu not yet formed, only check ZSLX exhaustion")
-            return False, self.analytic_result[-1].check_exhaustion()
+            return False, zslx.check_exhaustion() if not zslx.isSimple() else False
         
         a, _, c = self.find_most_recent_zoushi(direction)
         
@@ -510,7 +512,7 @@ class Equilibrium():
         
         a_s = zslx_a.get_tb_structure() 
         c_s =zslx_c.get_tb_structure()
-        if (zslx_c.get_magnitude()/zslx_a.get_magnitude() < GOLDEN_RATIO and\
+        if (zslx_c.get_magnitude()/zslx_a.get_magnitude() < (1-(1-GOLDEN_RATIO)/2) and\
             (a_s != c_s or len(a_s)==1)):
             if self.isdebug:
                 print("Not matching magnitude")
@@ -745,6 +747,19 @@ class Equilibrium():
                     if self.isdebug:
                         print("TYPE III trade point 6")
         all_types = list(set(all_types))
+        
+        if not all_types: # if not found, we give the boundary of latest ZhongShu
+            if type(self.analytic_result[-1]) is ZhongShu:
+                final_zs = self.analytic_result[-1]
+                all_types.append((Chan_Type.INVALID,
+                                  TopBotType.noTopBot,
+                                  final_zs.get_core_region()))
+            elif len(self.analytic_result) > 1 and type(self.analytic_result[-2]) is ZhongShu:
+                final_zs = self.analytic_result[-2]
+                all_types.append((Chan_Type.INVALID,
+                                  TopBotType.noTopBot,
+                                  final_zs.get_core_region()))
+        
         if all_types and self.isdebug:
             print("all chan types found: {0}".format(all_types))
         return all_types
