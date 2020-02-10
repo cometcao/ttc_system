@@ -100,7 +100,7 @@ def check_stock_sub(stock,
                                                              check_tb_structure=True) # data split at retrieval time
         if not exhausted and not check_bi:
             return exhausted, xd_exhausted, chan_types
-        elif check_bi and not xd_exhausted:
+        elif check_bi and not xd_exhausted: # if curent level XD not exhausted and we can check BI level => used in SHORT case
             ni.use_xd=False
             ni.prepare_data(periods[i], split_time, initial_direction=direction)
             exhausted, xd_exhausted = ni.indepth_analyze_zoushi(direction, None)
