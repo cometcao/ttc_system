@@ -821,9 +821,13 @@ class NestedInterval():
                        
             kb_df = KBarProcessor(stock_df, isdebug=self.isdebug)
             xd_df = kb_df.getIntegradedXD()
-            crp_df = CentralRegionProcess(xd_df, isdebug=self.isdebug, use_xd=self.use_xd)
-            anal_zoushi = crp_df.define_central_region(initial_direction=initial_direction)
-            self.df_zoushi_tuple_list[pe]=(xd_df,anal_zoushi)
+            if xd_df.empty:
+                self.df_zoushi_tuple_list[pe]=(xd_df,None)
+            else:
+                crp_df = CentralRegionProcess(xd_df, isdebug=self.isdebug, use_xd=self.use_xd)
+                anal_zoushi = crp_df.define_central_region(initial_direction=initial_direction)
+                self.df_zoushi_tuple_list[pe]=(xd_df,anal_zoushi)
+            
     
     def analyze_zoushi(self, direction, chan_type = Chan_Type.INVALID):
         ''' THIS METHOD SHOULD ONLY BE USED FOR TOP LEVEL!!
