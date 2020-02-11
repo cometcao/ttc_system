@@ -18,7 +18,7 @@ def filter_high_level_by_index(direction=TopBotType.top2bot,
                                periods = ['60m', '120m', '1d'],
                                end_dt=pd.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                                chan_types=[Chan_Type.I, Chan_Type.III]):
-    all_stocks = get_index_stocks(stock_index)
+    all_stocks = JqDataRetriever.get_index_stocks(stock_index)
     result_stocks_I = set()
     result_stocks_III = set()
     for stock in all_stocks:
