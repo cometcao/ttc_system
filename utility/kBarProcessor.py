@@ -25,7 +25,7 @@ def synchClosePrice(open, close, high, low):
 def get_previous_loc(loc, working_df):
     i = loc - 1
     while i >= 0:
-        if working_df.iloc[i].tb != TopBotType.noTopBot:
+        if working_df.iloc[i].tb == TopBotType.top or working_df.iloc[i].tb == TopBotType.bot:
             return i
         else:
             i = i - 1
@@ -34,7 +34,7 @@ def get_previous_loc(loc, working_df):
 def get_next_loc(loc, working_df):
     i = loc + 1
     while i < working_df.shape[0]:
-        if working_df.iloc[i].tb != TopBotType.noTopBot:
+        if working_df.iloc[i].tb == TopBotType.top or working_df.iloc[i].tb == TopBotType.bot:
             return i
         else:
             i = i + 1

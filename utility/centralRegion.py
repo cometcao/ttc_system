@@ -454,6 +454,7 @@ class ZouShi(object):
     def get_previous_tb_timestamp(self, current_tp):
         current_loc = self.original_df.index.get_loc(current_tp)
         previous_loc = get_previous_loc(current_loc,self.original_df)
+        previous_loc = get_previous_loc(previous_loc,self.original_df)
         return self.original_df.index[previous_loc]
         
     
