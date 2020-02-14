@@ -7,34 +7,6 @@ from utility.chan_common_include import *
 import numpy as np
 import pandas as pd
 
-# def check_chan_type(stock, end_time, count, period, direction, chan_type, isdebug=False):
-#     stock_high = JqDataRetriever.get_research_data(stock, count=count, end_date=end_time, period=period,fields= ['open',  'high', 'low','close'], skip_suspended=True)
-#     kb_high = KBarProcessor(stock_high, isdebug=isdebug)
-#     xd_df_high = kb_high.getIntegradedXD()
-#     crp_high = CentralRegionProcess(xd_df_high, isdebug=isdebug, use_xd=True)
-#     anal_result_high_zoushi = crp_high.define_central_region()
-#     if anal_result_high_zoushi is not None:
-#         eq = Equilibrium(xd_df_high, anal_result_high_zoushi.zslx_result, isdebug=isdebug, isDescription=True)
-#         chan_types = eq.check_chan_type(check_end_tb=False)
-#         for chan_t, chan_d,_ in chan_types:
-#             if chan_t == chan_type and chan_d == direction:
-#                 return True
-#     return False
-# 
-# def check_chan_exhaustion(stock, end_time, count, period, direction, isdebug=False):
-#     print("check_chan_exhaustion working on stock: {0}, {1}".format(stock, period))
-#     stock_df = JqDataRetriever.get_research_data(stock, count=count, end_date=end_time, period=period,fields= ['open',  'high', 'low','close'],skip_suspended=True)
-#     kb = KBarProcessor(stock_df, isdebug=isdebug)
-#     xd_df = kb.getIntegradedXD()
-#     
-#     crp = CentralRegionProcess(xd_df, isdebug=isdebug, use_xd=True)
-#     anal_result_zoushi = crp.define_central_region()
-#     
-#     if anal_result_zoushi is not None:
-#         eq = Equilibrium(xd_df, anal_result_zoushi.zslx_result, isdebug=isdebug, isDescription=True)
-#         return eq.define_equilibrium(direction)
-#     else:
-#         return False
 
 def check_chan_by_type_exhaustion(stock, end_time, periods, count, direction, chan_type, isdebug=False, is_anal=False):
     print("check_chan_by_type_exhaustion working on stock: {0} at {1} on {2}".format(stock, periods, end_time))
@@ -823,13 +795,13 @@ class NestedInterval():
                                                          end_date=self.end_dt, 
                                                          period=pe,
                                                          fields= ['open',  'high', 'low','close'],
-                                                         skip_suspended=True) if start_time is None else\
+                                                         skip_suspended=False) if start_time is None else\
                        JqDataRetriever.get_research_data(self.stock,
                                                          start_date=start_time,
                                                          end_date=self.end_dt, 
                                                          period=pe,
                                                          fields= ['open',  'high', 'low','close'],
-                                                         skip_suspended=True)
+                                                         skip_suspended=False)
                        
             kb_df = KBarProcessor(stock_df, isdebug=self.isdebug)
             xd_df = kb_df.getIntegradedXD()
