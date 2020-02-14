@@ -987,7 +987,7 @@ class NestedInterval():
                                                                         chan_t,
                                                                         chan_p))
         if not exhausted:
-            return exhausted, check_xd_exhaustion, chan_types, eq.get_effective_time()
+            return exhausted, check_xd_exhaustion, chan_types, None, eq.get_effective_time()
         else:
             splitTime = anal_zoushi.sub_zoushi_time(chan_t, chan_d, check_xd_exhaustion)
             return exhausted, check_xd_exhaustion, chan_types, splitTime, eq.get_effective_time()
