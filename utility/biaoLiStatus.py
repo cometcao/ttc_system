@@ -44,6 +44,22 @@ class TopBotType(Enum):
             return cls.top2bot
         else:
             return cls.noTopBot
+    
+    @classmethod
+    def value2type(cls, val):
+        if val == 0:
+            return cls.noTopBot
+        elif val == 0.5:
+            return cls.bot2top
+        elif val == 1:
+            return cls.top
+        elif val == -0.5:
+            return cls.top2bot
+        elif val == -1:
+            return cls.bot
+        else:
+            return cls.noTopBot
+        
 
 class KBarStatus(Enum):
     upTrendNode = (1, 0)
