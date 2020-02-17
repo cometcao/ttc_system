@@ -9,7 +9,6 @@ import copy
 import talib
 from utility.biaoLiStatus import * 
 from utility.chan_common_include import GOLDEN_RATIO, MIN_PRICE_UNIT
-from tensorflow.contrib.learn.python.learn.estimators.state_saving_rnn_estimator import _get_initial_states
 
 def synchOpenPrice(open, close, high, low):
     if open > close:
@@ -190,7 +189,7 @@ class KBarProcessor(object):
         
     def markTopBot(self, initial_state=TopBotType.noTopBot):
         self.kDataFrame_standardized = self.kDataFrame_standardized.assign(tb=TopBotType.noTopBot)
-        if self.kDataFrame_standardized.empty:
+        if self.kDataFrame_standardized.empty or self.kDataFrame_standardized.shape[0] < 7:
             return
         if initial_state == TopBotType.top or initial_state == TopBotType.bot:
             felem = self.kDataFrame_standardized.iloc[0]
