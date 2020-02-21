@@ -977,7 +977,7 @@ class NestedInterval():
         else:
             high_exhausted, check_xd_exhaustion = False, False
                 
-        if not high_exhausted:
+        if not high_exhausted or not check_xd_exhaustion:
             return high_exhausted, check_xd_exhaustion, [(chan_t, chan_d, chan_p, high_slope, high_macd)], None
 
         if chan_t == Chan_Type.I:
