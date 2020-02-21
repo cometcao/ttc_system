@@ -38,7 +38,10 @@ def check_sub_chan(stock,
                         count=count, 
                         isdebug=isdebug, 
                         isDescription=True,
-                        isAnal=is_anal)
+                        isAnal=is_anal,
+                        initial_pe_prep=periods[0], 
+                        initial_split_time=split_time, 
+                        initial_direction=direction)
     return ni.One_period_full_check(direction, 
                                      chan_type=chan_type,
                                      check_end_tb=True, 
@@ -71,7 +74,7 @@ def check_full_chan(stock, end_time, periods=['5m', '1m'], count=2000, direction
                                                         periods=[sub_pe], 
                                                         count=2000, 
                                                         direction=direction, 
-                                                        chan_type=Chan_Type.INVALID, 
+                                                        chan_type=[Chan_Type.INVALID, Chan_Type.I], 
                                                         isdebug=isdebug, 
                                                         is_anal=is_anal, 
                                                         split_time=splitTime)
@@ -982,9 +985,9 @@ class NestedInterval():
 
         if chan_t == Chan_Type.I:
             if not high_exhausted or not check_xd_exhaustion:
-                return high_exhausted and check_xd_exhaustion, [(chan_t, chan_d, chan_p, high_slope, high_macd, None, None)]
+                return high_exhausted and check_xd_exhaustion, [(chan_t, chan_d, chan_p, 0, 0, None, None)]
             
-            bi_exhaustion, bi_check_exhaustion, effective_time = self.indepth_analyze_zoushi(direction, sub_split_time, self.periods[0], return_effective_time=True)
+            bi_exhaustion, bi_check_exhaustion, effective_time = self.indepth_analyze_zoushi(direction, last_zs_time, self.periods[0], return_effective_time=True)
     
             if self.isDescription or self.isdebug:
                 print("Top level {0} {1} {2} {3} \n{4} {5} {6} {7}".format(self.periods[0], 
@@ -1003,7 +1006,7 @@ class NestedInterval():
             split_time = anal_zoushi.sub_zoushi_time(chan_t, chan_d, False)
             return True, [(chan_t, chan_d, chan_p, high_slope, high_macd, split_time, None)]
         else:
-            bi_exhaustion, bi_check_exhaustion, effective_time = self.indepth_analyze_zoushi(direction, sub_split_time, self.periods[0], return_effective_time=True)
+            bi_exhaustion, bi_check_exhaustion, effective_time = self.indepth_analyze_zoushi(direction, last_zs_time, self.periods[0], return_effective_time=True)
             return high_exhausted and check_xd_exhaustion and bi_exhaustion and bi_exhaustion,\
                 [(chan_t, chan_d, chan_p, high_slope, high_macd, last_zs_time, effective_time)]
     
