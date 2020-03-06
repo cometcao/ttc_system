@@ -205,7 +205,7 @@ def check_stock_full(stock, end_time, periods=['5m', '1m'], count=2000, directio
 
     splitTime = chan_profile[0][6]
     
-    if exhausted and sanity_check(stock, chan_profile, end_time, top_pe):
+    if exhausted and xd_exhausted and sanity_check(stock, chan_profile, end_time, top_pe):
         sub_exhausted, sub_xd_exhausted, sub_profile = check_stock_sub(stock=stock, 
                                                                                 end_time=end_time, 
                                                                                 periods=[sub_pe], 
