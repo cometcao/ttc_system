@@ -109,7 +109,15 @@ def check_full_chan(stock,
 
 ##############################################################################################################################
 
-def check_chan_by_type_exhaustion(stock, end_time, periods, count, direction, chan_type, isdebug=False, is_anal=False, check_structure=False):
+def check_chan_by_type_exhaustion(stock, 
+                                  end_time, 
+                                  periods, 
+                                  count, 
+                                  direction, 
+                                  chan_type, 
+                                  isdebug=False, 
+                                  is_anal=False, 
+                                  check_structure=False):
     print("check_chan_by_type_exhaustion working on stock: {0} at {1} on {2}".format(stock, periods, end_time))
     ni = NestedInterval(stock, 
                         end_dt=end_time, 
@@ -151,7 +159,8 @@ def check_stock_sub(stock,
                     isdebug=False, 
                     is_anal=False, 
                     split_time=None,
-                    check_bi=False):
+                    check_bi=False,
+                    force_zhongshu=True):
     print("check_stock_sub working on stock: {0} at {1}".format(stock, periods))
     ni = NestedInterval(stock, 
                         end_dt=end_time, 
@@ -170,7 +179,8 @@ def check_stock_sub(stock,
                                                                  direction, 
                                                                  chan_types=chan_types,
                                                                  check_end_tb=True, 
-                                                                 check_tb_structure=True) # data split at retrieval time
+                                                                 check_tb_structure=True,
+                                                                 force_zhongshu=force_zhongshu) # data split at retrieval time
     if check_bi:
         bi_exhausted, bi_xd_exhausted, bi_split_time = ni.indepth_analyze_zoushi(direction, split_time, pe, force_zhongshu=False)
         print("BI level {0}, {1}".format(bi_exhausted, bi_xd_exhausted))
@@ -205,7 +215,8 @@ def check_stock_full(stock, end_time, periods=['5m', '1m'], count=2000, directio
                                                                                 isdebug=isdebug, 
                                                                                 is_anal=is_anal, 
                                                                                 split_time=splitTime,
-                                                                                check_bi=False)
+                                                                                check_bi=False,
+                                                                                check_stock_sub=True)
         chan_profile = chan_profile + sub_profile
         return exhausted and xd_exhausted and sub_exhausted and sub_xd_exhausted, chan_profile
     else:
@@ -1131,7 +1142,8 @@ class NestedInterval():
     def full_check_zoushi(self, period, direction, 
                           chan_types=[Chan_Type.INVALID, Chan_Type.I],
                           check_end_tb=False, 
-                          check_tb_structure=False):
+                          check_tb_structure=False,
+                          force_zhongshu=False):
         '''
         split done at data level
         
@@ -1177,7 +1189,7 @@ class NestedInterval():
         # reverse direction case are dealt above
         chan_t, chan_d, chan_p = chan_type_result[0]
         guide_price = (chan_p[0] if direction == TopBotType.top2bot else chan_p[1]) if type(chan_p) is list else chan_p
-        exhausted, check_xd_exhaustion, _, sub_split_time, a_slope, a_macd = eq.define_equilibrium(direction, guide_price, check_tb_structure=check_tb_structure)
+        exhausted, check_xd_exhaustion, _, sub_split_time, a_slope, a_macd = eq.define_equilibrium(direction, guide_price, force_zhongshu=force_zhongshu, check_tb_structure=check_tb_structure)
         if self.isDescription or self.isdebug:
             print("current level {0} {1} {2} {3} {4} with price:{5}".format(period, 
                                                                         chan_d, 
