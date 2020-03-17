@@ -1022,7 +1022,20 @@ class NestedInterval():
                 crp_df = CentralRegionProcess(xd_df, isdebug=self.isdebug, use_xd=self.use_xd)
                 anal_zoushi = crp_df.define_central_region(initial_direction=initial_direction)
                 self.df_zoushi_tuple_list[pe]=(xd_df,anal_zoushi)
-            
+    
+    def completed_zhongshu(self):
+        '''
+        This method returns True if current zoushi contain at least one Zhongshu, we assume only one period is processed
+        '''
+        # high level
+        xd_df, anal_zoushi = self.df_zoushi_tuple_list[self.periods[0]]
+        zoushi_r = anal_zoushi.zslx_result
+        if len(zoushi_r) >= 2:
+            return True
+        elif isinstance(zoushi_r[-1], ZhongShu):
+            return True
+        return False
+    
     def analyze_zoushi(self, direction, chan_type = Chan_Type.INVALID, check_end_tb=False, check_tb_structure=False):
         ''' THIS METHOD SHOULD ONLY BE USED FOR TOP LEVEL!!
         This is due to the fact that at high level we can't be very precise
