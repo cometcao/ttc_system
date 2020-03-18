@@ -529,7 +529,7 @@ class KBarChan(object):
                                                    np.apply_along_axis.apply(lambda row: row['high'] if row['tb'] == TopBotType.top else row['low'], axis=1, arr=self.kDataFrame_marked),
                                                    usemask=False)
             if self.isdebug:
-                print("self.kDataFrame_marked:{0}".format(self.kDataFrame_marked[['chan_price', 'tb','new_index', 'real_loc']]))
+                print("self.kDataFrame_marked:{0}".format(self.kDataFrame_marked[['date','chan_price', 'tb','new_index', 'real_loc']]))
         except:
             print("empty dataframe")
             self.kDataFrame_marked = append_fields(self.kDataFrame_marked,
@@ -537,23 +537,19 @@ class KBarChan(object):
                                                    [0]*len(self.kDataFrame_marked),
                                                    usemask=False)
 
-#     TODO: check usecase first
-#     def getIntegraded(self, initial_state=TopBotType.noTopBot):
-#         self.standardize(initial_state)
-#         self.markTopBot(initial_state)
-#         self.defineBi()
-# #         self.defineBi_chan()
-#         self.getPureBi()
-#         return self.np_join(self.kDataFrame_origin, self.kDataFrame_marked[['real_loc', 'tb', 'chan_price']])
-#     
-#     
-#     def getIntegradedXD(self, initial_state=TopBotType.noTopBot):
-#         temp_df = self.getIntegraded(initial_state)
-#         if temp_df.size==0:
-#             return temp_df
-#         self.defineXD(initial_state)
-#         
-#         return self.np_join(temp_df, self.kDataFrame_xd['xd_tb'])
+    def getFenBi(self, initial_state=TopBotType.noTopBot):
+        self.standardize(initial_state)
+        self.markTopBot(initial_state)
+        self.defineBi()
+        self.getPureBi()
+        return self.kDataFrame_marked[['date', 'real_loc', 'tb', 'chan_price']]
+
+    def getFenDuan(self, initial_state=TopBotType.noTopBot):
+        temp_df = self.getFenBi(initial_state)
+        if temp_df.size==0:
+            return temp_df
+        self.defineXD(initial_state)
+        return self.kDataFrame_marked[['date', 'real_loc', 'tb', 'chan_price', 'xd_tb']]
 
 
 ################################################## XD defintion ##################################################      
