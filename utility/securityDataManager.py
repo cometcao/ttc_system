@@ -46,8 +46,18 @@ class JqDataRetriever(DataRetriever):
             return jqdatasdk.get_price(security, count=count, end_date=end_date, frequency=period, fields = fields, skip_paused=skip_suspended, fq=adjust_type)
     
     @staticmethod
-    def get_bars(security, count, unit='1d',fields=['date', 'open','high','low','close'],include_now=True, end_dt=None, fq_ref_date=None, df=False):
+    def get_bars(security, count=10, unit='1d',fields=['date', 'open','high','low','close'],include_now=True, end_dt=None, start_dt=None, fq_ref_date=None, df=False):
         JqDataRetriever.authenticate()
+        if start_dt is not None:
+            time_delta_seconds = (end_dt - start_dt).total_seconds()
+            if unit == '1d':
+                count = np.ceil(time_delta_seconds / (60*30*8))
+            elif unit == '30m':
+                count = np.ceil(time_delta_seconds / (60*30))
+            elif unit == '5m':
+                count = np.ceil(time_delta_seconds / (60*5))
+            elif unit == '1m':
+                count = np.ceil(time_delta_seconds / 60)
         return jqdatasdk.get_bars(security, count=count, unit=unit,fields=fields,include_now=include_now, end_dt=end_dt, fq_ref_date=fq_ref_date, df=df)
         
     

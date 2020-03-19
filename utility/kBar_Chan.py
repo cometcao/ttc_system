@@ -5,14 +5,27 @@ import copy
 import talib
 from utility.biaoLiStatus import * 
 from utility.chan_common_include import GOLDEN_RATIO, MIN_PRICE_UNIT
-from kBarProcessor import synchOpenPrice, synchClosePrice
+from utility.kBarProcessor import synchOpenPrice, synchClosePrice
 from numpy.lib.recfunctions import append_fields
 from scipy.ndimage.interpolation import shift
+
+FEN_BI_COLUMNS = ['date', 'close', 'high', 'low', 'tb', 'real_loc']
+FEN_DUAN_COLUMNS =  ['date', 'close', 'high', 'low', 'chan_price', 'tb', 'xd_tb', 'real_loc']
+
+def gap_range_func(a):
+    print(len(a['low']))
+    print(len(a['high_s1']))
+    if a['low'] - a['high_s1'] > MIN_PRICE_UNIT:
+        return [a['high_s1'], a['low']]
+    elif a['high'] - a['low_s1'] < -MIN_PRICE_UNIT:
+        return [a['high'], a['low_s1']]
+    else:
+        return [0, 0]
 
 def get_previous_loc(loc, working_df):
     i = loc - 1
     while i >= 0:
-        if working_df[i]['tb'] == TopBotType.top or working_df[i]['tb'] == TopBotType.bot:
+        if working_df[i]['tb'] == TopBotType.top.value or working_df[i]['tb'] == TopBotType.bot.value:
             return i
         else:
             i = i - 1
@@ -21,7 +34,7 @@ def get_previous_loc(loc, working_df):
 def get_next_loc(loc, working_df):
     i = loc + 1
     while i < len(working_df):
-        if working_df[i]['tb'] == TopBotType.top or working_df[i]['tb'] == TopBotType.bot:
+        if working_df[i]['tb'] == TopBotType.top.value or working_df[i]['tb'] == TopBotType.bot.value:
             return i
         else:
             i = i + 1
@@ -39,12 +52,13 @@ class KBarChan(object):
         self.clean_standardzed = clean_standardzed
         self.kDataFrame_origin = kDf
         self.kDataFrame_standardized = copy.deepcopy(kDf)
+        
         self.kDataFrame_standardized = append_fields(self.kDataFrame_standardized, 
                                                      ['new_high', 'new_low', 'trend_type', 'real_loc'],
                                                      [
                                                          [0]*len(self.kDataFrame_standardized),
                                                          [0]*len(self.kDataFrame_standardized),
-                                                         [TopBotType.noTopBot]*len(self.kDataFrame_standardized),
+                                                         [TopBotType.noTopBot.value]*len(self.kDataFrame_standardized),
                                                          [i for i in range(len(self.kDataFrame_standardized))]
                                                      ],
                                                      usemask=False)
@@ -69,12 +83,10 @@ class KBarChan(object):
     
     def isBullType(self, first, second): 
         # this is assuming first second aren't inclusive
-        isBull = False
         f_high = first['high'] if first['new_high']==0 else first['new_high']
         s_high = second['high'] if second['new_high']==0 else second['new_high']
-        if f_high < s_high:
-            isBull = True
-        return isBull
+        return TopBotType.bot2top if f_high < s_high else TopBotType.top2bot
+            
         
     def standardize(self, initial_state=TopBotType.noTopBot):
         # 1. We need to make sure we start with first two K-bars without inclusive relationship
@@ -126,8 +138,8 @@ class KBarChan(object):
             secondElem = self.kDataFrame_standardized[secondElemIdx]
             inclusion_type = self.checkInclusive(firstElem, secondElem)
             if inclusion_type != InclusionType.noInclusion:
-                trend = firstElem[trend_type] if firstElem[trend_type]!=TopBotType.noTopBot else self.isBullType(pastElem, firstElem)
-                compare_func = max if trend==TopBotType.bot2top else min
+                trend = firstElem[trend_type] if firstElem[trend_type]!=TopBotType.noTopBot.value else self.isBullType(pastElem, firstElem).value
+                compare_func = max if np.isclose(trend, TopBotType.bot2top.value) else min
                 if inclusion_type == InclusionType.firstCsecond:
                     self.kDataFrame_standardized[secondElemIdx][new_high]=compare_func(firstElem[high] if firstElem[new_high]==0 else firstElem[new_high], secondElem[high] if secondElem[new_high]==0 else secondElem[new_high])
                     self.kDataFrame_standardized[secondElemIdx][new_low]=compare_func(firstElem[low] if firstElem[new_low]==0 else firstElem[new_low], secondElem[low] if secondElem[new_low]==0 else secondElem[new_low])
@@ -146,13 +158,13 @@ class KBarChan(object):
                     ############ manage index for next round ###########
                     secondElemIdx += 1
             else:
-                if np.isnan(firstElem[new_high]): 
+                if firstElem[new_high] == 0: 
                     self.kDataFrame_standardized[firstElemIdx][new_high] = firstElem[high]
-                if np.isnan(firstElem[new_low]): 
+                if firstElem[new_low] == 0: 
                     self.kDataFrame_standardized[firstElemIdx][new_low] = firstElem[low]
-                if np.isnan(secondElem[new_high]): 
+                if secondElem[new_high] == 0: 
                     self.kDataFrame_standardized[secondElemIdx][new_high] = secondElem[high]
-                if np.isnan(secondElem[new_low]): 
+                if secondElem[new_low] == 0: 
                     self.kDataFrame_standardized[secondElemIdx][new_low] = secondElem[low]
                 ############ manage index for next round ###########
                 pastElemIdx = firstElemIdx
@@ -162,7 +174,7 @@ class KBarChan(object):
         # clean up
         self.kDataFrame_standardized[high] = self.kDataFrame_standardized[new_high]
         self.kDataFrame_standardized[low] = self.kDataFrame_standardized[new_low]
-        self.kDataFrame_standardized=self.kDataFrame_standardized[['close', 'high', 'low', 'real_loc']]
+        self.kDataFrame_standardized=self.kDataFrame_standardized[['date', 'close', 'high', 'low', 'real_loc']]
 
         # remove standardized kbars
         self.kDataFrame_standardized = self.kDataFrame_standardized[self.kDataFrame_standardized['high']!=0]
@@ -185,7 +197,7 @@ class KBarChan(object):
     def markTopBot(self, initial_state=TopBotType.noTopBot):
         self.kDataFrame_standardized = append_fields(self.kDataFrame_standardized,
                                                      'tb',
-                                                     [TopBotType.noTopBot]*self.kDataFrame_standardized.size,
+                                                     [TopBotType.noTopBot.value]*self.kDataFrame_standardized.size,
                                                      usemask=False
                                                      )
         if self.kDataFrame_standardized.size < 7:
@@ -196,7 +208,7 @@ class KBarChan(object):
             selem = self.kDataFrame_standardized[1]
             if (initial_state == TopBotType.top and felem['high'] >= selem['high']) or \
                 (initial_state == TopBotType.bot and felem['low'] <= selem['low']):
-                self.kDataFrame_standardized[0][tb] = initial_state
+                self.kDataFrame_standardized[0][tb] = initial_state.value
             else:
                 if self.isdebug:
                     print("Incorrect initial state given!!!")
@@ -209,20 +221,20 @@ class KBarChan(object):
             secondElem = self.kDataFrame_standardized[idx+2]
             topBotType = self.checkTopBot(currentElem, firstElem, secondElem)
             if topBotType != TopBotType.noTopBot:
-                self.kDataFrame_standardized[idx+1][tb] = topBotType
+                self.kDataFrame_standardized[idx+1][tb] = topBotType.value
                 last_idx = idx+1
                 
         # mark the first kbar
-        if (self.kDataFrame_standardized[0][tb] != TopBotType.top and\
-            self.kDataFrame_standardized[0][tb] != TopBotType.bot):
+        if (self.kDataFrame_standardized[0][tb] != TopBotType.top.value and\
+            self.kDataFrame_standardized[0][tb] != TopBotType.bot.value):
             first_loc = get_next_loc(0, self.kDataFrame_standardized)
             if first_loc is not None:
-                first_tb = self.kDataFrame_standardized[first_loc][tb]
-                self.kDataFrame_standardized[0][tb] = TopBotType.reverse(first_tb)
+                first_tb = TopBotType.value2type(self.kDataFrame_standardized[first_loc][tb])
+                self.kDataFrame_standardized[0][tb] = TopBotType.reverse(first_tb).value
             
         # mark the last kbar 
-        last_tb = self.kDataFrame_standardized[last_idx][tb]
-        self.kDataFrame_standardized[-1][tb] = TopBotType.reverse(last_tb)
+        last_tb = TopBotType.value2type(self.kDataFrame_standardized[last_idx][tb])
+        self.kDataFrame_standardized[-1][tb] = TopBotType.reverse(last_tb).value
         if self.isdebug:
             print("self.kDataFrame_standardized[20]:{0}".format(self.kDataFrame_standardized[:20]))
             
@@ -231,7 +243,7 @@ class KBarChan(object):
         idx = previous_index-1
         while idx >= 0:
             fx = working_df[idx]
-            if fx['tb'] == TopBotType.noTopBot:
+            if fx['tb'] == TopBotType.noTopBot.value:
                 idx -= 1
                 continue
             else:
@@ -248,52 +260,54 @@ class KBarChan(object):
                                                 usemask=False)
 
     def gap_exists_in_range(self, start_idx, end_idx): # end_idx included
-        gap_working_df = self.kDataFrame_origin[(start_idx <= self.kDataFrame_origin['date']) & (self.kDataFrame_origin['date'] <= end_idx)]
+        # no need to drop first row, simple don't use = 
+        gap_working_df = self.kDataFrame_origin[(start_idx < self.kDataFrame_origin['date']) & (self.kDataFrame_origin['date'] <= end_idx)]
         
         # drop the first row, as we only need to find gaps from start_idx(non-inclusive) to end_idx(inclusive)  
-        gap_working_df = np.delete(gap_working_df, 0, axis=0)
+#         gap_working_df = np.delete(gap_working_df, 0, axis=0)
         return np.any(gap_working_df['gap'])
     
     
     def gap_exists(self):
-        high_shift = shift(self.kDataFrame_origin['high'], 1, cval=np.NaN)
-        low_shift = shift(self.kDataFrame_origin['low'], 1, cval=np.NaN)
+        high_shift = shift(self.kDataFrame_origin['high'], 1, cval=0)
+        low_shift = shift(self.kDataFrame_origin['low'], 1, cval=0)
         self.kDataFrame_origin = append_fields(self.kDataFrame_origin,
-                                               'gap',
-                                               ((self.kDataFrame_origin['low'] - high_shift) > MIN_PRICE_UNIT) | ((self.kDataFrame_origin['high'] - low_shift) < -MIN_PRICE_UNIT),
+                                               ['gap', 'high_shift', 'low_shift', 'gap_range_start', 'gap_range_end'],
+                                               [
+                                                   [False]*self.kDataFrame_origin.size,
+                                                   high_shift,
+                                                   low_shift,
+                                                   [0]*self.kDataFrame_origin.size,
+                                                   [0]*self.kDataFrame_origin.size
+                                               ],
                                                usemask=False)
+#                                                ((self.kDataFrame_origin['low'] - high_shift) > MIN_PRICE_UNIT) | ((self.kDataFrame_origin['high'] - low_shift) < -MIN_PRICE_UNIT),
+        
+        i = 0
+        while i < self.kDataFrame_origin.size:
+            item = self.kDataFrame_origin[i]
+            if item['low'] - item['high_shift'] > MIN_PRICE_UNIT:
+                self.kDataFrame_origin[i]['gap'] = True
+                self.kDataFrame_origin[i]['gap_range_start'] = item['high_shift']
+                self.kDataFrame_origin[i]['gap_range_end'] = item['low']
+            elif item['high'] - item['low_shift'] < -MIN_PRICE_UNIT:
+                self.kDataFrame_origin[i]['gap'] = True
+                self.kDataFrame_origin[i]['gap_range_start'] = item['high']
+                self.kDataFrame_origin[i]['gap_range_end'] = item['low_shift']
+            i = i + 1
+        
+#         self.kDataFrame_origin = self.kDataFrame_origin[FEN_BI_COLUMNS + ['gap', 'gap_range_start', 'gap_range_end']]
 #         if self.isdebug:
 #             print(self.kDataFrame_origin[self.kDataFrame_origin['gap']])
     
     def gap_region(self, start_idx, end_idx):
-        gap_working_df = self.kDataFrame_origin[(start_idx <= self.kDataFrame_origin['date']) & (self.kDataFrame_origin['date'] <= end_idx)]
-        
-        high_shift = shift(self.kDataFrame_origin['high'], 1, cval=np.NaN)
-        low_shift = shift(self.kDataFrame_origin['low'], 1, cval=np.NaN)
-        
-        gap_working_df = append_fields(gap_working_df, 
-                                       ['high_s1', 'low_s1'],
-                                       [high_shift, low_shift],
-                                       usemask=False)
-        # drop the first row, as we only need to find gaps from start_idx(non-inclusive) to end_idx(inclusive)     
-        gap_working_df = np.delete(gap_working_df, 0, axis=0)
-        # the gap take the pure range between two klines including the range of kline themself, 
-        # ############# pure gap of high_s1, low / high, low_s1
-        # ########## gap with kline low_s1, high / high_s1, low
-        gap_working_df = append_fields(gap_working_df,
-                                       'gap_range',
-                                       np.apply_along_axis(lambda row: (row['high_s1'], row['low'])
-                                                           if (row['low'] - row['high_s1']) > MIN_PRICE_UNIT
-                                                           else (row['high'], row['low_s1'])
-                                                           if (row['high'] - row['low_s1']) < -MIN_PRICE_UNIT
-                                                           else np.nan, axis=1, arr=gap_working_df),
-                                       usemask=False)
-        return gap_working_df[gap_working_df['gap']]['gap_range'].tolist()
-    
+        # no need to drop first row, simple don't use = 
+        gap_working_df = self.kDataFrame_origin[(start_idx < self.kDataFrame_origin['date']) & (self.kDataFrame_origin['date'] <= end_idx)]
+        return gap_working_df[gap_working_df['gap']][['gap_range_start', 'gap_range_end']].tolist()
 
     def defineBi(self):
         self.gap_exists() # work out gap in the original kline
-        working_df = self.kDataFrame_standardized[self.kDataFrame_standardized['tb']!=TopBotType.noTopBot]
+        working_df = self.kDataFrame_standardized[self.kDataFrame_standardized['tb']!=TopBotType.noTopBot.value]
         
         ############################# make sure the first two Ding/Di are valid to start with ###########################
         firstIdx = 0
@@ -307,48 +321,48 @@ class KBarChan(object):
             firstFenXing = working_df[firstIdx]
             secondFenXing = working_df[secondIdx]
             thirdFenXing = working_df[thirdIdx]
-            if firstFenXing[tb] == secondFenXing[tb] == TopBotType.top and firstFenXing[high] < secondFenXing[high]:
-                working_df[firstIdx][tb] = TopBotType.noTopBot 
+            if firstFenXing[tb] == secondFenXing[tb] == TopBotType.top.value and firstFenXing[high] < secondFenXing[high]:
+                working_df[firstIdx][tb] = TopBotType.noTopBot.value
                 firstIdx = get_next_loc(firstIdx, working_df)
                 secondIdx=get_next_loc(firstIdx, working_df)
                 thirdIdx=get_next_loc(secondIdx, working_df)
                 continue
-            elif firstFenXing[tb] == secondFenXing[tb] == TopBotType.top and firstFenXing[high] >= secondFenXing[high]:
-                working_df[secondIdx][tb] = TopBotType.noTopBot 
+            elif firstFenXing[tb] == secondFenXing[tb] == TopBotType.top.value and firstFenXing[high] >= secondFenXing[high]:
+                working_df[secondIdx][tb] = TopBotType.noTopBot.value
                 secondIdx = get_next_loc(secondIdx, working_df)
                 thirdIdx=get_next_loc(secondIdx, working_df)
                 continue
-            if firstFenXing[tb] == secondFenXing[tb] == TopBotType.bot and firstFenXing[low] > secondFenXing[low]:
-                working_df[firstIdx][tb] = TopBotType.noTopBot 
+            if firstFenXing[tb] == secondFenXing[tb] == TopBotType.bot.value and firstFenXing[low] > secondFenXing[low]:
+                working_df[firstIdx][tb] = TopBotType.noTopBot.value
                 firstIdx = get_next_loc(firstIdx, working_df)
                 secondIdx=get_next_loc(firstIdx, working_df)
                 thirdIdx=get_next_loc(secondIdx, working_df)
                 continue
-            elif firstFenXing[tb] == secondFenXing[tb] == TopBotType.bot and firstFenXing[low] <= secondFenXing[low]:
-                working_df[secondIdx][tb] = TopBotType.noTopBot
+            elif firstFenXing[tb] == secondFenXing[tb] == TopBotType.bot.value and firstFenXing[low] <= secondFenXing[low]:
+                working_df[secondIdx][tb] = TopBotType.noTopBot.value
                 secondIdx = get_next_loc(secondIdx, working_df)
                 thirdIdx=get_next_loc(secondIdx, working_df)
                 continue
             elif secondFenXing[new_index] - firstFenXing[new_index] < 4:
-                if firstFenXing[tb] == thirdFenXing[tb] == TopBotType.top and firstFenXing[high] < thirdFenXing[high]:
-                    working_df[firstIdx][tb] = TopBotType.noTopBot
+                if firstFenXing[tb] == thirdFenXing[tb] == TopBotType.top.value and firstFenXing[high] < thirdFenXing[high]:
+                    working_df[firstIdx][tb] = TopBotType.noTopBot.value
                     firstIdx = get_next_loc(firstIdx, working_df)
                     secondIdx=get_next_loc(firstIdx, working_df)
                     thirdIdx=get_next_loc(secondIdx, working_df)
                     continue
-                elif firstFenXing[tb] == thirdFenXing[tb] == TopBotType.top and firstFenXing[high] >= thirdFenXing[high]:
-                    working_df[secondIdx][tb] = TopBotType.noTopBot
+                elif firstFenXing[tb] == thirdFenXing[tb] == TopBotType.top.value and firstFenXing[high] >= thirdFenXing[high]:
+                    working_df[secondIdx][tb] = TopBotType.noTopBot.value
                     secondIdx=get_next_loc(secondIdx, working_df)
                     thirdIdx=get_next_loc(secondIdx, working_df)
                     continue
-                elif firstFenXing[tb] == thirdFenXing[tb] == TopBotType.bot and firstFenXing[low] > thirdFenXing[low]:
-                    working_df[firstIdx][tb] = TopBotType.noTopBot
+                elif firstFenXing[tb] == thirdFenXing[tb] == TopBotType.bot.value and firstFenXing[low] > thirdFenXing[low]:
+                    working_df[firstIdx][tb] = TopBotType.noTopBot.value
                     firstIdx = get_next_loc(firstIdx, working_df)
                     secondIdx=get_next_loc(firstIdx, working_df)
                     thirdIdx=get_next_loc(secondIdx, working_df)
                     continue
-                elif firstFenXing[tb] == thirdFenXing[tb] == TopBotType.bot and firstFenXing[low] <= thirdFenXing[low]:
-                    working_df[secondIdx][tb] = TopBotType.noTopBot
+                elif firstFenXing[tb] == thirdFenXing[tb] == TopBotType.bot.value and firstFenXing[low] <= thirdFenXing[low]:
+                    working_df[secondIdx][tb] = TopBotType.noTopBot.value
                     secondIdx=get_next_loc(secondIdx, working_df)
                     thirdIdx=get_next_loc(secondIdx, working_df)
                     continue
@@ -356,16 +370,16 @@ class KBarChan(object):
                     print("somthing WRONG!")
                     return
                     
-            elif firstFenXing[tb] == TopBotType.top and secondFenXing[tb] == TopBotType.bot and firstFenXing[high] <= secondFenXing[low]:
-                working_df[firstIdx][tb] = TopBotType.noTopBot
-                working_df[secondIdx][tb] = TopBotType.noTopBot
+            elif firstFenXing[tb] == TopBotType.top.value and secondFenXing[tb] == TopBotType.bot.value and firstFenXing[high] <= secondFenXing[low]:
+                working_df[firstIdx][tb] = TopBotType.noTopBot.value
+                working_df[secondIdx][tb] = TopBotType.noTopBot.value
                 firstIdx = get_next_loc(firstIdx, working_df)
                 secondIdx=get_next_loc(firstIdx, working_df)
                 thirdIdx=get_next_loc(secondIdx, working_df)
                 continue
-            elif firstFenXing[tb] == TopBotType.bot and secondFenXing[tb] == TopBotType.top and firstFenXing[low] >= secondFenXing[high]:
-                working_df[firstIdx][tb] = TopBotType.noTopBot
-                working_df[secondIdx][tb] = TopBotType.noTopBot
+            elif firstFenXing[tb] == TopBotType.bot.value and secondFenXing[tb] == TopBotType.top.value and firstFenXing[low] >= secondFenXing[high]:
+                working_df[firstIdx][tb] = TopBotType.noTopBot.value
+                working_df[secondIdx][tb] = TopBotType.noTopBot.value
                 firstIdx = get_next_loc(firstIdx, working_df)
                 secondIdx=get_next_loc(firstIdx, working_df)
                 thirdIdx=get_next_loc(secondIdx, working_df)
@@ -373,7 +387,7 @@ class KBarChan(object):
             else:
                 break
  
-        working_df = working_df[working_df[tb]!=TopBotType.noTopBot]
+        working_df = working_df[working_df[tb]!=TopBotType.noTopBot.value]
         
         #################################
         previous_index = 0
@@ -386,26 +400,26 @@ class KBarChan(object):
             nextFenXing = working_df[next_index]
             
             if currentFenXing[tb] == previousFenXing[tb]:
-                if currentFenXing[tb] == TopBotType.top:
+                if currentFenXing[tb] == TopBotType.top.value:
                     if currentFenXing[high] < previousFenXing[high]:
-                        working_df[current_index][tb] = TopBotType.noTopBot
+                        working_df[current_index][tb] = TopBotType.noTopBot.value
                         current_index = next_index
                         next_index +=1
                     else:
-                        working_df[previous_index][tb] = TopBotType.noTopBot
+                        working_df[previous_index][tb] = TopBotType.noTopBot.value
                         previous_index = self.trace_back_index(working_df, previous_index) #current_index # 
                         if previous_index is None:
                             previous_index = current_index
                             current_index = next_index
                             next_index += 1
                     continue
-                elif currentFenXing[tb] == TopBotType.bot:
+                elif currentFenXing[tb] == TopBotType.bot.value:
                     if currentFenXing[low] > previousFenXing[low]:
-                        working_df[current_index][tb] = TopBotType.noTopBot
+                        working_df[current_index][tb] = TopBotType.noTopBot.value
                         current_index = next_index
                         next_index += 1
                     else:
-                        working_df[previous_index][tb] = TopBotType.noTopBot
+                        working_df[previous_index][tb] = TopBotType.noTopBot.value
                         previous_index = self.trace_back_index(working_df, previous_index) #current_index # 
                         if previous_index is None:
                             previous_index = current_index
@@ -413,22 +427,22 @@ class KBarChan(object):
                             next_index += 1
                     continue
             elif currentFenXing[tb] == nextFenXing[tb]:
-                if currentFenXing[tb] == TopBotType.top:
+                if currentFenXing[tb] == TopBotType.top.value:
                     if currentFenXing[high] < nextFenXing[high]:
-                        working_df[current_index][tb] = TopBotType.noTopBot
+                        working_df[current_index][tb] = TopBotType.noTopBot.value
                         current_index = next_index
                         next_index += 1
                     else:
-                        working_df[next_index][tb] = TopBotType.noTopBot
+                        working_df[next_index][tb] = TopBotType.noTopBot.value
                         next_index += 1
                     continue
-                elif currentFenXing[tb] == TopBotType.bot:
+                elif currentFenXing[tb] == TopBotType.bot.value:
                     if currentFenXing[low] > nextFenXing[low]:
-                        working_df[current_index][tb] = TopBotType.noTopBot
+                        working_df[current_index][tb] = TopBotType.noTopBot.value
                         current_index = next_index
                         next_index += 1
                     else:
-                        working_df[next_index][tb] = TopBotType.noTopBot
+                        working_df[next_index][tb] = TopBotType.noTopBot.value
                         next_index += 1
                     continue
                                     
@@ -438,46 +452,46 @@ class KBarChan(object):
             if self.gap_exists_in_range(working_df[current_index]['date'], working_df[next_index]['date']):
                 gap_ranges = self.gap_region(working_df[current_index]['date'], working_df[next_index]['date'])
                 for gap in gap_ranges:
-                    if working_df[previous_index][tb] == TopBotType.top: 
+                    if working_df[previous_index][tb] == TopBotType.top.value: 
                         #gap higher than previous high
                         gap_qualify = gap[0] < working_df[previous_index][low] <= working_df[previous_index][high] < gap[1]
-                    elif working_df[previous_index][tb] == TopBotType.bot:
+                    elif working_df[previous_index][tb] == TopBotType.bot.value:
                         #gap higher than previous low
                         gap_qualify = gap[1] > working_df[previous_index][high] >= working_df[previous_index][low] > gap[0]
                     if gap_qualify:
                         break
             
             if (nextFenXing[new_index] - currentFenXing[new_index]) >= 4 or gap_qualify:
-                if currentFenXing[tb] == TopBotType.top and nextFenXing[tb] == TopBotType.bot and currentFenXing[high] > nextFenXing[high]:
+                if currentFenXing[tb] == TopBotType.top.value and nextFenXing[tb] == TopBotType.bot.value and currentFenXing[high] > nextFenXing[high]:
                     pass
-                elif currentFenXing[tb] == TopBotType.top and nextFenXing[tb] == TopBotType.bot and currentFenXing[high] <= nextFenXing[high]:
-                    working_df[current_index][tb] = TopBotType.noTopBot
+                elif currentFenXing[tb] == TopBotType.top.value and nextFenXing[tb] == TopBotType.bot.value and currentFenXing[high] <= nextFenXing[high]:
+                    working_df[current_index][tb] = TopBotType.noTopBot.value
                     current_index = next_index
                     next_index = next_index + 1
                     continue
-                elif currentFenXing[tb] == TopBotType.bot and nextFenXing[tb] == TopBotType.top and currentFenXing[low] < nextFenXing[low]:
+                elif currentFenXing[tb] == TopBotType.bot.value and nextFenXing[tb] == TopBotType.top.value and currentFenXing[low] < nextFenXing[low]:
                     pass
-                elif currentFenXing[tb] == TopBotType.bot and nextFenXing[tb] == TopBotType.top and currentFenXing[low] >= nextFenXing[low]:
-                    working_df[current_index][tb] = TopBotType.noTopBot   
+                elif currentFenXing[tb] == TopBotType.bot.value and nextFenXing[tb] == TopBotType.top.value and currentFenXing[low] >= nextFenXing[low]:
+                    working_df[current_index][tb] = TopBotType.noTopBot.value
                     current_index = next_index 
                     next_index = next_index + 1
                     continue
             else: 
-                if currentFenXing[tb] == TopBotType.top and previousFenXing[low] < nextFenXing[low]:
-                    working_df[next_index][tb] = TopBotType.noTopBot
+                if currentFenXing[tb] == TopBotType.top.value and previousFenXing[low] < nextFenXing[low]:
+                    working_df[next_index][tb] = TopBotType.noTopBot.value
                     next_index += 1
                     continue
-                if currentFenXing[tb] == TopBotType.top and previousFenXing[low] >= nextFenXing[low]:
-                    working_df[current_index][tb] = TopBotType.noTopBot
+                if currentFenXing[tb] == TopBotType.top.value and previousFenXing[low] >= nextFenXing[low]:
+                    working_df[current_index][tb] = TopBotType.noTopBot.value
                     current_index = next_index
                     next_index += 1
                     continue
-                if currentFenXing[tb] == TopBotType.bot and previousFenXing[high] > nextFenXing[high]:
-                    working_df[next_index][tb] = TopBotType.noTopBot
+                if currentFenXing[tb] == TopBotType.bot.value and previousFenXing[high] > nextFenXing[high]:
+                    working_df[next_index][tb] = TopBotType.noTopBot.value
                     next_index += 1
                     continue
-                if currentFenXing[tb] == TopBotType.bot and previousFenXing[high] <= nextFenXing[high]:
-                    working_df[current_index][tb] = TopBotType.noTopBot
+                if currentFenXing[tb] == TopBotType.bot.value and previousFenXing[high] <= nextFenXing[high]:
+                    working_df[current_index][tb] = TopBotType.noTopBot.value
                     current_index = next_index
                     next_index += 1
                     continue
@@ -488,31 +502,33 @@ class KBarChan(object):
                 
         # if nextIndex is the last one, final clean up
         if next_index == working_df.size:
-            if ((working_df[current_index][tb]==TopBotType.top and self.kDataFrame_origin[-1][high] > working_df[current_index][high]) \
-                or (working_df[current_index][tb]==TopBotType.bot and self.kDataFrame_origin[-1][low] < working_df[current_index][low]) ):
+            if ((working_df[current_index][tb]==TopBotType.top.value and self.kDataFrame_origin[-1][high] > working_df[current_index][high]) \
+                or (working_df[current_index][tb]==TopBotType.bot.value and self.kDataFrame_origin[-1][low] < working_df[current_index][low]) ):
                 working_df[-1][tb] = working_df[current_index][tb]
-                working_df[current_index][tb] = TopBotType.noTopBot
+                working_df[current_index][tb] = TopBotType.noTopBot.value
             
-            if working_df[current_index][tb] == TopBotType.noTopBot and\
-                ((working_df[previous_index][tb]==TopBotType.top and self.kDataFrame_origin[-1][high] > working_df[previous_index][high]) or\
-                 (working_df[previous_index][tb]==TopBotType.bot and self.kDataFrame_origin[-1][low] < working_df[previous_index][low])):
+            if working_df[current_index][tb] == TopBotType.noTopBot.value and\
+                ((working_df[previous_index][tb]==TopBotType.top.value and self.kDataFrame_origin[-1][high] > working_df[previous_index][high]) or\
+                 (working_df[previous_index][tb]==TopBotType.bot.value and self.kDataFrame_origin[-1][low] < working_df[previous_index][low])):
                 working_df[-1][tb] = working_df[previous_index][tb]
-                working_df[previous_index][tb] = TopBotType.noTopBot
+                working_df[previous_index][tb] = TopBotType.noTopBot.value
                 
             if working_df[previous_index][tb] == working_df[current_index][tb]:
-                if working_df[current_index, tb] == TopBotType.top:
+                if working_df[current_index, tb] == TopBotType.top.value:
                     if working_df[current_index][high] > working_df[previous_index][high]:
-                        working_df[previous_index][tb] = TopBotType.noTopBot
+                        working_df[previous_index][tb] = TopBotType.noTopBot.value
                     else:
-                        working_df[current_index][tb] = TopBotType.noTopBot
-                elif working_df[current_index][tb] == TopBotType.bot:
+                        working_df[current_index][tb] = TopBotType.noTopBot.value
+                elif working_df[current_index][tb] == TopBotType.bot.value:
                     if working_df[current_index][low] < working_df[previous_index][low]:
-                        working_df[previous_index][tb] = TopBotType.noTopBot
+                        working_df[previous_index][tb] = TopBotType.noTopBot.value
                     else:
-                        working_df[current_index][tb] = TopBotType.noTopBot  
+                        working_df[current_index][tb] = TopBotType.noTopBot.value
         ###################################    
-        self.kDataFrame_marked = working_df[working_df[tb]!=TopBotType.noTopBot]
-        
+        self.kDataFrame_marked = working_df[working_df[tb]!=TopBotType.noTopBot.value][FEN_BI_COLUMNS]
+        if self.isdebug:
+            print("self.kDataFrame_standardized[20]:{0}".format(self.kDataFrame_marked[:20]))
+
     def getMarkedBL(self):
         self.standardize()
         self.markTopBot()
@@ -526,10 +542,10 @@ class KBarChan(object):
         try:
             self.kDataFrame_marked = append_fields(self.kDataFrame_marked,
                                                    'chan_price',
-                                                   np.apply_along_axis.apply(lambda row: row['high'] if row['tb'] == TopBotType.top else row['low'], axis=1, arr=self.kDataFrame_marked),
+                                                   np.apply_along_axis(lambda row: row['high'] if row['tb'] == TopBotType.top.value else row['low'], axis=1, arr=self.kDataFrame_marked),
                                                    usemask=False)
             if self.isdebug:
-                print("self.kDataFrame_marked:{0}".format(self.kDataFrame_marked[['date','chan_price', 'tb','new_index', 'real_loc']]))
+                print("self.kDataFrame_marked:{0}".format(self.kDataFrame_marked[['date','chan_price', 'tb','real_loc']]))
         except:
             print("empty dataframe")
             self.kDataFrame_marked = append_fields(self.kDataFrame_marked,
@@ -542,14 +558,23 @@ class KBarChan(object):
         self.markTopBot(initial_state)
         self.defineBi()
         self.getPureBi()
-        return self.kDataFrame_marked[['date', 'real_loc', 'tb', 'chan_price']]
+        return self.kDataFrame_marked
 
     def getFenDuan(self, initial_state=TopBotType.noTopBot):
         temp_df = self.getFenBi(initial_state)
         if temp_df.size==0:
             return temp_df
         self.defineXD(initial_state)
-        return self.kDataFrame_marked[['date', 'real_loc', 'tb', 'chan_price', 'xd_tb']]
+        return self.kDataFrame_xd
+    
+    def getOriginal_df(self):
+        return self.kDataFrame_origin
+    
+    def getFenBI_df(self):
+        return self.kDataFrame_marked
+    
+    def getFenDuan_df(self):
+        return self.kDataFrame_xd
 
 
 ################################################## XD defintion ##################################################      
@@ -565,7 +590,7 @@ class KBarChan(object):
             else:
                 initial_loc = None
                 print("Invalid Initial TopBot type")
-            working_df[initial_loc]['xd_tb'] = initial_status
+            working_df[initial_loc]['xd_tb'] = initial_status.value
             if self.isdebug:
                 print("initial xd_tb:{0} located at {1}".format(initial_status, working_df[initial_loc]['date']))
             initial_direction = TopBotType.top2bot if initial_status == TopBotType.top else TopBotType.bot2top
@@ -610,9 +635,9 @@ class KBarChan(object):
         tb = 'tb'
         chan_price = 'chan_price'
         if direction == TopBotType.top2bot:
-            assert firstElem[tb] == thirdElem[tb] == TopBotType.bot and secondElem[tb] == forthElem[tb] == TopBotType.top, "Invalid starting tb status for checking inclusion top2bot: {0}, {1}, {2}, {3}".format(firstElem, thirdElem, secondElem, forthElem)
+            assert firstElem[tb] == thirdElem[tb] == TopBotType.bot.value and secondElem[tb] == forthElem[tb] == TopBotType.top.value, "Invalid starting tb status for checking inclusion top2bot: {0}, {1}, {2}, {3}".format(firstElem, thirdElem, secondElem, forthElem)
         elif direction == TopBotType.bot2top:
-            assert firstElem[tb] == thirdElem[tb] == TopBotType.top and  secondElem[tb] == forthElem[tb] == TopBotType.bot, "Invalid starting tb status for checking inclusion bot2top: {0}, {1}, {2}, {3}".format(firstElem, thirdElem, secondElem, forthElem)       
+            assert firstElem[tb] == thirdElem[tb] == TopBotType.top.value and  secondElem[tb] == forthElem[tb] == TopBotType.bot.value, "Invalid starting tb status for checking inclusion bot2top: {0}, {1}, {2}, {3}".format(firstElem, thirdElem, secondElem, forthElem)       
         
         if (firstElem[chan_price] <= thirdElem[chan_price] and secondElem[chan_price] >= forthElem[chan_price]) or\
             (firstElem[chan_price] >= thirdElem[chan_price] and secondElem[chan_price] <= forthElem[chan_price]):  
@@ -646,8 +671,8 @@ class KBarChan(object):
                         return True             
             ############################## special case of kline gap as XD ##############################                
                   
-            working_df[next_valid_elems[1]][tb] = TopBotType.noTopBot
-            working_df[next_valid_elems[2]][tb] = TopBotType.noTopBot
+            working_df[next_valid_elems[1]][tb] = TopBotType.noTopBot.value
+            working_df[next_valid_elems[2]][tb] = TopBotType.noTopBot.value
             
             if self.isdebug:
                 print("location {0}@{1}, {2}@{3} removed for combination".format(working_df[next_valid_elems[1]]['date'], 
@@ -696,14 +721,14 @@ class KBarChan(object):
         result_status = TopBotType.noTopBot
         with_gap = False
         
-        if third[tb] == TopBotType.top:    
+        if third[tb] == TopBotType.top.value:
             with_gap = first[chan_price] < forth[chan_price]
             if third[chan_price] > first[chan_price] and\
              third[chan_price] > fifth[chan_price] and\
              forth[chan_price] > sixth[chan_price]:
                 result_status = TopBotType.top
                 
-        elif third[tb] == TopBotType.bot:
+        elif third[tb] == TopBotType.bot.value:
             with_gap = first[chan_price] > forth[chan_price]
             if third[chan_price] < first[chan_price] and\
              third[chan_price] < fifth[chan_price] and\
@@ -778,14 +803,18 @@ class KBarChan(object):
         chan_price = 'chan_price'
         first = working_df[next_valid_elems[0]]
         forth = working_df[next_valid_elems[3]]
-        previous_elem = self.get_previous_N_elem(next_valid_elems[0], working_df, N=0, end_tb=first[tb], single_direction=True)
+        previous_elem = self.get_previous_N_elem(next_valid_elems[0], 
+                                                 working_df, 
+                                                 N=0, 
+                                                 end_tb=TopBotType.value2type(first[tb]), 
+                                                 single_direction=True)
         if len(previous_elem) >= 1: # use single direction at least 1 needed
-            if first[tb] == TopBotType.top:
+            if first[tb] == TopBotType.top.value:
                 with_gap = working_df[previous_elem][chan_price].max() < forth.chan_price
-            elif first[tb] == TopBotType.bot:
+            elif first[tb] == TopBotType.bot.value:
                 with_gap = working_df[previous_elem][chan_price].min() > forth.chan_price
             else:
-                assert first[tb] == TopBotType.top or first[tb] == TopBotType.bot, "Invalid first elem tb"
+                assert first[tb] == TopBotType.top.value or first[tb] == TopBotType.bot.value, "Invalid first elem tb"
         if not with_gap and self.isdebug:
             print("elem gap unchecked at {0}".format(working_df[next_valid_elems[0]]['date']))
         return with_gap  
@@ -814,11 +843,11 @@ class KBarChan(object):
             return TopBotType.noTopBot, with_gap, with_xd_gap
         
     def defineXD(self, initial_status=TopBotType.noTopBot):
-        working_df = self.kDataFrame_marked[['date','chan_price', 'tb','new_index']] # new index used for central region
+        working_df = self.kDataFrame_marked[['date', 'close', 'high', 'low', 'chan_price', 'tb','real_loc']] # real_loc used for central region
         
         working_df = append_fields(working_df,
                                    ['original_tb', 'xd_tb'],
-                                   [working_df['tb'], [TopBotType.noTopBot] * working_df.size],
+                                   [working_df['tb'], [TopBotType.noTopBot.value] * working_df.size],
                                    usemask=False)
 
         if working_df.size==0:
@@ -831,9 +860,9 @@ class KBarChan(object):
         # loop through to find XD top bot
         working_df = self.find_XD(initial_i, initial_direction, working_df)
         
-        working_df = working_df[(working_df['xd_tb']==TopBotType.top) | (working_df['xd_tb']==TopBotType.bot)]
+        working_df = working_df[(working_df['xd_tb']==TopBotType.top.value) | (working_df['xd_tb']==TopBotType.bot.value)]
             
-        self.kDataFrame_xd = working_df
+        self.kDataFrame_xd = working_df[FEN_DUAN_COLUMNS]
         return working_df
     
     def get_next_N_elem(self, loc, working_df, N=4, start_tb=TopBotType.noTopBot, single_direction=False):
@@ -846,11 +875,11 @@ class KBarChan(object):
         result_locs = []
         while i < working_df.size:
             current_elem = working_df[i]
-            if current_elem['tb'] != TopBotType.noTopBot:
-                if start_tb != TopBotType.noTopBot and current_elem['tb'] != start_tb and len(result_locs) == 0:
+            if current_elem['tb'] != TopBotType.noTopBot.value:
+                if start_tb.value != TopBotType.noTopBot and current_elem['tb'] != start_tb.value and len(result_locs) == 0:
                     i = i + 1
                     continue
-                if single_direction and current_elem['tb'] != start_tb:
+                if single_direction and current_elem['tb'] != start_tb.value:
                     i = i + 1
                     continue
                 result_locs.append(i)
@@ -885,7 +914,7 @@ class KBarChan(object):
                     result_locs.insert(0, i)
                 if N != 0 and len(result_locs) == N:
                     break
-                if N == 0 and (current_elem['xd_tb'] == TopBotType.top or current_elem['xd_tb'] == TopBotType.bot):
+                if N == 0 and (current_elem['xd_tb'] == TopBotType.top.value or current_elem['xd_tb'] == TopBotType.bot.value):
                     break
             i = i - 1
         return result_locs
@@ -920,21 +949,25 @@ class KBarChan(object):
     
 
     def find_XD(self, initial_i, initial_direction, working_df):
-        new_index = 'new_index'
+        real_loc = 'real_loc'
         xd_tb = 'xd_tb'
         date = 'date'
         chan_price = 'chan_price'
         tb = 'tb'
         original_tb = 'original_tb'
         if self.isdebug:
-            print("Initial direction {0} at location {1} with new_index {2}".format(initial_direction, initial_i, working_df[initial_i][new_index]))
+            print("Initial direction {0} at location {1} with real_loc {2}".format(initial_direction, initial_i, working_df[initial_i][real_loc]))
         
         current_direction = initial_direction  
         i = initial_i
         while i+5 < working_df.size:
             
             if self.isdebug:
-                print("working at {0}, {1}, {2}, {3}, {4}".format(working_df[i][date], working_df[i][chan_price], current_direction, working_df[i][new_index], working_df[i][tb]))
+                print("working at {0}, {1}, {2}, {3}, {4}".format(working_df[i][date], 
+                                                                  working_df[i][chan_price], 
+                                                                  current_direction, 
+                                                                  working_df[i][real_loc], 
+                                                                  TopBotType.value2type(working_df[i][tb])))
             
             previous_gap = len(self.gap_XD) != 0
             
@@ -959,14 +992,14 @@ class KBarChan(object):
                         self.gap_XD.append(next_valid_elems[2])
                         
                         if self.isdebug:
-                            [print("gap info 1:{0}, {1}".format(working_df[gap_loc][date], working_df[gap_loc][tb])) for gap_loc in self.gap_XD]
+                            [print("gap info 1:{0}, {1}".format(working_df[gap_loc][date], TopBotType.value2type(working_df[gap_loc][tb]))) for gap_loc in self.gap_XD]
                         
                     else:
                         # fixed Ding/Di, clear the record
                         self.gap_XD = []
                         if self.isdebug:
                             print("gap cleaned!")
-                    working_df[next_valid_elems[2]][xd_tb] = current_status
+                    working_df[next_valid_elems[2]][xd_tb] = current_status.value
                     if self.isdebug:
                         print("xd_tb located {0} {1}".format(working_df[next_valid_elems[2]][date], working_df[next_valid_elems[2]][chan_price]))
                     current_direction = TopBotType.top2bot if current_status == TopBotType.top else TopBotType.bot2top
@@ -980,14 +1013,14 @@ class KBarChan(object):
                         if secondElem[chan_price] > previous_gap_elem[chan_price]:
                             previous_gap_loc = self.gap_XD.pop()
                             if self.isdebug:
-                                print("xd_tb cancelled due to new high found: {0} {1}".format(working_df[previous_gap_loc][date], working_df[previous_gap_loc][new_index]))
-                            working_df[previous_gap_loc][xd_tb] = TopBotType.noTopBot
+                                print("xd_tb cancelled due to new high found: {0} {1}".format(working_df[previous_gap_loc][date], working_df[previous_gap_loc][real_loc]))
+                            working_df[previous_gap_loc][xd_tb] = TopBotType.noTopBot.value
                             
                             # restore any combined bi due to the gapped XD
                             working_df[previous_gap_loc:next_valid_elems[-1]][tb] = working_df[previous_gap_loc:next_valid_elems[-1]][original_tb]
                             current_direction = TopBotType.reverse(current_direction)
                             if self.isdebug:
-                                print("gap closed 1:{0}, {1} tb info restored to {2}".format(working_df[previous_gap_loc][date],  working_df[previous_gap_loc][tb], working_df[next_valid_elems[-1]][date])) 
+                                print("gap closed 1:{0}, {1} tb info restored to {2}".format(working_df[previous_gap_loc][date], TopBotType.value2type(working_df[previous_gap_loc][tb]), working_df[next_valid_elems[-1]][date])) 
                             i = previous_gap_loc
                             continue
                             
@@ -995,14 +1028,14 @@ class KBarChan(object):
                         if secondElem[chan_price] < previous_gap_elem[chan_price]:
                             previous_gap_loc = self.gap_XD.pop()
                             if self.isdebug:
-                                print("xd_tb cancelled due to new low found: {0} {1}".format(working_df[previous_gap_loc][date], working_df[previous_gap_loc][new_index]))
-                            working_df[previous_gap_loc][xd_tb] = TopBotType.noTopBot
+                                print("xd_tb cancelled due to new low found: {0} {1}".format(working_df[previous_gap_loc][date], working_df[previous_gap_loc][real_loc]))
+                            working_df[previous_gap_loc][xd_tb] = TopBotType.noTopBot.value
                             
                             # restore any combined bi due to the gapped XD
                             working_df[previous_gap_loc:next_valid_elems[-1]][tb] = working_df[previous_gap_loc:next_valid_elems[-1]][original_tb]
                             current_direction = TopBotType.reverse(current_direction)
                             if self.isdebug:
-                                print("gap closed 2:{0}, {1} tb info restored to {2}".format(working_df[previous_gap_loc][date],  working_df[previous_gap_loc][tb], working_df[next_valid_elems[-1]][date]))
+                                print("gap closed 2:{0}, {1} tb info restored to {2}".format(working_df[previous_gap_loc][date],  TopBotType.value2type(working_df[previous_gap_loc][tb]), working_df[next_valid_elems[-1]][date]))
                             i = previous_gap_loc
                             continue
                             
@@ -1010,7 +1043,7 @@ class KBarChan(object):
                         print("Invalid current direction!")
                         break
                     if self.isdebug:
-                        [print("gap info 3:{0}, {1}".format(working_df[gap_loc][date], working_df[gap_loc][tb])) for gap_loc in self.gap_XD]
+                        [print("gap info 3:{0}, {1}".format(working_df[gap_loc][date], TopBotType.value2type(working_df[gap_loc][tb]))) for gap_loc in self.gap_XD]
                     i = next_valid_elems[2] #  i = i + 2 # check next bi with same direction
                     
             else:    # no gap case            
@@ -1045,13 +1078,13 @@ class KBarChan(object):
                         # save existing gapped Ding/Di
                         self.gap_XD.append(next_valid_elems[2])
                         if self.isdebug:
-                            [print("gap info 4:{0}, {1}".format(working_df[gap_loc][date], working_df[gap_loc][tb])) for gap_loc in self.gap_XD]
+                            [print("gap info 4:{0}, {1}".format(working_df[gap_loc][date], TopBotType.value2type(working_df[gap_loc][tb]))) for gap_loc in self.gap_XD]
                     
                     else:
                         # cleanest case
                         pass
                     current_direction = TopBotType.top2bot if current_status == TopBotType.top else TopBotType.bot2top
-                    working_df[next_valid_elems[2]][xd_tb] = current_status
+                    working_df[next_valid_elems[2]][xd_tb] = current_status.value
                     if self.isdebug:
                         print("xd_tb located {0} {1}".format(working_df[next_valid_elems[2]][date], working_df[next_valid_elems[2]][chan_price]))
                     i = next_valid_elems[1] if with_xd_gap else next_valid_elems[3]
@@ -1073,19 +1106,19 @@ class KBarChan(object):
                 
                 temp_df = working_df[previous_xd_tb_loc:][columns]
                 if temp_df.size > 0:
-                    temp_df = temp_df[temp_df[tb] != TopBotType.noTopBot]
+                    temp_df = temp_df[temp_df[tb] != TopBotType.noTopBot.value]
                     if current_direction == TopBotType.top2bot:
                         min_loc = temp_df[chan_price].argmin()
                         min_date = temp_df[min_loc][date]
                         working_loc = np.where(working_loc[date]==min_date)[0][0]
-                        working_df[working_loc][xd_tb] = TopBotType.bot
+                        working_df[working_loc][xd_tb] = TopBotType.bot.value
                         if self.isdebug:
                             print("final xd_tb located from {0} for {1}".format(min_date, TopBotType.bot))
                     elif current_direction == TopBotType.bot2top:
                         max_loc = temp_df[chan_price].argmax()
                         max_date = temp_df[min_loc][date]
                         working_loc = np.where(working_loc[date]==max_date)[0][0]
-                        working_df[working_loc][xd_tb] = TopBotType.top
+                        working_df[working_loc][xd_tb] = TopBotType.top.value
                         if self.isdebug:
                             print("final xd_tb located from {0} for {1}".format(max_date, TopBotType.top))
                     else:
@@ -1099,11 +1132,11 @@ class KBarChan(object):
         # make sure we are checking the right elem by direction
         result = True
         if direction == TopBotType.top2bot:
-            if firstElem['tb'] != TopBotType.bot:
+            if firstElem['tb'] != TopBotType.bot.value:
                 print("We have invalid elem tb value: {0}".format(firstElem['tb']))
                 result = False
         elif direction == TopBotType.bot2top:
-            if firstElem['tb'] != TopBotType.top:
+            if firstElem['tb'] != TopBotType.top.value:
                 print("We have invalid elem tb value: {0}".format(firstElem['tb']))
                 result = False
         else:
