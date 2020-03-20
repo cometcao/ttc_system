@@ -677,8 +677,7 @@ class Equilibrium():
         if zslx is None or zslx.isEmpty():
             return False
         
-        if guide_price == 0: # This shouldn't happen
-            print("guide price ZERO")
+        if guide_price == 0: # This happens at BI level
             if type(central_zs) is list:
                 central_zs = central_zs[-1]
             
