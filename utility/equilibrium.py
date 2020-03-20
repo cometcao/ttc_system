@@ -1191,7 +1191,7 @@ class NestedInterval():
                 print("XD split time at:{0}".format(split_time))
             
             fenbi_df = kb_chan.getFenBI_df()
-            split_time_loc = np.where(fenbi_df['date']==split_time)[0][0]
+            split_time_loc = np.where(fenbi_df['date']>=split_time)[0][0]
             crp_df = CentralRegionProcess(fenbi_df[split_time_loc:], kb_chan, isdebug=self.isdebug, use_xd=False)
             anal_zoushi_bi = crp_df.define_central_region(direction)
             
