@@ -254,12 +254,14 @@ class KBarChan(object):
         return None
     
     def prepare_original_kdf(self):
-        _, _, macd = talib.MACD(self.kDataFrame_origin['close'])
-        self.kDataFrame_origin = append_fields(self.kDataFrame_origin,
-                                                'macd',
-                                                macd,
-                                                float,
-                                                usemask=False)
+        if 'macd' not in self.kDataFrame_origin.dtype.names:
+            _, _, macd = talib.MACD(self.kDataFrame_origin['close'])
+            macd[np.isnan(macd)] = 0
+            self.kDataFrame_origin = append_fields(self.kDataFrame_origin,
+                                                    'macd',
+                                                    macd,
+                                                    float,
+                                                    usemask=False)
 
     def gap_exists_in_range(self, start_idx, end_idx): # end_idx included
         # no need to drop first row, simple don't use = 
@@ -1110,7 +1112,7 @@ class KBarChan(object):
             
             if previous_xd_tb_loc < working_df.shape[0]:
                 # restore tb info from loc found from original_tb as we don't need them?
-                working_df[previous_xd_tb_loc:][columns[1]] = working_df[previous_xd_tb_loc:][columns[2]]
+                working_df[previous_xd_tb_loc:][tb] = working_df[previous_xd_tb_loc:][original_tb]
                 
                 temp_df = working_df[previous_xd_tb_loc:][columns]
                 if temp_df.size > 0:

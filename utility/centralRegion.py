@@ -30,7 +30,7 @@ class Chan_Node(object):
 class XianDuan_Node(Chan_Node):
     def __init__(self, df_node):
         super(XianDuan_Node, self).__init__(df_node)
-        self.tb = df_node['xd_tb']
+        self.tb = TopBotType.value2type(df_node['xd_tb'])
         self.macd_acc = df_node['macd_acc_xd_tb']
         
     def __repr__(self):
@@ -40,12 +40,12 @@ class XianDuan_Node(Chan_Node):
         return super().__eq__(node) and self.tb == node.tb
     
     def __hash__(self):
-        return hash((self.time, self.chan_price, self.loc, self.tb.value, self.macd_acc))
+        return hash((self.time, self.chan_price, self.loc, self.tb, self.macd_acc))
         
 class BI_Node(Chan_Node):
     def __init__(self, df_node):
         super(BI_Node, self).__init__(df_node)
-        self.tb = df_node['tb']
+        self.tb = TopBotType.value2type(df_node['tb'])
         self.macd_acc = df_node['macd_acc_tb']
 
     def __repr__(self):
@@ -55,7 +55,7 @@ class BI_Node(Chan_Node):
         return super().__eq__(node) and self.tb == node.tb
     
     def __hash__(self):
-        return hash((self.time, self.chan_price, self.loc, self.tb.value, self.macd_acc))
+        return hash((self.time, self.chan_price, self.loc, self.tb, self.macd_acc))
 
 class Double_Nodes(object):
     def __init__(self, start, end):
@@ -165,6 +165,9 @@ class ZouShiLeiXing(object):
         return self.amplitude_region
     
     def get_amplitude_region_original(self, re_evaluate=False):
+        if len(self.zoushi_nodes) < 2:
+            return [None, None]
+        
         if not self.amplitude_region_origin or re_evaluate:
             [s, e] = self.get_time_region(re_evaluate)
             s_loc = np.where(self.original_df['date'] == s)[0][0]
@@ -174,7 +177,7 @@ class ZouShiLeiXing(object):
         return self.amplitude_region_origin
 
     def get_time_region(self, re_evaluate=False):    
-        if self.isEmpty():
+        if len(self.zoushi_nodes) < 2:
             return [None, None]
         if not self.time_region or re_evaluate: # assume node stored in time order
             self.zoushi_nodes.sort(key=lambda x: x.time)

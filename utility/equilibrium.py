@@ -300,10 +300,10 @@ class CentralRegionProcess(object):
         if working_df.size < 3:
             if self.isdebug:
                 print("not enough data for checking initial direction")
-            return None, TopBotType.noTopBot
+            return 0, TopBotType.noTopBot
         
         if initial_direction != TopBotType.noTopBot:
-            return working_df[0]['date'], initial_direction
+            return 0, initial_direction
         
         first = working_df[i]
         second = working_df[i+1]
@@ -344,7 +344,8 @@ class CentralRegionProcess(object):
             working_df = self.prepare_df_data(working_df)
             if self.isdebug:
                 print("Invalid data frame, return define_central_region")
-        except:
+        except Exception as e:
+            print("Error in data preparation:{0}".format(str(e)))
             return None
         
         init_loc, init_d = self.find_initial_direction(working_df, initial_direction)
@@ -389,6 +390,7 @@ class CentralRegionProcess(object):
                                     working_df, 
                                     'macd_acc_'+tb_col, 
                                     [0]*working_df.size,
+                                    float,
                                     usemask=False
                                     )
         
@@ -398,16 +400,13 @@ class CentralRegionProcess(object):
             current_real_loc = working_df[current_loc]['real_loc']
             previous_real_loc = working_df[previous_loc]['real_loc'] if previous_loc != 0 else 0
             
-            current_org_loc = np.where(original_df['real_loc']==current_real_loc)[0][0]
-            previous_org_loc = np.where(original_df['real_loc']==previous_real_loc)[0][0]
-            
             # gather macd data based on real_loc, be aware of head/tail
-            origin_macd = original_df[previous_org_loc+1 if previous_real_loc != 0 else None:current_org_loc+1]['macd']
-            if working_df[current_loc][tb_col] == TopBotType.top:
+            origin_macd = original_df[previous_real_loc+1 if previous_real_loc != 0 else None:current_real_loc+1]['macd']
+            if working_df[current_loc][tb_col] == TopBotType.top.value:
                 # sum all previous positive macd data 
                 working_df[current_loc]['macd_acc_'+tb_col] = sum([pos_macd for pos_macd in origin_macd if pos_macd > 0])
                 
-            elif working_df[current_loc][tb_col] == TopBotType.bot:
+            elif working_df[current_loc][tb_col] == TopBotType.bot.value:
                 # sum all previous negative macd data 
                 working_df[current_loc]['macd_acc_'+tb_col] = sum([pos_macd for pos_macd in origin_macd if pos_macd < 0])
             else:
@@ -1193,7 +1192,7 @@ class NestedInterval():
             
             fenbi_df = kb_chan.getFenBI_df()
             split_time_loc = np.where(fenbi_df['date']==split_time)[0][0]
-            crp_df = CentralRegionProcess(fenbi_df[split_time_loc:], isdebug=self.isdebug, use_xd=False)
+            crp_df = CentralRegionProcess(fenbi_df[split_time_loc:], kb_chan, isdebug=self.isdebug, use_xd=False)
             anal_zoushi_bi = crp_df.define_central_region(direction)
             
             split_anal_zoushi_bi_result = anal_zoushi_bi.zslx_result

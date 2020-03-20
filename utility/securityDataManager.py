@@ -20,6 +20,7 @@ except:
 from enum import Enum 
 import datetime
 import pandas as pd
+import numpy as np
 import tushare as ts
 import json
 
@@ -49,6 +50,10 @@ class JqDataRetriever(DataRetriever):
     def get_bars(security, count=10, unit='1d',fields=['date', 'open','high','low','close'],include_now=True, end_dt=None, start_dt=None, fq_ref_date=None, df=False):
         JqDataRetriever.authenticate()
         if start_dt is not None:
+            if type(start_dt) is str:
+                start_dt = datetime.datetime.strptime(start_dt, "%Y-%m-%d %H:%M:%S")
+            if type(end_dt) is str:
+                end_dt = datetime.datetime.strptime(end_dt, "%Y-%m-%d %H:%M:%S")
             time_delta_seconds = (end_dt - start_dt).total_seconds()
             if unit == '1d':
                 count = np.ceil(time_delta_seconds / (60*30*8))
@@ -58,7 +63,7 @@ class JqDataRetriever(DataRetriever):
                 count = np.ceil(time_delta_seconds / (60*5))
             elif unit == '1m':
                 count = np.ceil(time_delta_seconds / 60)
-        return jqdatasdk.get_bars(security, count=count, unit=unit,fields=fields,include_now=include_now, end_dt=end_dt, fq_ref_date=fq_ref_date, df=df)
+        return jqdatasdk.get_bars(security, count=int(count), unit=unit,fields=fields,include_now=include_now, end_dt=end_dt, fq_ref_date=fq_ref_date, df=df)
         
     
     @staticmethod
