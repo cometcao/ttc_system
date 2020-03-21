@@ -873,6 +873,8 @@ class KBarChan(object):
         working_df = working_df[(working_df['xd_tb']==TopBotType.top.value) | (working_df['xd_tb']==TopBotType.bot.value)]
             
         self.kDataFrame_xd = working_df[FEN_DUAN_COLUMNS]
+        if self.isdebug:
+            print("self.kDataFrame_xd:{0}".format(self.kDataFrame_xd))
         return working_df
     
     def get_next_N_elem(self, loc, working_df, N=4, start_tb=TopBotType.noTopBot, single_direction=False):
