@@ -40,7 +40,7 @@ class XianDuan_Node(Chan_Node):
         return super().__eq__(node) and self.tb == node.tb
     
     def __hash__(self):
-        return hash((self.time, self.chan_price, self.loc, self.tb, self.macd_acc))
+        return hash((self.time, self.chan_price, self.loc, self.tb.value, self.macd_acc))
         
 class BI_Node(Chan_Node):
     def __init__(self, df_node):
@@ -55,7 +55,7 @@ class BI_Node(Chan_Node):
         return super().__eq__(node) and self.tb == node.tb
     
     def __hash__(self):
-        return hash((self.time, self.chan_price, self.loc, self.tb, self.macd_acc))
+        return hash((self.time, self.chan_price, self.loc, self.tb.value, self.macd_acc))
 
 class Double_Nodes(object):
     def __init__(self, start, end):
