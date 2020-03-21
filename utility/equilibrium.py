@@ -261,7 +261,7 @@ def sanity_check(stock, profile, end_time, pe):
                                           start_dt=splitTime,
                                           end_dt=end_time, 
                                           unit=pe,
-                                          fields= ['close'],
+                                          fields= ['date','close'],
                                           df=False)
     if direction == TopBotType.top2bot:
         result = stock_data[0]['close'] > stock_data[-1]['close']
