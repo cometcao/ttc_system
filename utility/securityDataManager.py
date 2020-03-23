@@ -70,7 +70,14 @@ class JqDataRetriever(DataRetriever):
             elif unit == '1m':
                 count = np.ceil(time_delta_seconds / 60)
             count = count + 1
-        return jqdatasdk.get_bars(security, count=int(count), unit=unit,fields=fields,include_now=include_now, end_dt=end_dt, fq_ref_date=fq_ref_date, df=df)
+        return jqdatasdk.get_bars(security, 
+                                  count=int(count), 
+                                  unit=unit,
+                                  fields=fields,
+                                  include_now=include_now, 
+                                  end_dt=end_dt, 
+                                  fq_ref_date=end_dt, 
+                                  df=df)
         
     
     @staticmethod
