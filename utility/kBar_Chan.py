@@ -68,6 +68,9 @@ class KBarChan(object):
         self.gap_XD = []
         self.previous_skipped_idx = []
         self.previous_with_xd_gap = False # help to check current gap as XD
+        if self.isdebug:
+            print("self.kDataFrame_origin head:{0}".format(self.kDataFrame_origin[:10]))
+            print("self.kDataFrame_origin tail:{0}".format(self.kDataFrame_origin[-10:]))
         
     def checkInclusive(self, first, second):
         # output: 0 = no inclusion, 1 = first contains second, 2 second contains first
@@ -448,7 +451,7 @@ class KBarChan(object):
         current_index = previous_index + 1
         next_index = current_index + 1
         #################################
-        while next_index < working_df.size:
+        while next_index < working_df.size and previous_index is not None:
             previousFenXing = working_df[previous_index]
             currentFenXing = working_df[current_index]
             nextFenXing = working_df[next_index]
