@@ -451,7 +451,7 @@ class KBarChan(object):
         current_index = previous_index + 1
         next_index = current_index + 1
         #################################
-        while next_index < working_df.size and previous_index is not None:
+        while next_index < working_df.size and previous_index is not None and next_index is not None:
             previousFenXing = working_df[previous_index]
             currentFenXing = working_df[current_index]
             nextFenXing = working_df[next_index]
@@ -704,6 +704,8 @@ class KBarChan(object):
             
             if self.previous_skipped_idx: # if we still have some left to do
                 previous_index = self.previous_skipped_idx.pop()
+                if working_df[previous_index][tb] == TopBotType.noTopBot.value:
+                    previous_index = self.get_next_tb(previous_index, working_df)
                 current_index = self.get_next_tb(previous_index, working_df)
                 next_index = self.get_next_tb(current_index, working_df)
                 continue
