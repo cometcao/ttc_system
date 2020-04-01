@@ -713,16 +713,17 @@ class Equilibrium():
                 return False
         
         if self.isQvShi: # BEI CHI
-            if abs(len(a_s) - len(c_s)) > 4:
-                if self.isdebug:
-                    print("Not matching XD structure")
-                return False
+#             if abs(len(a_s) - len(c_s)) > 4:
+#                 if self.isdebug:
+#                     print("Not matching XD structure")
+#                 return False
+            pass
         else: # PAN BEI
 #             if abs(len(a_s) - len(c_s)) > 2:
-            if len(a_s) != 2 or len(c_s) != 2: # strict 1<->1
-                if self.isdebug:
-                    print("Not matching XD structure")
-                return False
+# #             if len(a_s) != 2 or len(c_s) != 2: # strict 1<->1
+#                 if self.isdebug:
+#                     print("Not matching XD structure")
+#                 return False
             
             # detect benzou style Zhongshu
             if central_B.isBenZouStyle():
@@ -808,7 +809,8 @@ class Equilibrium():
         if self.isdebug:
             print("{0} found at XD level".format("exhaustion" if check_xd_exhaustion else "exhaustion not"))
         
-        # We don't do precise split with sub_split_time, but give the full range! zslx_a.zoushi_nodes[0].time
+        # We don't do precise split with sub_split_time, but give the full range! zslx_a.zoushi_nodes[0].time this is used while we go from top to sub level
+        # from sub to bi level, we use precise cut therefore zslx_c.zoushi_nodes[0].time
         return exhaustion_result, check_xd_exhaustion, zslx_c.zoushi_nodes[0].time, zslx_a.zoushi_nodes[0].time, zslx_slope, zslx_macd
         
     def check_chan_type(self, check_end_tb=False):
@@ -1258,7 +1260,7 @@ class NestedInterval():
         # reverse direction case are dealt above
         chan_t, chan_d, chan_p = chan_type_result[0]
         guide_price = (chan_p[0] if direction == TopBotType.top2bot else chan_p[1]) if type(chan_p) is list else chan_p
-        exhausted, check_xd_exhaustion, _, sub_split_time, a_slope, a_macd = eq.define_equilibrium(direction, 
+        exhausted, check_xd_exhaustion, sub_split_time, sub_start_time, a_slope, a_macd = eq.define_equilibrium(direction, 
                                                                                                    guide_price, 
                                                                                                    force_zhongshu=force_zhongshu, 
                                                                                                    check_tb_structure=check_tb_structure,
