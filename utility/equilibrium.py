@@ -718,8 +718,8 @@ class Equilibrium():
                     print("Not matching XD structure")
                 return False
         else: # PAN BEI
-            if abs(len(a_s) - len(c_s)) > 2:
-#             if len(a_s) != 2 or len(c_s) != 2: # strict 1<->1
+#             if abs(len(a_s) - len(c_s)) > 2:
+            if len(a_s) != 2 or len(c_s) != 2: # strict 1<->1
                 if self.isdebug:
                     print("Not matching XD structure")
                 return False
@@ -794,7 +794,8 @@ class Equilibrium():
 
         zslx_macd = 0
         # if QV SHI => at least two Zhong Shu, We could also use macd, but they must be new low/high
-        if not exhaustion_result and new_high_low and self.isQvShi:
+        #  and self.isQvShi for all
+        if not exhaustion_result and new_high_low:
             zslx_macd = zslx_a.get_macd_acc()
             latest_macd = zslx_c.get_macd_acc()
             exhaustion_result = abs(zslx_macd) > abs(latest_macd)
