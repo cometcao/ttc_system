@@ -753,11 +753,12 @@ class Equilibrium():
         if self.isdebug and not structure_result:
             print("price within ZhongShu range")
         
-        if check_balance_structure: # This is should only be checked at BI level, as we can't check sub level from there
-            if not self.price_balance(a_range, b_range, c_range):
-                if self.isdebug:
-                    print("price range balance failed")
-                structure_result = False
+        if check_balance_structure: 
+            # This is should only be checked at BI level, as we can't check sub level from there
+#             if not self.price_balance(a_range, b_range, c_range):
+#                 if self.isdebug:
+#                     print("price range balance failed")
+#                 structure_result = False
              
             if not self.time_balance(a_time, b_time, c_time):
                 if self.isdebug:
