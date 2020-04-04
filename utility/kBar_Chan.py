@@ -963,15 +963,38 @@ class KBarChan(object):
                                                                                                   secondElem['chan_price']))
                 return True
             ############################## special case of kline gap as XD ##############################                
-                  
-            working_df[next_valid_elems[1]][tb] = TopBotType.noTopBot.value
-            working_df[next_valid_elems[2]][tb] = TopBotType.noTopBot.value
+            
+            # We need to be careful of which nodes to remove!
+            removed_loc_1 = removed_loc_2 = 0
+            if direction == TopBotType.top2bot:
+                if firstElem[chan_price] < thirdElem[chan_price]:
+                    working_df[next_valid_elems[1]][tb] = TopBotType.noTopBot.value
+                    working_df[next_valid_elems[2]][tb] = TopBotType.noTopBot.value
+                    removed_loc_1 = 1
+                    removed_loc_2 = 2
+                else:
+                    working_df[next_valid_elems[0]][tb] = TopBotType.noTopBot.value
+                    working_df[next_valid_elems[1]][tb] = TopBotType.noTopBot.value
+                    removed_loc_1 = 0
+                    removed_loc_2 = 1
+            else: # bot2top
+                if firstElem[chan_price] > thirdElem[chan_price]:
+                    working_df[next_valid_elems[1]][tb] = TopBotType.noTopBot.value
+                    working_df[next_valid_elems[2]][tb] = TopBotType.noTopBot.value
+                    removed_loc_1 = 1
+                    removed_loc_2 = 2
+                else:
+                    working_df[next_valid_elems[0]][tb] = TopBotType.noTopBot.value
+                    working_df[next_valid_elems[1]][tb] = TopBotType.noTopBot.value
+                    removed_loc_1 = 0
+                    removed_loc_2 = 1
+
             
             if self.isdebug:
-                print("location {0}@{1}, {2}@{3} removed for combination".format(working_df[next_valid_elems[1]]['date'], 
-                                                                                 working_df[next_valid_elems[1]][chan_price], 
-                                                                                 working_df[next_valid_elems[2]]['date'], 
-                                                                                 working_df[next_valid_elems[2]][chan_price]))
+                print("location {0}@{1}, {2}@{3} removed for combination".format(working_df[next_valid_elems[removed_loc_1]]['date'], 
+                                                                                 working_df[next_valid_elems[removed_loc_1]][chan_price], 
+                                                                                 working_df[next_valid_elems[removed_loc_2]]['date'], 
+                                                                                 working_df[next_valid_elems[removed_loc_2]][chan_price]))
             return False
         
         return True
@@ -1242,7 +1265,9 @@ class KBarChan(object):
         new_valid_elems = self.check_inclusion_by_direction(next_valid_elems[1], working_df, current_direction, with_gap=False)
         
         # we only care about the next 4 elements there goes 0 -> 3
-        affected_chan_prices = working_df[new_valid_elems[0]:new_valid_elems[3]+1]['chan_price']
+        end_loc = new_valid_elems[3]+1 if len(new_valid_elems) >= 4 else None
+        affected_chan_prices = working_df[new_valid_elems[0]:end_loc]['chan_price']
+        
         if current_direction == TopBotType.top2bot:
             min_price = min(affected_chan_prices)
             if min_price < working_df[next_valid_elems[1]]['chan_price']:
@@ -1253,11 +1278,11 @@ class KBarChan(object):
                 result = next_valid_elems[1]
         
         if result is not None: # restore data
-            working_df[new_valid_elems[0]:new_valid_elems[-1]]['tb'] = working_df[new_valid_elems[0]:new_valid_elems[-1]]['original_tb']
+            working_df[next_valid_elems[0]:new_valid_elems[-1]]['tb'] = working_df[next_valid_elems[0]:new_valid_elems[-1]]['original_tb']
             if self.isdebug:
-                print("tb data restored from {0} to {1} real_loc {2} to {3}".format(working_df[new_valid_elems[0]]['date'], 
+                print("tb data restored from {0} to {1} real_loc {2} to {3}".format(working_df[next_valid_elems[0]]['date'], 
                                                                                     working_df[new_valid_elems[-1]]['date'], 
-                                                                                    working_df[new_valid_elems[0]]['real_loc'], 
+                                                                                    working_df[next_valid_elems[0]]['real_loc'], 
                                                                                     working_df[new_valid_elems[-1]]['real_loc']))
         
         return result
