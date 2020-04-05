@@ -10,7 +10,7 @@ import pandas as pd
 from utility.biaoLiStatus import TopBotType
 from utility.securityDataManager import *
 
-from utility.chan_common_include import TYPE_III_NUM, TYPE_I_NUM, GOLDEN_RATIO, Chan_Type
+from utility.chan_common_include import *
 
 def filter_high_level_by_index(direction=TopBotType.top2bot, 
                                stock_index='000985.XSHG', 
