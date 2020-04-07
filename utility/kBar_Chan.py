@@ -840,6 +840,8 @@ class KBarChan(object):
                 nex_idx = cur_idx
                 cur_idx = pre_idx
                 pre_idx = self.trace_back_index(working_df, pre_idx)
+        if pre_idx in self.previous_skipped_idx:
+            self.previous_skipped_idx.remove(pre_idx)
         return pre_idx, cur_idx, nex_idx
 
     def getMarkedBL(self):
