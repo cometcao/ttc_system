@@ -299,9 +299,15 @@ class CentralRegionProcess(object):
     def find_initial_direction(self, working_df, initial_direction=TopBotType.noTopBot): 
         i = 0
         if working_df.size < 3:
-            if self.isdebug:
-                print("not enough data for checking initial direction")
-            return 0, TopBotType.noTopBot
+            if working_df.size < 2:
+                if self.isdebug:
+                    print("not enough data for checking initial direction")
+                return 0, TopBotType.noTopBot
+            else: # 2 xd nodes
+                first_node = working_df[0]
+                second_node = working_df[1]
+                assert first_node['tb'] != second_node['tb'], "Invalid xd tb data"
+                return 0, TopBotType.top2bot if float_more(first_node['chan_price'], second_node['chan_price']) else TopBotType.bot2top
         
         if initial_direction != TopBotType.noTopBot:
             return 0, initial_direction
@@ -343,8 +349,6 @@ class CentralRegionProcess(object):
         
         try:
             working_df = self.prepare_df_data(working_df)
-            if self.isdebug:
-                print("Invalid data frame, return define_central_region")
         except Exception as e:
             print("Error in data preparation:{0}".format(str(e)))
             return None
@@ -688,7 +692,7 @@ class Equilibrium():
         macd
         '''
         if current_chan_type == Chan_Type.III:
-            if self.isQvShi_simple:
+            if self.isQvShi_simple or self.isQvShi:
                 if self.isdebug:
                     print("type III mixed with type I position we ignore")
                 return False, False, None, None, 0, 0
@@ -777,8 +781,9 @@ class Equilibrium():
                     print("Not matching XD structure")
                 return False
         else: # PAN BEI
-#             if abs(len(a_s) - len(c_s)) > 2:
-            if len(a_s) != len(c_s):
+            if len(a_s) != len(c_s) and\
+                check_balance_structure and\
+                (not self.price_balance(a_range, b_range, c_range) or not self.time_balance(a_time, b_time, c_time)):
                 if self.isdebug:
                     print("Not matching XD structure")
                 return False
@@ -803,27 +808,21 @@ class Equilibrium():
         if self.isdebug and not structure_result:
             print("price within ZhongShu range")
         
-#         if check_balance_structure: 
-            # This is should only be checked at BI level, as we can't check sub level from there
-#             if not self.price_balance(a_range, b_range, c_range):
-#                 if self.isdebug:
-#                     print("price range balance failed")
-#                 structure_result = False
-#              
-#             if not self.time_balance(a_time, b_time, c_time):
-#                 if self.isdebug:
-#                     print("time range balance failed")
-#                 structure_result = False
-        
         return structure_result
     
     def price_balance(self, a_range, b_range, c_range):
         balance_point = (max(a_range[1], c_range[1]) + min(a_range[0], c_range[0]))/2
-        return float_less_equal(b_range[0], balance_point) and float_less_equal(balance_point, b_range[1])
+        result = float_less_equal(b_range[0], balance_point) and float_less_equal(balance_point, b_range[1])
+        if self.isdebug and not result:
+            print("price range balance failed")
+        return result
 
     def time_balance(self, a_time, b_time, c_time):
         balance_point = (c_time[1] + a_time[0]) / 2
-        return float_less_equal(b_time[0], balance_point) and float_less_equal(balance_point, b_time[1])
+        result = float_less_equal(b_time[0], balance_point) and float_less_equal(balance_point, b_time[1])
+        if self.isdebug and not result:
+            print("time range balance failed")
+        return result
     
     def reached_new_high_low(self, guide_price, direction, zslx, central_region):
         if zslx is None or zslx.isEmpty():
