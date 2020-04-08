@@ -213,6 +213,7 @@ def check_stock_full(stock,
                      isdebug=False, 
                      is_anal=False,
                      is_description=True,
+                     sub_force_zhongshu=True,
                      sub_check_bi=False):
     if is_description:
         print("check_stock_full working on stock: {0} at {1} on {2}".format(stock, periods, end_time))
@@ -245,7 +246,7 @@ def check_stock_full(stock,
                                                                                 is_description=is_description,
                                                                                 split_time=splitTime,
                                                                                 check_bi=sub_check_bi,
-                                                                                force_zhongshu=True)
+                                                                                force_zhongshu=sub_force_zhongshu)
         chan_profile = chan_profile + sub_profile
         return exhausted and xd_exhausted and sub_exhausted and sub_xd_exhausted, chan_profile, zhongshu_completed
     else:
@@ -783,16 +784,17 @@ class Equilibrium():
         else: # PAN BEI
             if len(a_s) != len(c_s) and\
                 check_balance_structure and\
-                (not self.price_balance(a_range, b_range, c_range) or not self.time_balance(a_time, b_time, c_time)):
+                (not self.price_balance(a_range, b_range, c_range) or\
+                 not self.time_balance(a_time, b_time, c_time)):
                 if self.isdebug:
                     print("Not matching XD structure")
                 return False
             
             # detect benzou style Zhongshu
-            if central_B.isBenZouStyle():
-                if self.isdebug:
-                    print("Avoid benzou style zhongshu for PanZheng")
-                return False
+#             if central_B.isBenZouStyle():
+#                 if self.isdebug:
+#                     print("Avoid benzou style zhongshu for PanZheng")
+#                 return False
             
             # if current pan bei level too high it will break the assumption made in higher level
             if central_B.get_level().value > ZhongShuLevel.current.value:
@@ -1218,7 +1220,7 @@ class NestedInterval():
             high_exhausted, check_xd_exhaustion, last_zs_time, sub_split_time, high_slope, high_macd = eq.define_equilibrium(direction, 
                                                                                                     guide_price,
                                                                                                     check_tb_structure=check_tb_structure, 
-                                                                                                    check_balance_structure=False,
+                                                                                                    check_balance_structure=True,
                                                                                                     current_chan_type=chan_t)
         else:
             high_exhausted, check_xd_exhaustion = False, False
@@ -1336,7 +1338,7 @@ class NestedInterval():
                                                                                                    guide_price, 
                                                                                                    force_zhongshu=force_zhongshu, 
                                                                                                    check_tb_structure=check_tb_structure,
-                                                                                                   check_balance_structure=False,
+                                                                                                   check_balance_structure=True,
                                                                                                    current_chan_type=chan_t)
         if self.isDescription or self.isdebug:
             print("current level {0} {1} {2} {3} {4} with price:{5}".format(period, 
