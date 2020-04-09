@@ -175,7 +175,8 @@ def check_stock_sub(stock,
                     is_description=True,
                     split_time=None,
                     check_bi=False,
-                    force_zhongshu=True):
+                    force_zhongshu=True,
+                    force_bi_zhongshu=True):
     if is_description:
         print("check_stock_sub working on stock: {0} at {1}".format(stock, periods))
     ni = NestedInterval(stock, 
@@ -199,7 +200,7 @@ def check_stock_sub(stock,
                                                                  force_zhongshu=force_zhongshu) # data split at retrieval time
     bi_split_time = sub_profile[0][5] # split time is the xd start time
     if exhausted and xd_exhausted and check_bi:
-        bi_exhausted, bi_xd_exhausted, _ = ni.indepth_analyze_zoushi(direction, bi_split_time, pe, force_zhongshu=force_zhongshu)
+        bi_exhausted, bi_xd_exhausted, _ = ni.indepth_analyze_zoushi(direction, bi_split_time, pe, force_zhongshu=force_bi_zhongshu)
         return exhausted, xd_exhausted and bi_exhausted, sub_profile, ni.completed_zhongshu()
     return exhausted, xd_exhausted, sub_profile, ni.completed_zhongshu()
 
