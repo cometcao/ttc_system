@@ -261,18 +261,22 @@ def sanity_check(stock, profile, end_time, pe):
     splitTime = profile[0][6]
     direction = profile[0][1]
     result = False
-    stock_data = JqDataRetriever.get_bars(stock,
-                                          start_dt=splitTime,
-                                          end_dt=end_time, 
-                                          unit=pe,
-                                          fields= ['date','close'],
-                                          df=False)
+    # low_limit
+    stock_data = JqDataRetriever.get_research_data(stock,
+                                                    start_date=splitTime,
+                                                    end_date=end_time,
+                                                    fields=['close', 'low','low_limit'],
+                                                    period='1m')
+    if (stock_data.low == stock_data.low_limit).any():   # touched low limit
+        print("{0} price reached low limit".format(stock))
+        return result
+    
     if direction == TopBotType.top2bot:
-        result = stock_data[0]['close'] > stock_data[-1]['close']
+        result = stock_data.iloc[0, 0] > stock_data.iloc[-1,0]
     elif direction == TopBotType.bot2top:
-        result = stock_data[0]['close'] < stock_data[-1]['close']
+        result = stock_data.iloc[0, 0] < stock_data.iloc[-1,0]
     if not result:
-        print("{0} failed sanity check".format(stock))
+        print("{0} failed sanity check on price".format(stock))
     return result
         
 class CentralRegionProcess(object):
