@@ -267,7 +267,7 @@ def sanity_check(stock, profile, end_time, pe):
                                                     end_date=end_time,
                                                     fields=['close', 'low','low_limit'],
                                                     period='1m')
-    if (stock_data.low == stock_data.low_limit).any():   # touched low limit
+    if (stock_data.low == stock_data.low_limit).any():# touched low limit
         print("{0} price reached low limit".format(stock))
         return result
     
@@ -702,7 +702,7 @@ class Equilibrium():
         force
         '''
         if current_chan_type == Chan_Type.III:
-#             if self.isQvShi_simple or self.isQvShi:
+#             if self.isQvShi_simple:
 #                 if self.isdebug:
 #                     print("type III mixed with type I position we ignore")
 #                 return False, False, None, None, 0, 0
