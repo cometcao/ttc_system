@@ -882,7 +882,7 @@ class Equilibrium():
             
             zslx_a_force = zslx_a.work_out_force()
             zslx_force = zslx_c.work_out_force()
-
+            exhaustion_result = float_more(abs(zslx_a_force), abs(zslx_force))
             if self.isdebug:
                 print("{0} found by force: {1}, {2}".format("exhaustion" if exhaustion_result else "exhaustion not", zslx_a_force, zslx_force))
 
