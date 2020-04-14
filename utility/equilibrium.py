@@ -261,12 +261,17 @@ def sanity_check(stock, profile, end_time, pe):
     splitTime = profile[0][6]
     direction = profile[0][1]
     result = False
-    # low_limit
+
     stock_data = JqDataRetriever.get_research_data(stock,
                                                     start_date=splitTime,
                                                     end_date=end_time,
                                                     fields=['close', 'low','low_limit'],
                                                     period='1m')
+    
+    if stock_data.iloc[-1, 0] > PRICE_UPPER_LIMIT:
+        print("{0} price over {1}".format(stock, PRICE_UPPER_LIMIT))
+        result = False
+        # low_limit
     if (stock_data.low == stock_data.low_limit).any():# touched low limit
         print("{0} price reached low limit".format(stock))
         return result
@@ -484,26 +489,26 @@ class Equilibrium():
                     type(self.analytic_result[-1]) is ZhongShu and\
                     type(self.analytic_result[-3]) is ZhongShu and\
                     self.two_zslx_interact_original(self.analytic_result[-1], self.analytic_result[-3]):
-#                     return None, None, None, None
+                    return None, None, None, None
 # IGNORE THIS CASE###############################
 #                     ## zhong shu combination
-                    if at_bi_level:
-                        i = -3
-                        marked = False
-                        while -(i-2) <= len(self.analytic_result):
-                            if not self.two_zslx_interact_original(self.analytic_result[i-2], self.analytic_result[i]) or\
-                                (not self.analytic_result[i-2].is_complex_type() and self.analytic_result[i-2].direction != self.analytic_result[i].direction):
-                                first_xd = self.analytic_result[i-1]
-                                zs = self.analytic_result[i:-1]
-                                marked = True
-                                break
-                            i = i - 2
-                        if not marked or -(i-2) > len(self.analytic_result):
-                            all_zs = [zs for zs in self.analytic_result if type(zs) is ZhongShu]
-                            all_first_xd = [zs.take_split_xd_as_zslx(direction) for zs in all_zs]
-                            first_xd = sorted(all_first_xd, key=take_start_price, reverse=direction==TopBotType.top2bot)[0]
-                    else:
-                        return None, None, None, None
+#                     if at_bi_level:
+#                         i = -3
+#                         marked = False
+#                         while -(i-2) <= len(self.analytic_result):
+#                             if not self.two_zslx_interact_original(self.analytic_result[i-2], self.analytic_result[i]) or\
+#                                 (not self.analytic_result[i-2].is_complex_type() and self.analytic_result[i-2].direction != self.analytic_result[i].direction):
+#                                 first_xd = self.analytic_result[i-1]
+#                                 zs = self.analytic_result[i:-1]
+#                                 marked = True
+#                                 break
+#                             i = i - 2
+#                         if not marked or -(i-2) > len(self.analytic_result):
+#                             all_zs = [zs for zs in self.analytic_result if type(zs) is ZhongShu]
+#                             all_first_xd = [zs.take_split_xd_as_zslx(direction) for zs in all_zs]
+#                             first_xd = sorted(all_first_xd, key=take_start_price, reverse=direction==TopBotType.top2bot)[0]
+#                     else:
+#                         return None, None, None, None
                         
                 elif len(self.analytic_result) < 2 or self.analytic_result[-2].direction != last_xd.direction:
                     first_xd = zs.take_split_xd_as_zslx(direction)
@@ -523,27 +528,27 @@ class Equilibrium():
                 type(self.analytic_result[-2]) is ZhongShu and\
                 type(self.analytic_result[-4]) is ZhongShu and\
                 self.two_zslx_interact_original(self.analytic_result[-4], self.analytic_result[-2]):
-#                 return None, None, None, None
+                return None, None, None, None
 # IGNORE THIS CASE###############################
-                if at_bi_level:
-                    ## zhong shu combination
-                    i = -4
-                    marked = False
-                    while -(i-2) <= len(self.analytic_result):
-                        if not self.two_zslx_interact_original(self.analytic_result[i-2], self.analytic_result[i]) or\
-                            (not self.analytic_result[i-2].is_complex_type() and self.analytic_result[i-2].direction != self.analytic_result[i].direction):
-                            first_xd = self.analytic_result[i-1]
-                            zs = self.analytic_result[i:-1]
-                            marked = True
-                            break
-                        i = i - 2
-                    if not marked or -(i-2) > len(self.analytic_result):
-                        all_zs = [zs for zs in self.analytic_result if type(zs) is ZhongShu]
-                        all_first_xd = [zs.take_split_xd_as_zslx(direction) for zs in all_zs]
-                        first_xd = sorted(all_first_xd, key=take_start_price, reverse=direction==TopBotType.top2bot)[0]
-                        zs = all_zs[-1]
-                else:
-                    return None, None, None, None
+#                 if at_bi_level:
+#                     ## zhong shu combination
+#                     i = -4
+#                     marked = False
+#                     while -(i-2) <= len(self.analytic_result):
+#                         if not self.two_zslx_interact_original(self.analytic_result[i-2], self.analytic_result[i]) or\
+#                             (not self.analytic_result[i-2].is_complex_type() and self.analytic_result[i-2].direction != self.analytic_result[i].direction):
+#                             first_xd = self.analytic_result[i-1]
+#                             zs = self.analytic_result[i:-1]
+#                             marked = True
+#                             break
+#                         i = i - 2
+#                     if not marked or -(i-2) > len(self.analytic_result):
+#                         all_zs = [zs for zs in self.analytic_result if type(zs) is ZhongShu]
+#                         all_first_xd = [zs.take_split_xd_as_zslx(direction) for zs in all_zs]
+#                         first_xd = sorted(all_first_xd, key=take_start_price, reverse=direction==TopBotType.top2bot)[0]
+#                         zs = all_zs[-1]
+#                 else:
+#                     return None, None, None, None
                     
             elif len(self.analytic_result) < 3 or self.analytic_result[-3].direction != last_xd.direction:
                 if len(self.analytic_result) > 1:

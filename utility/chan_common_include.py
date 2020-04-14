@@ -29,6 +29,8 @@ TYPE_I_NUM = 10
 GOLDEN_RATIO = 0.618
 MIN_PRICE_UNIT=0.01
 
+PRICE_UPPER_LIMIT = 200
+
 ######################## Central Region ###########################
 
 class ZhongShuLevel(Enum):
