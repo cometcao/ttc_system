@@ -91,9 +91,9 @@ class JqDataRetriever(DataRetriever):
         jqdatasdk.auth(data["user"], data["password"])
         
     @staticmethod
-    def get_index_stocks(index):
+    def get_index_stocks(index, date=None):
         JqDataRetriever.authenticate()
-        return jqdatasdk.get_index_stocks(index)
+        return jqdatasdk.get_index_stocks(index, date)
 
     @staticmethod
     def get_trading_date(count=1, end_date=None, start_date=None):
