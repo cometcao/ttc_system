@@ -6,14 +6,12 @@ from utility.equilibrium import *
 
 from pyecharts.charts import Kline,Scatter,Line,Grid,Bar
 from pyecharts import options as opts
+from pyecharts.commons.utils import JsCode
 
-def draw_chan(stock, stock_df_fenduan, stock_df, kc, end_time, period): #
-    stock_df_original = stock_df[['date', 'open', 'close', 'low', 'high']]
+def draw_chan(stock, stock_df, kc, end_time, period): #
+    stock_df_original = stock_df[['date', 'open', 'close', 'low', 'high','money']]
     stock_df_bi = kc.getFenBI_df()[['date','chan_price']]
     stock_df_xd = kc.getFenDuan_df()[['date','chan_price']]
-
-#     overlap = Overlap(width=1500, height=600)
-#     overlap.use_theme( "dark")
 
     kline = (
 #         Kline({"theme": ThemeType.DARK})
@@ -88,7 +86,6 @@ def draw_chan(stock, stock_df_fenduan, stock_df, kc, end_time, period): #
         )
     )
 
-    #kline.render(f"F:\缠论_{stock}_info.html")
 
     Biline = (
         Line()
@@ -106,13 +103,14 @@ def draw_chan(stock, stock_df_fenduan, stock_df, kc, end_time, period): #
 #         .set_global_opts(xaxis_opts=opts.AxisOpts(type_="category"))
         )
     
-    Bi = kline.overlap(Biline)
+    overlap = kline.overlap(Biline)
     
-    crp = CentralRegionProcess(stock_df_fenduan, kc, isdebug=False)
+    crp = CentralRegionProcess(kc.getFenDuan_df(), kc, isdebug=False)
     crp.define_central_region()
     stock_zs_x, stock_zs_y = crp.convert_to_graph_data()
         
-    if stock_df_xd is not None:
+    if (stock_df_xd is not None) and (len(stock_zs_x) != 0 ):
+        # print('if')
         for i in range(0, len(stock_zs_x), 2):  
             XD_line = (
                 Line()
@@ -133,7 +131,24 @@ def draw_chan(stock, stock_df_fenduan, stock_df, kc, end_time, period): #
                         )
     #             .set_global_opts(xaxis_opts=opts.AxisOpts(type_="category"))
                 )
+    elif stock_df_xd is not None :
+         # print('elif')
+        XD_line = (
+            Line()
+            .add_xaxis(xaxis_data=stock_df_xd['date'].tolist())
+            .add_yaxis(
+                    series_name='段',
+                    y_axis=stock_df_xd['chan_price'].tolist(),
 
+                    is_smooth=False,
+                    is_connect_nones=True,
+                    is_hover_animation=False,
+                    #linestyle_opts=opts.LineStyleOpts(color="red",width=2, type_="dashed"),
+                    linestyle_opts=opts.LineStyleOpts(color="blue",width=2, opacity=0.5),
+                    label_opts=opts.LabelOpts(is_show=False),  
+            ) 
+            )
+    overlap = overlap.overlap(XD_line)
 #     MA_line = (
 #         Line()
 #         .add_xaxis(xaxis_data=stock_df_original['date'].tolist(),)
@@ -171,13 +186,87 @@ def draw_chan(stock, stock_df_fenduan, stock_df, kc, end_time, period): #
 #         )
 #         .set_global_opts(xaxis_opts=opts.AxisOpts(type_="category"))
 #     ) 
+
     
-    overlap = Bi.overlap(XD_line)
-#     overlap_MA = overlap.overlap(MA_line)
+#     Volume_Bar = (
+#         Bar()
+#         .add_xaxis(xaxis_data=stock_df_original['date'].tolist())
+#         .add_yaxis(
+#             series_name="money",
+#             yaxis_data=stock_df_original['money'].tolist(),
+#             xaxis_index=2,
+#             yaxis_index=2,
+#             label_opts=opts.LabelOpts(is_show=False),
+#             markline_opts=opts.MarkLineOpts(
+#                 data=[opts.MarkLineItem(type_="average", name="平均值")]
+#             ),
+#             itemstyle_opts=opts.ItemStyleOpts(
+#                 color=JsCode(
+#                     """
+#                         function(params) {
+#                             var colorList;
+#                             if (params.data >= 0) {
+#                               colorList = '#ef232a';
+#                             } else {
+#                               colorList = '#14b143';
+#                             }
+#                             return colorList;
+#                         }
+#                     """
+#                 #     """
+#                 # function(params) {
+#                 #     var colorList;
+#                 #     if (barData[params.dataIndex][1] > barData[params.dataIndex][0]) {
+#                 #         colorList = '#ef232a';
+#                 #     } else {
+#                 #         colorList = '#14b143';
+#                 #     }
+#                 #     return colorList;
+#                 # }
+#                 # """
+#                 )
+#             ),
+#         )
+#             .set_global_opts(
+#             title_opts=opts.TitleOpts(
+#                 title='',
+#             ),
+#             xaxis_opts=opts.AxisOpts(
+#                 type_="category",
+#                 grid_index=2,
+#                 is_scale=True,
+#                 # axislabel_opts=opts.LabelOpts(is_show=False),
+#                 boundary_gap=False,
+#                 axisline_opts=opts.AxisLineOpts(is_on_zero=False),
+#                 axistick_opts=opts.AxisTickOpts(is_show=False),
+#                 splitline_opts=opts.SplitLineOpts(is_show=False),
+#                 axislabel_opts=opts.LabelOpts(is_show=False),
+#                 split_number=20,
+#                 min_="dataMin",
+#                 max_="dataMax",
+#             ),
+#             yaxis_opts=opts.AxisOpts(
+#                 grid_index=2,
+#                 is_scale=True,
+#                 split_number=2,
+#                 axislabel_opts=opts.LabelOpts(is_show=False),
+#                 axisline_opts=opts.AxisLineOpts(is_show=False),
+#                 axistick_opts=opts.AxisTickOpts(is_show=False),
+#                 splitarea_opts=opts.SplitAreaOpts(
+#                     is_show=True,
+#                     areastyle_opts=opts.AreaStyleOpts(opacity=1)
+#                 ),
+#             ),
+#             # xaxis_opts=opts.AxisOpts(is_scale=True),
+#             legend_opts=opts.LegendOpts(is_show=False),
+#             datazoom_opts=opts.DataZoomOpts(type_="inside"),
+#         )
+#     )
+#     
+#     overlap = overlap.overlap(Volume_Bar)
     print("it's here")
     
     if len(stock_zs_x) != 0:
-        
         for i in range(0, len(stock_zs_x), 2):
             zs1_line = (
                 Line()
@@ -238,31 +327,33 @@ def draw_chan(stock, stock_df_fenduan, stock_df, kc, end_time, period): #
             zs1 =  zs1_line.overlap(zs2_line)
             zs2 =  zs3_line.overlap(zs4_line)
             zs  =  zs1.overlap(zs2)
-            overlap.overlap(zs).render("diagram/{0}@{1}#{2}.html".format(stock[0:6], end_time[0:10], period))
+            overlap.overlap(zs)
+        
+    overlap.render("diagram/{0}@{1}#{2}.html".format(stock[0:6], end_time[0:10], period))
     print("it's done")
 
 
-stock = '000150.XSHE'
-# end_time= '2019-10-21    14:30:00'
-end_time=pd.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-period = '30m'
-stock_df=JqDataRetriever.get_bars(stock, 
-                                   count=4800, 
-                                   end_dt=end_time, 
-                                   unit=period,
-                                   fields= ['date', 'open',  'high', 'low','close', 'money'],
-                                   fq_ref_date = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S"),
-                                   df=False)
-# period='1m'
+stock = '000509.XSHE'
+end_time= '2018-07-20    10:00:00'
+# end_time=pd.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+# period = '5m'
 # stock_df=JqDataRetriever.get_bars(stock, 
-#                    start_dt='2017-11-13 10:20:00', 
-#                    end_dt=end_time, 
-#                    unit=period,
-#                    fields= ['date', 'open',  'high', 'low','close', 'money'],
-#                    fq_ref_date = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S"),
-#                    df=False)
-kc = KBarChan(stock_df, isdebug=False)
-stock_df_fenduan = kc.getFenDuan()
-# stock_df_fenduan = kc.getFenDuan(TopBotType.top)
+#                                    count=4800, 
+#                                    end_dt=end_time, 
+#                                    unit=period,
+#                                    fields= ['date', 'open',  'high', 'low','close', 'money'],
+#                                    fq_ref_date = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S"),
+#                                    df=False)
+period='1m'
+stock_df=JqDataRetriever.get_bars(stock, 
+                   start_dt='2018-04-04 09:35:00', 
+                   end_dt=end_time, 
+                   unit=period,
+                   fields= ['date', 'open',  'high', 'low','close', 'money'],
+                   fq_ref_date = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S"),
+                   df=False)
+kc = KBarChan(stock_df, isdebug=True)
+# stock_df_fenduan = kc.getFenDuan()
+stock_df_fenduan = kc.getFenDuan(TopBotType.top)
 
-draw_chan(stock, stock_df_fenduan, stock_df, kc, end_time, period) #
+draw_chan(stock, stock_df, kc, end_time, period) #
