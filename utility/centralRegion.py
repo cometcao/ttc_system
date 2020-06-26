@@ -385,7 +385,7 @@ class ZouShiLeiXing(object):
         return delta * loc_diff
 #         return (delta**2 + loc_diff**2) ** 0.5
     
-    def check_exhaustion(self, allow_simple_zslx=True):
+    def check_exhaustion(self, allow_simple_zslx=True, slope_only=False):
         '''
         check most recent two XD or BI at current direction on slopes
         check if current ZSLX or series of ZSLX are exhausted.
@@ -408,7 +408,8 @@ class ZouShiLeiXing(object):
         # make sure the last two slope goes flatten, if not it's NOT exhausted
         # force is only used if we have 5+ xds changed len(same_direction_nodes) < 3 or\
         if len(same_direction_nodes) >= 2 and float_more_equal(abs(same_direction_nodes[-1].work_out_slope()), abs(same_direction_nodes[-2].work_out_slope())):
-            if (same_direction_nodes[-1].direction == TopBotType.top2bot and float_less_equal(same_direction_nodes[-2].end.chan_price, same_direction_nodes[-1].end.chan_price)) or\
+            if slope_only or\
+                (same_direction_nodes[-1].direction == TopBotType.top2bot and float_less_equal(same_direction_nodes[-2].end.chan_price, same_direction_nodes[-1].end.chan_price)) or\
                 (same_direction_nodes[-1].direction == TopBotType.bot2top and float_more_equal(same_direction_nodes[-2].end.chan_price, same_direction_nodes[-1].end.chan_price)) or\
                 (
                     float_more_equal(abs(same_direction_nodes[-1].work_out_force()),abs(same_direction_nodes[-2].work_out_force())) and\
@@ -619,7 +620,7 @@ class ZhongShu(ZouShiLeiXing):
         core_gap = core_range[1] - core_range[0]
         amplitude_gap = amplitude_range[1] - amplitude_range[0]
         
-        if core_gap / amplitude_gap < 0.0618:
+        if core_gap / amplitude_gap < 0.191: # 0.0618
             return True
         return False
                 
@@ -631,7 +632,7 @@ class ZhongShu(ZouShiLeiXing):
         price_series = self.original_df[start_loc:end_loc+1][['high', 'low']]
         return [price_series['low'].min(), price_series['high'].max()]
 
-    def check_exhaustion(self):
+    def check_exhaustion(self, slope_only=False):
         # usually used in panbei type III, just for completeness
         last_xd = self.take_last_xd_as_zslx()
         if self.is_complex_type():
@@ -655,7 +656,7 @@ class ZhongShu(ZouShiLeiXing):
         # check exhaustion
         exhausted = float_more(abs(first_xd.work_out_slope()), abs(last_xd.work_out_slope()))
             
-        if not exhausted:
+        if not exhausted and not slope_only:
             # also need to check balance structure
             core_region = self.get_core_region()
             if first_xd.direction == TopBotType.top2bot == last_xd.direction:
@@ -940,6 +941,15 @@ class ZouShi(object):
             print("Zou Shi disassembled: {0}".format(self.zslx_result))
 
         return self.zslx_result
+    
+    @classmethod
+    def check_joint_zhongshu(cls, zs1, zs2, zslx):
+        if ((not zs1.is_complex_type() or not zs1.is_complex_type()) and zslx.isSimple()):
+            if zslx.get_all_nodes()[-1] == zs1.get_all_nodes[-1]:
+                return True
+            elif zslx.get_all_nodes()[0] == zs2.get_all_nodes[0]:
+                return True
+        return False
     
 #     @classmethod
 #     def get_all_zoushi_nodes(cls, zoushi):
