@@ -1011,12 +1011,14 @@ class Equilibrium():
         '''
         all_types = []
         if len(self.analytic_result) < 2 and not self.analytic_result[0].isZhongShu:
+            all_types.append((Chan_Type.INVALID, TopBotType.noTopBot, 0))
             return all_types
         
         if self.analytic_result[-1].get_final_direction() != check_direction:
             if self.isdebug:
                 print("Invalid ending direction {0} against checking direction {1}".format(self.analytic_result[-1].get_final_direction(), 
                                                                                            check_direction))
+            all_types.append((Chan_Type.INVALID, TopBotType.noTopBot, 0))
             return all_types
         
         # we can't supply the Zhongshu amplitude range as it is considered part of Zhongshu
