@@ -1393,6 +1393,7 @@ class NestedInterval():
                        check_tb_structure=False,
                        check_full_zoushi=False, 
                        enable_composite=False,
+                       enable_ac_opposite_direction=False,
                        slope_only=True):
         ''' THIS METHOD SHOULD ONLY BE USED FOR TOP LEVEL!!
         This is due to the fact that at high level we can't be very precise
