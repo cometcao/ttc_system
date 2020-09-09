@@ -149,6 +149,10 @@ class ZouShiLeiXing(object):
         self.isZhongShu = False
         self.isLastZslx = False
     
+    def get_last_zoushi_time(self):
+        last_all_nodes = self.get_all_nodes()
+        return last_all_nodes[-2].time if self.isZhongShu else last_all_nodes[0].time
+    
     def get_level(self):
         return ZhongShuLevel.previous
     
