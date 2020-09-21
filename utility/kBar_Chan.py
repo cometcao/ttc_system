@@ -200,7 +200,7 @@ class KBarChan(object):
         else:
             return TopBotType.noTopBot
     
-    def markTopBot(self, initial_state=TopBotType.noTopBot):
+    def markTopBot(self, initial_state=TopBotType.noTopBot, mark_last_kbar=True):
         self.kDataFrame_standardized = append_fields(self.kDataFrame_standardized,
                                                      'tb',
                                                      [TopBotType.noTopBot.value]*self.kDataFrame_standardized.size,
@@ -239,10 +239,11 @@ class KBarChan(object):
                 self.kDataFrame_standardized[0][tb] = TopBotType.reverse(first_tb).value
             
         # mark the last kbar 
-        last_tb = TopBotType.value2type(self.kDataFrame_standardized[last_idx][tb])
-        self.kDataFrame_standardized[-1][tb] = TopBotType.reverse(last_tb).value
-        if self.isdebug:
-            print("mark topbot on self.kDataFrame_standardized[20]:{0}".format(self.kDataFrame_standardized[:20]))
+        if mark_last_kbar:
+            last_tb = TopBotType.value2type(self.kDataFrame_standardized[last_idx][tb])
+            self.kDataFrame_standardized[-1][tb] = TopBotType.reverse(last_tb).value
+            if self.isdebug:
+                print("mark topbot on self.kDataFrame_standardized[20]:{0}".format(self.kDataFrame_standardized[:20]))
             
     def trace_back_index(self, working_df, previous_index):
         # find the closest FenXing with top/bot backwards from previous_index
@@ -870,13 +871,15 @@ class KBarChan(object):
     
     def formed_tb(self, tb = TopBotType.bot):
         self.standardize()
-        self.markTopBot()
+        self.markTopBot(mark_last_kbar=False)
+        
 #         self.defineBi()
-        working_df = self.kDataFrame_standardized
+#         working_df = self.kDataFrame_marked
+# #         working_df = self.kDataFrame_standardized
 #         total_size = self.kDataFrame_origin.size
 #         print("tb info: {0}, total size: {1}".format(working_df, self.kDataFrame_origin.size))
-#         
-#         if working_df['tb'][-1] == tb.value and working_df['real_loc'][-1] != total_size - 1:
+#           
+#         if working_df['tb'][-1] == tb.value and total_size - 1 - working_df['real_loc'][-1] == 1 :
 #             if working_df.size > 2:
 #                 check_price_result = float_less_equal(working_df['low'][-1], working_df['low'][-3])\
 #                                      if tb == TopBotType.bot else\
@@ -886,10 +889,11 @@ class KBarChan(object):
 #                 return True, True
 #         return False, False
         
+        working_df = self.kDataFrame_standardized
         found_idx = np.where(working_df['tb']==tb.value)[0]
         print(working_df)
         print("tb location: {0}, total size: {1}".format(found_idx, working_df.size))
-
+  
         if len(found_idx) > 0 and found_idx[-1] == working_df.size-2:
             if len(found_idx) >= 2:
                 check_price_result = float_less_equal(working_df['low'][found_idx[-1]], min(working_df['low'][found_idx[:-1]]))\
