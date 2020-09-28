@@ -88,3 +88,6 @@ class Chan_Type(Enum):
             return cls.I_weak
         else:
             return cls.INVALID
+        
+        
+###################################################
