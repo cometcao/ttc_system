@@ -98,6 +98,134 @@ def filter_high_level_by_stock(stock,
     
     return result_stocks_I, result_stocks_III, result_stocks_PB
 
+LONG_MA_NUM = 13
+SHORT_MA_NUM = 5
+
+def analyze_MA_form_ZhongShu(stock_high, start_idx, end_idx):
+    # Zhongshu formed only if we found a kbar with range cover both cross
+    # we only check k bars between two crosses
+    s_idx = abs(start_idx)
+    e_idx = abs(end_idx)
+    first_cross_price = (stock_high['ma_long'][s_idx] + stock_high['ma_long'][s_idx+1]) / 2
+    second_cross_price = (stock_high['ma_long'][e_idx] + stock_high['ma_long'][e_idx+1]) / 2
+    
+    i = s_idx+1 # start the range after first cross
+    while i <= e_idx: # end the range before second cross
+        if stock_high[i]['high'] > max(first_cross_price, second_cross_price) and\
+            stock_high[i]['low'] < min(first_cross_price, second_cross_price):
+            return True
+        i = i + 1
+    return False
+            
+
+def analyze_MA_zoushi_by_stock(stock,
+                              period, 
+                              count,
+                               end_dt, 
+                               df, 
+                               zoushi_types, 
+                               direction):
+    stock_high = get_bars(stock, 
+                           count=count+LONG_MA_NUM, 
+                           end_dt=end_dt, 
+                           unit=period,
+                           fields= ['date','open',  'high', 'low','close'], 
+                           df = df,
+                           include_now=True)
+    
+    ma_long = talib.MA(stock_high['close'], LONG_MA_NUM)
+    ma_short = talib.MA(stock_high['close'], SHORT_MA_NUM)
+    ma_long[np.isnan(ma_long)] = 0
+    ma_short[np.isnan(ma_short)] = 0
+    stock_high = append_fields(stock_high,
+                                ['ma_long', 'ma_short'],
+                                [ma_long, ma_short],
+                                [float, float],
+                                usemask=False)
+    
+    stock_high = stock_high[LONG_MA_NUM:] # remove extra data
+        
+    zhongshu_results = KBar.analyze_kbar_MA_zoushi(stock_high)
+    
+    return KBar.analyze_kbar_MA_zoushi_exhaustion(stock_high,
+                                          zoushi_types=zoushi_types,
+                                           direction=direction,
+                                           zhongshu=zhongshu_results)
+    
+def analyze_MA_exhaustion(zoushi_result, first, second):
+    # work out the slope return true if the slope exhausted
+    # print(first)
+    # print(second)
+    
+    fst_max_idx = np.where(first['high'] == max(first['high']))[0][0]
+    fst_min_idx = np.where(first['low'] == min(first['low']))[0][-1]
+    snd_max_idx = np.where(second['high'] == max(second['high']))[0][0]
+    snd_min_idx = np.where(second['low'] == min(second['low']))[0][-1]
+    
+    if int(fst_min_idx) == int(fst_max_idx) or\
+        int(snd_min_idx) == int(snd_max_idx):
+        return False
+    
+    if zoushi_result == ZouShi_Type.Qu_Shi_Down:
+        first_slope = (max(first['high']) - min(first['low'])) / (fst_min_idx-fst_max_idx) 
+        second_slope = (max(second['high']) - min(second['low'])) / (snd_min_idx-snd_max_idx) 
+        return abs(second_slope) < abs(first_slope)
+    elif zoushi_result == ZouShi_Type.Qu_Shi_Up:
+        first=first[int(first['low'].argmin()):] # cut the data
+        second=second[int(second['low'].argmin()):]
+        first_slope = (max(first['high']) - min(first['low'])) / (fst_max_idx - fst_min_idx) 
+        second_slope = (max(second['high']) - min(second['low'])) / (snd_max_idx - snd_min_idx) 
+        return abs(second_slope) < abs(first_slope)
+        
+    elif zoushi_result == ZouShi_Type.Pan_Zheng:
+        first_slope = (max(first['high']) - min(first['low'])) / (fst_min_idx-fst_max_idx) 
+        second_slope = (max(second['high']) - min(second['low'])) / (snd_min_idx-snd_max_idx) 
+        return abs(second_slope) < abs(first_slope)
+    else:
+        return False
+
+def zhongshu_qushi_qualified(stock_high, direction, zhongshu):
+    '''
+    input zhongshu must have length of 2 or above
+    make sure we have independent zhongshu along the QuShi direction
+    check every zhongshu
+    '''
+    # check special case of initial zhongshu formed by a higher level zhongshu
+    # we take the last two cross indices of the complex zhongshu
+    # if len(zhongshu[0]) > 2:
+    #     if direction == TopBotType.top2bot and zhongshu[0][-2] > 0:
+    #         zhongshu[0] = zhongshu[0][-2:]
+    #     elif direction == TopBotType.bot2top and zhongshu[0][-2] < 0:
+    #         zhongshu[0] = zhongshu[0][-2:]
+    # print(zhongshu)
+    
+    first_idx = 0
+    while first_idx < len(zhongshu) - 1:
+        first_zs = zhongshu[first_idx]
+        second_idx = first_idx + 1
+        while second_idx < len(zhongshu):
+            second_zs = zhongshu[second_idx]
+            if direction == TopBotType.top2bot and first_zs[0] > 0 and second_zs[0] > 0:
+                first_zs_range = [(stock_high['ma_long'][first_zs[0]] + stock_high['ma_long'][first_zs[0]+1]) / 2,
+                                  (stock_high['ma_long'][-first_zs[1]] + stock_high['ma_long'][-first_zs[1]+1]) / 2]
+                second_zs_range = [(stock_high['ma_long'][second_zs[0]] + stock_high['ma_long'][second_zs[0]+1]) / 2,
+                                   (stock_high['ma_long'][-second_zs[1]] + stock_high['ma_long'][-second_zs[1]+1]) / 2]
+                if not (min(first_zs_range) > max(second_zs_range) or max(first_zs_range) < min(second_zs_range)):
+                    return False
+                
+            elif direction == TopBotType.bot2top and first_zs[0] < 0 and second_zs[0] < 0:
+                first_zs_range = [(stock_high['ma_long'][-first_zs[0]] + stock_high['ma_long'][-first_zs[0]+1]) / 2,
+                                  (stock_high['ma_long'][first_zs[1]] + stock_high['ma_long'][first_zs[1]+1]) / 2]
+                second_zs_range = [(stock_high['ma_long'][-second_zs[0]] + stock_high['ma_long'][-second_zs[0]+1]) / 2,
+                                   (stock_high['ma_long'][second_zs[1]] + stock_high['ma_long'][second_zs[1]+1]) / 2]
+                if not (min(first_zs_range) > max(second_zs_range) or max(first_zs_range) < min(second_zs_range)):
+                    return False
+            else:
+                return False
+            second_idx += 1
+        first_idx += 1
+    return True
+
 class KBar(object):
     '''
     used for initial filter with OCHL
@@ -110,6 +238,102 @@ class KBar(object):
         
     def __repr__(self):
         return "\nOPEN:{0} CLOSE:{1} HIGH:{2} LOW:{3}".format(self.open, self.close, self.high, self.low)
+
+    @classmethod
+    def analyze_kbar_MA_zoushi(cls, stock_high):
+        '''
+        We expect input stock data to be only one ZouShi
+        '''
+        # find all gold/death MA cross
+        ma_diff = stock_high['ma_short'] - stock_high['ma_long']
+        
+        
+        i = 0 
+        ma_cross = [] # store the starting index of the cross + for gold - for death
+        for i in range(len(ma_diff)-1):
+            if ma_diff[i] < 0 and ma_diff[i+1] > 0: # gold
+                ma_cross.append(i)
+            elif ma_diff[i] > 0 and ma_diff[i+1] < 0: # death
+                ma_cross.append(-i)
+        
+        
+        # find all ZhongShu 
+        zhongshu = []
+        current_zs = []
+        i = current_idx = 0
+        while i < len(ma_cross) - 1:
+            current_idx = i + 1
+            while current_idx < len(ma_cross):
+                if current_zs:
+                    if analyze_MA_form_ZhongShu(stock_high, 
+                                                ma_cross[i], 
+                                                ma_cross[current_idx]):
+                        current_zs.append(ma_cross[current_idx])
+                        current_idx = current_idx + 1
+                    else:
+                        break
+                    
+                else:
+                    if analyze_MA_form_ZhongShu(stock_high, 
+                                                ma_cross[i], 
+                                                ma_cross[current_idx]):
+                        current_zs.append(ma_cross[i])
+                        current_zs.append(ma_cross[current_idx])
+                        current_idx = current_idx + 1
+                    else:
+                        break
+            
+            if current_zs:
+                zhongshu.append(current_zs)
+                current_zs = []
+                    
+            i = current_idx
+            
+        # determine ZouShi
+        return zhongshu
+        
+    
+    @classmethod
+    def analyze_kbar_MA_zoushi_exhaustion(cls, stock_high, zoushi_types, direction, zhongshu):
+        # gold cross -> downwards zhongshu 
+        # death cross -> upwards zhongshu
+        zoushi_result = ZouShi_Type.INVALID
+        exhaustion_result = Chan_Type.INVALID
+        
+        if len(zhongshu) > 1:
+            if direction == TopBotType.top2bot and\
+                zhongshu_qushi_qualified(stock_high, direction, zhongshu):
+                zoushi_result = ZouShi_Type.Qu_Shi_Down
+            elif direction == TopBotType.bot2top and\
+                zhongshu_qushi_qualified(stock_high, direction, zhongshu):
+                zoushi_result = ZouShi_Type.Qu_Shi_Up
+            else:
+                zoushi_result = ZouShi_Type.Pan_Zheng_Composite
+        elif len(zhongshu) == 1:
+            zoushi_result = ZouShi_Type.Pan_Zheng
+        else:
+            return zoushi_result, exhaustion_result
+            
+        
+        if zoushi_result not in zoushi_types:
+            return zoushi_result, exhaustion_result
+        
+        # only check exhaustion by last ZhongShu
+        if len(zhongshu) == 1:
+            zs = zhongshu[0]
+            first_part = stock_high[:abs(zs[0])+1]
+            second_part = stock_high[abs(zs[-1])+1:]
+            if analyze_MA_exhaustion(zoushi_result, first_part, second_part):
+                exhaustion_result = Chan_Type.PANBEI
+        else:
+            zs1 = zhongshu[-2]
+            zs2 = zhongshu[-1]
+            first_part = stock_high[abs(zs1[-1])+1:abs(zs2[0])+1]
+            second_part = stock_high[abs(zs2[-1])+1:]
+            if analyze_MA_exhaustion(zoushi_result, first_part, second_part):
+                exhaustion_result = Chan_Type.BEICHI
+        
+        return zoushi_result, exhaustion_result
 
     @classmethod
     def filter_high_level_kbar(cls, high_df, direction=TopBotType.top2bot, df=False, chan_types=[Chan_Type.III]):
